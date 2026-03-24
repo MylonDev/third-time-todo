@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
 import { formatTimeLong, MODE_CONFIG } from '../utils/thirdTime';
+import { playSound } from '../utils/sounds';
+import { sendNotification } from '../utils/notifications';
 import type { Mode } from '../types';
 
 const MODE_BADGE: Record<Mode, string> = {
@@ -12,9 +14,10 @@ const MODE_BADGE: Record<Mode, string> = {
 
 export function SessionTimer() {
   const { timerState, timerStart, startWork, stopBreak } = useSession();
-  const { mode, longWorkReminderMin } = useSettings();
+  const { mode, longWorkReminderMin, soundsEnabled } = useSettings();
   const [, tick] = useState(0);
   const [reminderDismissedAt, setReminderDismissedAt] = useState<number | null>(null);
+  const firedReminder = useRef(false);
 
   useEffect(() => {
     if (timerState === 'idle') return;
@@ -29,6 +32,15 @@ export function SessionTimer() {
     timerState === 'working' &&
     elapsed >= longWorkReminderMin * 60_000 &&
     (reminderDismissedAt === null || elapsed - reminderDismissedAt >= longWorkReminderMin * 60_000);
+
+  // Fire sound + notification when work reminder triggers
+  useEffect(() => {
+    if (showWorkReminder && !firedReminder.current) {
+      firedReminder.current = true;
+      if (soundsEnabled) playSound('work-reminder');
+      sendNotification('Activity Reminder', `You've been active for ${Math.floor(elapsed / 60_000)} min. Consider a rest.`);
+    }
+  }, [showWorkReminder, elapsed, soundsEnabled]);
 
   const handleResumeWork = () => {
     stopBreak();
@@ -67,7 +79,7 @@ export function SessionTimer() {
           <span>You&apos;ve been active for {Math.floor(elapsed / 60_000)} min. Consider a rest.</span>
           <button
             className="ml-auto text-amber-500 hover:text-amber-700 dark:hover:text-amber-300"
-            onClick={() => setReminderDismissedAt(elapsed)}
+            onClick={() => { setReminderDismissedAt(elapsed); firedReminder.current = false; }}
           >
             ✕
           </button>

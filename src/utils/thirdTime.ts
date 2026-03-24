@@ -4,19 +4,19 @@ export const MODE_CONFIG: Record<Mode, { label: string; ratio: number; descripti
   quarter: {
     label: 'Quarter Time',
     ratio: 4,
-    description: 'High effort — earn 1 min break per 4 min worked',
+    description: 'Deep focus — earn 1 min rest per 4 min active',
     color: 'orange',
   },
   third: {
     label: 'Third Time',
     ratio: 3,
-    description: 'Balanced — earn 1 min break per 3 min worked',
+    description: 'Balanced — earn 1 min rest per 3 min active',
     color: 'purple',
   },
   half: {
     label: 'Half Time',
     ratio: 2,
-    description: 'Gentle — earn 1 min break per 2 min worked',
+    description: 'Relaxed — earn 1 min rest per 2 min active',
     color: 'teal',
   },
 };
