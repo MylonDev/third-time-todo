@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -18,22 +18,120 @@ import { useTasks } from '../store/tasks';
 import { todayKey, isStale, daysSince } from '../utils/thirdTime';
 import type { Task } from '../types';
 
+function TaskMenu({
+  onEdit,
+  onSubtasks,
+  onMoveToTomorrow,
+  onDelete,
+}: {
+  onEdit: () => void;
+  onSubtasks: () => void;
+  onMoveToTomorrow: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm"
+        title="Actions"
+      >
+        ⋯
+      </button>
+      {open && (
+        <div className="absolute right-0 top-8 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg py-1 min-w-[140px]">
+          <button onClick={() => { onEdit(); setOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Edit
+          </button>
+          <button onClick={() => { onSubtasks(); setOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Subtasks
+          </button>
+          <button onClick={() => { onMoveToTomorrow(); setOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Move to tomorrow
+          </button>
+          <button onClick={() => { onDelete(); setOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubtaskMenu({
+  onEdit,
+  onDelete,
+}: {
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-xs opacity-0 group-hover:opacity-100"
+        title="Actions"
+      >
+        ⋯
+      </button>
+      {open && (
+        <div className="absolute right-0 top-7 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg py-1 min-w-[100px]">
+          <button onClick={() => { onEdit(); setOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Edit
+          </button>
+          <button onClick={() => { onDelete(); setOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SortableTask({
   task,
   isDoing,
   onUpdate,
   onDelete,
+  onMoveToTomorrow,
   onAddSubtask,
   onToggleSubtask,
   onDeleteSubtask,
+  onEditSubtask,
 }: {
   task: Task;
   isDoing: boolean;
   onUpdate: (id: string, patch: Partial<Task>) => void;
   onDelete: (id: string) => void;
+  onMoveToTomorrow: (id: string) => void;
   onAddSubtask: (taskId: string, title: string) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
   onDeleteSubtask: (taskId: string, subtaskId: string) => void;
+  onEditSubtask: (taskId: string, subtaskId: string, title: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -46,6 +144,8 @@ function SortableTask({
   const [editEstimate, setEditEstimate] = useState(task.estimateMin ? String(task.estimateMin) : '');
   const [subtasksOpen, setSubtasksOpen] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+  const [editSubtaskTitle, setEditSubtaskTitle] = useState('');
 
   const saveEdit = () => {
     const trimmed = editTitle.trim();
@@ -65,9 +165,15 @@ function SortableTask({
     }
   };
 
+  const saveSubtaskEdit = () => {
+    if (editingSubtaskId && editSubtaskTitle.trim()) {
+      onEditSubtask(task.id, editingSubtaskId, editSubtaskTitle.trim());
+    }
+    setEditingSubtaskId(null);
+  };
+
   const subtasks = task.subtasks ?? [];
   const doneSubtasks = subtasks.filter((s) => s.done).length;
-
   const isDone = task.status === 'done';
 
   return (
@@ -85,7 +191,7 @@ function SortableTask({
       }`}
     >
       <div className="flex items-start gap-3 p-3">
-        {/* Drag handle — hidden for done tasks */}
+        {/* Drag handle */}
         {!isDone ? (
           <button
             {...attributes}
@@ -111,7 +217,7 @@ function SortableTask({
           }`}
           title={isDone ? 'Mark as to do' : 'Mark as done'}
         >
-          {isDone ? '●' : isDoing ? '◑' : '○'}
+          {isDone ? '●' : '○'}
         </button>
 
         <div className="flex-1 min-w-0">
@@ -175,34 +281,24 @@ function SortableTask({
           )}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {!isDone && !editing && (
-            <>
-              <button
-                onClick={() => setSubtasksOpen((o) => !o)}
-                className="text-gray-300 dark:text-gray-600 hover:text-indigo-400 dark:hover:text-indigo-400 transition-colors text-xs"
-                title="Subtasks"
-              >
-                ⊕
-              </button>
-              <button
-                onClick={() => { setEditTitle(task.title); setEditEstimate(task.estimateMin ? String(task.estimateMin) : ''); setEditing(true); }}
-                className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-colors text-sm"
-                title="Edit task"
-              >
-                ✎
-              </button>
-            </>
-          )}
+        {/* 3-dot menu */}
+        {!isDone && !editing && (
+          <TaskMenu
+            onEdit={() => { setEditTitle(task.title); setEditEstimate(task.estimateMin ? String(task.estimateMin) : ''); setEditing(true); }}
+            onSubtasks={() => setSubtasksOpen((o) => !o)}
+            onMoveToTomorrow={() => onMoveToTomorrow(task.id)}
+            onDelete={() => onDelete(task.id)}
+          />
+        )}
+        {isDone && (
           <button
             onClick={() => onDelete(task.id)}
             className="text-gray-300 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 transition-colors text-sm flex-shrink-0"
-            title="Delete task"
+            title="Delete"
           >
             ✕
           </button>
-        </div>
+        )}
       </div>
 
       {/* Subtasks panel */}
@@ -220,15 +316,24 @@ function SortableTask({
               >
                 {st.done ? '✓' : ''}
               </button>
-              <span className={`text-xs flex-1 ${st.done ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'}`}>
-                {st.title}
-              </span>
-              <button
-                onClick={() => onDeleteSubtask(task.id, st.id)}
-                className="text-gray-300 dark:text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all text-xs"
-              >
-                ✕
-              </button>
+              {editingSubtaskId === st.id ? (
+                <input
+                  autoFocus
+                  value={editSubtaskTitle}
+                  onChange={(e) => setEditSubtaskTitle(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveSubtaskEdit(); if (e.key === 'Escape') setEditingSubtaskId(null); }}
+                  onBlur={saveSubtaskEdit}
+                  className="flex-1 text-xs border border-indigo-300 dark:border-indigo-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded px-1.5 py-0.5 outline-none"
+                />
+              ) : (
+                <span className={`text-xs flex-1 ${st.done ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                  {st.title}
+                </span>
+              )}
+              <SubtaskMenu
+                onEdit={() => { setEditingSubtaskId(st.id); setEditSubtaskTitle(st.title); }}
+                onDelete={() => onDeleteSubtask(task.id, st.id)}
+              />
             </div>
           ))}
           <input
@@ -245,9 +350,10 @@ function SortableTask({
 }
 
 export function TaskList() {
-  const { tasks, addTask, updateTask, deleteTask, reorderTasks, addSubtask, toggleSubtask, deleteSubtask } = useTasks();
+  const { tasks, addTask, updateTask, deleteTask, moveToTomorrow, reorderTasks, addSubtask, toggleSubtask, deleteSubtask, editSubtask } = useTasks();
   const [title, setTitle] = useState('');
   const [estimate, setEstimate] = useState('');
+  const [showDone, setShowDone] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -257,12 +363,9 @@ export function TaskList() {
   const today = todayKey();
   const todayTasks = tasks.filter((t) => t.scheduledDate === today);
 
-  // Non-done sorted by order first, done tasks at the bottom
   const activeTasks = todayTasks.filter((t) => t.status !== 'done').sort((a, b) => a.order - b.order);
   const doneTasks = todayTasks.filter((t) => t.status === 'done').sort((a, b) => a.order - b.order);
-  const sorted = [...activeTasks, ...doneTasks];
 
-  // First non-done task is "Doing"
   const doingId = activeTasks[0]?.id ?? null;
 
   const handleAdd = (e: React.FormEvent) => {
@@ -306,28 +409,61 @@ export function TaskList() {
         </button>
       </form>
 
-      {/* Task list */}
+      {/* Active tasks */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={activeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           <ul className="flex flex-col gap-1.5">
-            {sorted.length === 0 && (
+            {activeTasks.length === 0 && doneTasks.length === 0 && (
               <li className="text-center text-sm text-gray-400 py-6">No tasks yet — add some above</li>
             )}
-            {sorted.map((task) => (
+            {activeTasks.map((task) => (
               <SortableTask
                 key={task.id}
                 task={task}
                 isDoing={task.id === doingId}
                 onUpdate={updateTask}
                 onDelete={deleteTask}
+                onMoveToTomorrow={moveToTomorrow}
                 onAddSubtask={addSubtask}
                 onToggleSubtask={toggleSubtask}
                 onDeleteSubtask={deleteSubtask}
+                onEditSubtask={editSubtask}
               />
             ))}
           </ul>
         </SortableContext>
       </DndContext>
+
+      {/* Completed tasks — collapsible */}
+      {doneTasks.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowDone((o) => !o)}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors font-medium"
+          >
+            <span>{showDone ? '▾' : '▸'}</span>
+            {doneTasks.length} completed
+          </button>
+          {showDone && (
+            <ul className="flex flex-col gap-1.5 mt-2">
+              {doneTasks.map((task) => (
+                <SortableTask
+                  key={task.id}
+                  task={task}
+                  isDoing={false}
+                  onUpdate={updateTask}
+                  onDelete={deleteTask}
+                  onMoveToTomorrow={moveToTomorrow}
+                  onAddSubtask={addSubtask}
+                  onToggleSubtask={toggleSubtask}
+                  onDeleteSubtask={deleteSubtask}
+                  onEditSubtask={editSubtask}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@ interface TasksState {
   addSubtask: (taskId: string, title: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   deleteSubtask: (taskId: string, subtaskId: string) => void;
+  editSubtask: (taskId: string, subtaskId: string, title: string) => void;
 }
 
 export const useTasks = create<TasksState>()(
@@ -102,6 +103,20 @@ export const useTasks = create<TasksState>()(
           tasks: s.tasks.map((t) =>
             t.id === taskId
               ? { ...t, subtasks: (t.subtasks ?? []).filter((st) => st.id !== subtaskId) }
+              : t
+          ),
+        })),
+
+      editSubtask: (taskId, subtaskId, title) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === taskId
+              ? {
+                  ...t,
+                  subtasks: (t.subtasks ?? []).map((st) =>
+                    st.id === subtaskId ? { ...st, title } : st
+                  ),
+                }
               : t
           ),
         })),

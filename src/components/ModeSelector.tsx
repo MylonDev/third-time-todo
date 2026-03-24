@@ -38,7 +38,7 @@ export function ModeSelector({ disabled = false }: Props) {
           >
             <div className="font-semibold text-sm">{cfg.label}</div>
             <div className={`text-xs mt-0.5 ${isActive ? 'opacity-80' : 'text-gray-400'}`}>
-              1:{cfg.ratio} break ratio
+              {cfg.description}
             </div>
             {isActive && (
               <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-white text-gray-700 rounded-full px-1.5 py-0.5 shadow border border-gray-200">

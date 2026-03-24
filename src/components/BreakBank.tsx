@@ -8,7 +8,7 @@ type BreakMode = null | 'picker' | 'open' | 'timed';
 
 export function BreakBank() {
   const { timerState, timerStart, daily, startBreak } = useSession();
-  const { mode, soundsEnabled } = useSettings();
+  const { mode, soundsEnabled, breakIncrements, lastBreakMs, setLastBreakMs } = useSettings();
   const [, tick] = useState(0);
   const [breakMode, setBreakMode] = useState<BreakMode>(null);
   const [timedBreakMs, setTimedBreakMs] = useState<number | null>(null);
@@ -85,11 +85,14 @@ export function BreakBank() {
   const handleStartTimedBreak = (ms: number) => {
     setTimedBreakMs(ms);
     setBreakMode('timed');
+    setLastBreakMs(ms);
     startBreak(mode);
   };
 
   const bankForPicker = liveBank > 0 ? liveBank : 0;
-  const breakOptions = [5 * 60_000, 10 * 60_000].filter((ms) => ms <= bankForPicker);
+  const breakOptions = breakIncrements
+    .map((m) => m * 60_000)
+    .filter((ms) => ms <= bankForPicker);
 
   const isOnBreak = timerState === 'on-break';
 
@@ -174,7 +177,9 @@ export function BreakBank() {
               <button
                 key={ms}
                 onClick={() => handleStartTimedBreak(ms)}
-                className="px-4 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-sm font-semibold hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-colors"
+                className={`px-4 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-sm font-semibold hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-colors ${
+                  ms === lastBreakMs ? 'ring-2 ring-emerald-400 ring-offset-1 dark:ring-offset-gray-900' : ''
+                }`}
               >
                 {ms / 60_000} min
               </button>

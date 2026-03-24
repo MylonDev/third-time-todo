@@ -9,22 +9,29 @@ import { EndSessionModal } from './components/EndSessionModal';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
 import { todayKey } from './utils/thirdTime';
+import { requestNotificationPermission } from './utils/notifications';
 
 export default function App() {
   const { daily, timerState } = useSession();
-  const { darkMode, mode } = useSettings();
+  const { theme, mode } = useSettings();
   const [sessionStarted, setSessionStarted] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
 
-  // Apply dark mode class to document root
+  // Apply theme to document root
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
+    const apply = (dark: boolean) => {
+      document.documentElement.classList.toggle('dark', dark);
+    };
+    if (theme === 'dark') { apply(true); return; }
+    if (theme === 'light') { apply(false); return; }
+    // system
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    apply(mq.matches);
+    const handler = (e: MediaQueryListEvent) => apply(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [theme]);
 
   // If a session is already running (e.g., browser reload), skip onboarding
   useEffect(() => {
@@ -37,6 +44,7 @@ export default function App() {
   const showOnboarding = !sessionStarted && (isNewDay || daily.sessions.length === 0);
 
   const handleStart = () => {
+    requestNotificationPermission();
     const { startWork } = useSession.getState();
     startWork();
     setSessionStarted(true);

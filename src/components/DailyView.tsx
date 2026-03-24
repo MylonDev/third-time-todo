@@ -18,7 +18,7 @@ export function DailyView() {
   if (sessions.length === 0) {
     return (
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-5">
-        <div className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">Today&apos;s Sessions</div>
+        <div className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">Today&apos;s Blocks</div>
         <div className="text-sm text-gray-400 py-4 text-center">No sessions yet</div>
       </div>
     );
@@ -27,7 +27,7 @@ export function DailyView() {
   return (
     <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-5 flex flex-col gap-4">
       <div className="flex justify-between items-center">
-        <div className="text-sm font-semibold text-gray-600 dark:text-gray-400">Today&apos;s Sessions</div>
+        <div className="text-sm font-semibold text-gray-600 dark:text-gray-400">Today&apos;s Blocks</div>
         <button
           onClick={() => { if (confirm('Reset today\'s session data?')) resetDay(); }}
           className="text-xs text-gray-400 hover:text-red-400 transition-colors"
@@ -38,15 +38,15 @@ export function DailyView() {
 
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-indigo-50 dark:bg-indigo-950/20 rounded-xl p-3 text-center">
-          <div className="text-[10px] uppercase tracking-wider text-indigo-500/70 dark:text-indigo-400/60 mb-0.5 font-medium">Work</div>
+          <div className="text-[10px] uppercase tracking-wider text-indigo-500/70 dark:text-indigo-400/60 mb-0.5 font-medium">Active</div>
           <div className="font-mono font-bold text-gray-800 dark:text-gray-200 text-sm">{formatTimeLong(totalWork)}</div>
         </div>
         <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-3 text-center">
-          <div className="text-[10px] uppercase tracking-wider text-emerald-500/70 dark:text-emerald-400/60 mb-0.5 font-medium">Break</div>
+          <div className="text-[10px] uppercase tracking-wider text-emerald-500/70 dark:text-emerald-400/60 mb-0.5 font-medium">Rest</div>
           <div className="font-mono font-bold text-gray-800 dark:text-gray-200 text-sm">{formatTimeLong(totalBreak)}</div>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 text-center">
-          <div className="text-[10px] uppercase tracking-wider text-gray-400/70 mb-0.5 font-medium">Sessions</div>
+          <div className="text-[10px] uppercase tracking-wider text-gray-400/70 mb-0.5 font-medium">Blocks</div>
           <div className="font-mono font-bold text-gray-800 dark:text-gray-200 text-sm">{sessions.length}</div>
         </div>
       </div>
@@ -59,11 +59,11 @@ export function DailyView() {
               {MODE_CONFIG[s.mode].label}
             </span>
             <span className="text-gray-600 dark:text-gray-400">
-              <span className="font-mono text-xs">{formatTimeLong(s.workMs)}</span> work
+              <span className="font-mono text-xs">{formatTimeLong(s.workMs)}</span> active
             </span>
             {s.breakMs > 0 && (
               <span className="text-gray-400">
-                / <span className="font-mono text-xs">{formatTimeLong(s.breakMs)}</span> break
+                / <span className="font-mono text-xs">{formatTimeLong(s.breakMs)}</span> rest
               </span>
             )}
             <span className="ml-auto text-[10px] text-gray-300 dark:text-gray-600">
