@@ -1,19 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
-import { formatTimeLong, MODE_CONFIG } from '../utils/thirdTime';
+import { formatTimeLong, MODE_CONFIG, MODE_BADGE_CLASSES } from '../utils/thirdTime';
 import { playSound } from '../utils/sounds';
 import { sendNotification } from '../utils/notifications';
 import type { Mode } from '../types';
 
-const MODE_BADGE: Record<Mode, string> = {
-  quarter: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400',
-  third: 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400',
-  half: 'bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-400',
+const MODE_COLOR: Record<Mode, string> = {
+  quarter: 'var(--color-mode-quarter)',
+  third:   'var(--color-mode-third)',
+  half:    'var(--color-mode-half)',
+};
+const MODE_COLOR_DIM: Record<Mode, string> = {
+  quarter: 'var(--color-mode-quarter-dim)',
+  third:   'var(--color-mode-third-dim)',
+  half:    'var(--color-mode-half-dim)',
 };
 
 export function SessionTimer() {
-  const { timerState, timerStart, startWork, stopBreak } = useSession();
+  const { timerState, timerStart, stopBreak, startWork } = useSession();
   const { mode, longWorkReminderMin, soundsEnabled } = useSettings();
   const [, tick] = useState(0);
   const [reminderDismissedAt, setReminderDismissedAt] = useState<number | null>(null);
@@ -26,19 +32,21 @@ export function SessionTimer() {
   }, [timerState]);
 
   const elapsed = timerState === 'working' && timerStart ? Date.now() - timerStart : 0;
-  const modeCfg = MODE_CONFIG[mode];
+  const modeCfg = MODE_CONFIG[mode as Mode];
 
   const showWorkReminder =
     timerState === 'working' &&
     elapsed >= longWorkReminderMin * 60_000 &&
     (reminderDismissedAt === null || elapsed - reminderDismissedAt >= longWorkReminderMin * 60_000);
 
-  // Fire sound + notification when work reminder triggers
   useEffect(() => {
     if (showWorkReminder && !firedReminder.current) {
       firedReminder.current = true;
       if (soundsEnabled) playSound('work-reminder');
-      sendNotification('Activity Reminder', `You've been active for ${Math.floor(elapsed / 60_000)} min. Consider a rest.`);
+      sendNotification(
+        'Activity Reminder',
+        `You've been active for ${Math.floor(elapsed / 60_000)} min. Consider a rest.`
+      );
     }
   }, [showWorkReminder, elapsed, soundsEnabled]);
 
@@ -51,35 +59,70 @@ export function SessionTimer() {
   const isOnBreak = timerState === 'on-break';
 
   return (
-    <div className={`rounded-2xl p-5 flex flex-col gap-3 shadow-sm transition-all ${
-      isWorking
-        ? 'bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200/80 dark:border-indigo-800/40'
-        : isOnBreak
-        ? 'bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50'
-        : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800'
-    }`}>
+    <motion.div
+      key={timerState}
+      className="rounded-2xl p-5 flex flex-col gap-3 transition-all"
+      style={{
+        background: isWorking ? MODE_COLOR_DIM[mode as Mode] : 'var(--color-surface)',
+        border: `1px solid ${isWorking ? MODE_COLOR[mode as Mode] : 'var(--color-border)'}`,
+        boxShadow: 'none',
+      }}
+      initial={{ scale: 0.98, opacity: 0.8 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: 'spring', damping: 18, stiffness: 200 }}
+    >
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+        <span
+          className="text-[13px] font-semibold uppercase tracking-wider"
+          style={{
+            fontFamily: 'var(--font-display)',
+            color: 'var(--color-text-muted)',
+          }}
+        >
           Active Time
         </span>
         {isWorking && (
-          <span className="flex items-center gap-1.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+          <span
+            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide"
+            style={{ color: MODE_COLOR[mode as Mode] }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ background: MODE_COLOR[mode as Mode] }}
+            />
             Active
           </span>
         )}
         {isOnBreak && (
-          <span className="text-[10px] font-medium text-gray-400">On Rest</span>
+          <span
+            className="text-xs font-semibold uppercase tracking-wide"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
+            On Rest
+          </span>
         )}
       </div>
 
       {/* Long work reminder */}
       {showWorkReminder && (
-        <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-          <span>You&apos;ve been active for {Math.floor(elapsed / 60_000)} min. Consider a rest.</span>
+        <div
+          className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+          style={{
+            background: MODE_COLOR_DIM[mode as Mode],
+            border: `1px solid ${MODE_COLOR[mode as Mode]}`,
+            color: MODE_COLOR[mode as Mode],
+          }}
+        >
+          <span>
+            You&apos;ve been active for {Math.floor(elapsed / 60_000)} min. Consider a rest.
+          </span>
           <button
-            className="ml-auto text-amber-500 hover:text-amber-700 dark:hover:text-amber-300"
-            onClick={() => { setReminderDismissedAt(elapsed); firedReminder.current = false; }}
+            className="ml-auto opacity-60 hover:opacity-100 transition-opacity"
+            onClick={() => {
+              setReminderDismissedAt(elapsed);
+              firedReminder.current = false;
+            }}
           >
             ✕
           </button>
@@ -88,33 +131,35 @@ export function SessionTimer() {
 
       {/* Timer display */}
       <div className="text-center py-3">
-        <div className={`text-4xl font-mono font-bold tabular-nums tracking-tight ${
-          isWorking ? 'text-indigo-900 dark:text-indigo-100' : 'text-gray-800 dark:text-gray-100'
-        }`}>
+        <div
+          className="font-timer text-4xl font-bold"
+          style={{
+            color: isWorking ? MODE_COLOR[mode as Mode] : 'var(--color-text)',
+          }}
+        >
           {formatTimeLong(elapsed)}
         </div>
-        <span className={`inline-flex text-[11px] font-semibold px-2.5 py-0.5 rounded-md mt-2 ${MODE_BADGE[mode]}`}>
+        <span
+          className={`inline-flex text-[13px] font-semibold px-2.5 py-0.5 rounded-md mt-2 ${MODE_BADGE_CLASSES[mode as Mode]}`}
+        >
           {modeCfg.label} &middot; 1:{modeCfg.ratio}
         </span>
       </div>
 
-      {/* Action buttons */}
-      {timerState === 'idle' && (
-        <button
-          onClick={startWork}
-          className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-500 transition-colors"
-        >
-          Start
-        </button>
-      )}
-      {timerState === 'on-break' && (
+      {/* Resume button (on-break only) */}
+      {isOnBreak && (
         <button
           onClick={handleResumeWork}
-          className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-500 transition-colors"
+          className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all"
+          style={{
+            background: MODE_COLOR[mode as Mode],
+            color: 'var(--color-bg)',
+            fontFamily: 'var(--font-display)',
+          }}
         >
           Resume
         </button>
       )}
-    </div>
+    </motion.div>
   );
 }

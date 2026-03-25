@@ -31,14 +31,24 @@ export interface DailyState {
   date: string; // YYYY-MM-DD
   bankMs: number; // can be negative (debt)
   sessions: SessionLog[];
+  unusedRestMs?: number; // captured when session ends
 }
 
 export interface SessionReport {
   totalWorkMs: number;
   totalBreakMs: number;
+  unusedRestMs: number;
   mode: Mode;
   completedTasks: number;
   totalTasks: number;
+}
+
+export interface HistoryEntry {
+  date: string; // YYYY-MM-DD
+  totalWorkMs: number;
+  totalBreakMs: number;
+  unusedRestMs: number;
+  sessions: SessionLog[];
 }
 
 export type TaskDisposition = 'move-to-tomorrow' | 'mark-done' | 'discard';
