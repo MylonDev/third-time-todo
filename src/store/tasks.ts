@@ -32,7 +32,7 @@ export const useTasks = create<TasksState>()(
               status: 'todo' as TaskStatus,
               createdAt: Date.now(),
               scheduledDate,
-              order: s.tasks.length,
+              order: s.tasks.filter((t) => t.scheduledDate === scheduledDate).length,
               subtasks: [],
             },
           ],
