@@ -61,14 +61,29 @@ export function formatTimeLong(ms: number): string {
 }
 
 export function todayKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-');
 }
 
 export function tomorrowKey(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-');
 }
+
+export const MODE_BADGE_CLASSES: Record<Mode, string> = {
+  quarter: 'bg-[var(--color-mode-quarter-dim)] text-[var(--color-mode-quarter)]',
+  third:   'bg-[var(--color-mode-third-dim)]   text-[var(--color-mode-third)]',
+  half:    'bg-[var(--color-mode-half-dim)]     text-[var(--color-mode-half)]',
+};
 
 /** Returns true if a task created at createdAt is considered stale (> 2 days old) */
 export function isStale(createdAt: number): boolean {

@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Mode, SessionLog, DailyState, SessionReport } from '../types';
+import type { Mode, SessionLog, DailyState, SessionReport, HistoryEntry } from '../types';
 import { applyWork, spendBreak, todayKey } from '../utils/thirdTime';
 
 type TimerState = 'idle' | 'working' | 'on-break';
 
 interface SessionStore {
   daily: DailyState;
+  history: HistoryEntry[];
   timerState: TimerState;
   timerStart: number | null;
 
@@ -15,6 +16,7 @@ interface SessionStore {
   startBreak: (mode: Mode) => void;
   stopBreak: () => void;
   endSession: (mode: Mode) => SessionReport;
+  archiveDay: () => void;
   resetDay: () => void;
 
   getElapsedMs: () => number;
@@ -28,6 +30,7 @@ export const useSession = create<SessionStore>()(
   persist(
     (set, get) => ({
       daily: freshDay(),
+      history: [],
       timerState: 'idle',
       timerStart: null,
 
@@ -36,7 +39,27 @@ export const useSession = create<SessionStore>()(
         return timerStart ? Date.now() - timerStart : 0;
       },
 
+      archiveDay: () => {
+        const { daily, history } = get();
+        if (daily.sessions.length === 0) return;
+        const entry: HistoryEntry = {
+          date: daily.date,
+          totalWorkMs: daily.sessions.reduce((a, s) => a + s.workMs, 0),
+          totalBreakMs: daily.sessions.reduce((a, s) => a + s.breakMs, 0),
+          unusedRestMs: Math.max(0, daily.bankMs),
+          sessions: daily.sessions,
+        };
+        const updated = [entry, ...history.filter((h) => h.date !== entry.date)].slice(0, 15);
+        set({ history: updated });
+      },
+
       startWork: () => {
+        const { daily } = get();
+        // Roll over to a new day if needed
+        if (daily.date !== todayKey() && daily.sessions.length > 0) {
+          get().archiveDay();
+          set({ daily: freshDay() });
+        }
         set({ timerState: 'working', timerStart: Date.now() });
       },
 
@@ -97,12 +120,21 @@ export const useSession = create<SessionStore>()(
         const { daily } = get();
         const totalWorkMs = daily.sessions.reduce((a, s) => a + s.workMs, 0);
         const totalBreakMs = daily.sessions.reduce((a, s) => a + s.breakMs, 0);
+        const unusedRestMs = Math.max(0, daily.bankMs);
 
-        set({ timerState: 'idle', timerStart: null, daily: { ...daily, bankMs: 0 } });
+        // Archive before zeroing bank
+        get().archiveDay();
+
+        set({
+          timerState: 'idle',
+          timerStart: null,
+          daily: { ...daily, bankMs: 0, unusedRestMs },
+        });
 
         return {
           totalWorkMs,
           totalBreakMs,
+          unusedRestMs,
           mode,
           completedTasks: 0, // filled in by the caller who has task context
           totalTasks: 0,
@@ -114,7 +146,15 @@ export const useSession = create<SessionStore>()(
     }),
     {
       name: 'tt-session',
-      partialize: (s) => ({ daily: s.daily }),
+      version: 1,
+      migrate: (persisted, version) => {
+        const s = persisted as { daily?: DailyState; history?: HistoryEntry[] };
+        if (version < 1) {
+          return { daily: s.daily ?? freshDay(), history: [] };
+        }
+        return s as { daily: DailyState; history: HistoryEntry[] };
+      },
+      partialize: (s) => ({ daily: s.daily, history: s.history }),
     }
   )
 );
