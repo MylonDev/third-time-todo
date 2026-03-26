@@ -3,7 +3,7 @@ import { MODE_CONFIG } from '../utils/thirdTime';
 import { useSettings } from '../store/settings';
 import type { Mode } from '../types';
 
-const MODES: Mode[] = ['quarter', 'third', 'half'];
+const MODES: Mode[] = ['half', 'third', 'quarter'];
 
 const MODE_COLORS: Record<Mode, { color: string; dim: string }> = {
   quarter: { color: 'var(--color-mode-quarter)',     dim: 'var(--color-mode-quarter-dim)' },
