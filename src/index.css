@@ -2,68 +2,68 @@
 
 /* ─── Design tokens ──────────────────────────────────────────── */
 @theme {
-  /* Surfaces — near-black minimal dark */
-  --color-bg:        #0d0d0d;
-  --color-surface:   #161616;
-  --color-surface-2: #1f1f1f;
+  /* Surfaces — deep black */
+  --color-bg:        #080808;
+  --color-surface:   #111111;
+  --color-surface-2: #1c1c1c;
 
-  /* Borders */
-  --color-border:    rgba(255, 255, 255, 0.08);
+  /* Borders — slightly more visible for geometric clarity */
+  --color-border:    rgba(255, 255, 255, 0.1);
 
-  /* Accent — violet (logo, primary CTAs) */
-  --color-accent:     #a78bfa;
-  --color-accent-dim: rgba(167, 139, 250, 0.15);
+  /* Accent — electric blue */
+  --color-accent:     #4f8ef7;
+  --color-accent-dim: rgba(79, 142, 247, 0.13);
 
-  /* Rest — mint green (positive earning state) */
+  /* Rest — mint green */
   --color-rest:     #34d399;
   --color-rest-dim: rgba(52, 211, 153, 0.12);
 
-  /* Debt — muted red */
+  /* Debt — red */
   --color-debt:     #f87171;
   --color-debt-dim: rgba(248, 113, 113, 0.12);
 
-  /* Text — white/off-white, high contrast */
-  --color-text:       #f2f2f2;
-  --color-text-muted: rgba(242, 242, 242, 0.4);
+  /* Text */
+  --color-text:       #e8e8e8;
+  --color-text-muted: rgba(232, 232, 232, 0.38);
 
-  /* Mode-specific colours */
-  --color-mode-quarter:     #60a5fa;             /* blue-400  */
-  --color-mode-quarter-dim: rgba(96, 165, 250, 0.12);
-  --color-mode-third:       #4ade80;             /* green-400 */
+  /* Mode-specific colours: half=blue (easy), third=green (balanced), quarter=orange (hard) */
+  --color-mode-half:        #60a5fa;
+  --color-mode-half-dim:    rgba(96, 165, 250, 0.12);
+  --color-mode-third:       #4ade80;
   --color-mode-third-dim:   rgba(74, 222, 128, 0.12);
-  --color-mode-half:        #fb923c;             /* orange-400 */
-  --color-mode-half-dim:    rgba(251, 146, 60, 0.12);
+  --color-mode-quarter:     #fb923c;
+  --color-mode-quarter-dim: rgba(251, 146, 60, 0.12);
 
-  /* Danger (End Session) — desaturated red */
+  /* Danger */
   --color-danger:     #e05555;
   --color-danger-dim: rgba(224, 85, 85, 0.12);
 
-  /* Typography */
-  --font-display: 'Barlow', sans-serif;
-  --font-body:    'DM Sans', sans-serif;
+  /* Typography — full monospace */
+  --font-display: 'JetBrains Mono', monospace;
+  --font-body:    'JetBrains Mono', monospace;
   --font-mono:    'JetBrains Mono', monospace;
 }
 
 /* ─── Light theme override ───────────────────────────────────── */
 .light {
-  --color-bg:        #f8f8f8;
+  --color-bg:        #f5f5f5;
   --color-surface:   #ffffff;
-  --color-surface-2: #efefef;
-  --color-border:    rgba(0, 0, 0, 0.09);
-  --color-accent:     #7c3aed;
-  --color-accent-dim: rgba(124, 58, 237, 0.12);
+  --color-surface-2: #ebebeb;
+  --color-border:    rgba(0, 0, 0, 0.1);
+  --color-accent:     #2563eb;
+  --color-accent-dim: rgba(37, 99, 235, 0.12);
   --color-rest:      #059669;
   --color-rest-dim:  rgba(5, 150, 105, 0.1);
   --color-debt:      #dc2626;
   --color-debt-dim:  rgba(220, 38, 38, 0.1);
   --color-text:       #111111;
   --color-text-muted: rgba(17, 17, 17, 0.45);
-  --color-mode-quarter:     #2563eb;
-  --color-mode-quarter-dim: rgba(37, 99, 235, 0.1);
+  --color-mode-half:        #2563eb;
+  --color-mode-half-dim:    rgba(37, 99, 235, 0.1);
   --color-mode-third:       #16a34a;
   --color-mode-third-dim:   rgba(22, 163, 74, 0.1);
-  --color-mode-half:        #ea580c;
-  --color-mode-half-dim:    rgba(234, 88, 12, 0.1);
+  --color-mode-quarter:     #ea580c;
+  --color-mode-quarter-dim: rgba(234, 88, 12, 0.1);
   --color-danger:     #dc2626;
   --color-danger-dim: rgba(220, 38, 38, 0.1);
 }
@@ -78,7 +78,7 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 body {
@@ -108,5 +108,5 @@ h1, h2, h3, h4 {
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
 }

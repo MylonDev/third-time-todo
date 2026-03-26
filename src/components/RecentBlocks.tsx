@@ -1,4 +1,4 @@
-import { useState, useId } from 'react';
+import { useState, useId, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from '../store/session';
 import { formatTimeLong, todayKey } from '../utils/thirdTime';
@@ -87,14 +87,14 @@ function DayBar({
                 }}
               />
             )}
-            {/* Unused rest — dimmer amber */}
+            {/* Unused rest — red */}
             {unusedPct > 0 && (
               <div
                 className="h-full flex-shrink-0 rounded-r-full"
                 style={{
                   width: `${unusedPct}%`,
-                  background: 'var(--color-accent)',
-                  opacity: 0.25,
+                  background: 'var(--color-debt)',
+                  opacity: 0.45,
                 }}
               />
             )}
@@ -171,18 +171,19 @@ export function RecentBlocks() {
   const bandBottom = maxMs > 0 ? ((maxMs - Math.max(0, avgWorkMs - bandHalfMs)) / maxMs) * svgHeight : svgHeight;
   const bandHeight = Math.max(0, bandBottom - bandTop);
 
-  // Compute path d for trendline
-  const pathD = visibleEntries.length > 1
-    ? visibleEntries
-        .map((entry, i) => {
-          const x = (i / (visibleEntries.length - 1)) * svgWidth;
-          const y = maxMs > 0
-            ? ((maxMs - entry.totalWorkMs) / maxMs) * svgHeight
-            : svgHeight;
-          return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
-        })
-        .join(' ')
-    : '';
+  // Compute path d for trendline (memoized)
+  const pathD = useMemo(() => {
+    if (visibleEntries.length <= 1) return '';
+    return visibleEntries
+      .map((entry, i) => {
+        const x = (i / (visibleEntries.length - 1)) * svgWidth;
+        const y = maxMs > 0
+          ? ((maxMs - entry.totalWorkMs) / maxMs) * svgHeight
+          : svgHeight;
+        return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+      })
+      .join(' ');
+  }, [visibleEntries, maxMs, svgWidth, svgHeight]);
 
   const hasData = allEntries.some((e) => e.totalWorkMs > 0);
 
@@ -207,7 +208,7 @@ export function RecentBlocks() {
           {[
             { color: 'var(--color-accent)', label: 'Active', opacity: 0.85 },
             { color: 'var(--color-rest)', label: 'Rest', opacity: 0.7 },
-            { color: 'var(--color-accent)', label: 'Unused', opacity: 0.25 },
+            { color: 'var(--color-debt)', label: 'Unused', opacity: 0.45 },
           ].map(({ color, label, opacity }) => (
             <span key={label} className="flex items-center gap-1">
               <span

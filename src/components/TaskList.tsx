@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -277,20 +277,38 @@ function SortableTask({
           <span className="w-4 flex-shrink-0" />
         )}
 
-        {/* Status toggle */}
+        {/* Status toggle — square checkbox */}
         <button
           onClick={() => onUpdate(task.id, { status: isDone ? 'todo' : 'done' })}
-          className="mt-0.5 text-lg leading-none hover:opacity-70 transition-opacity flex-shrink-0"
+          className="flex-shrink-0 flex items-center justify-center transition-all"
           style={{
-            color: isDone
-              ? 'var(--color-rest)'
-              : isDoing
-              ? 'var(--color-accent)'
-              : 'var(--color-border)',
+            width: '20px',
+            height: '20px',
+            marginTop: '2px',
+            borderRadius: '4px',
+            border: `2px solid ${
+              isDone
+                ? 'var(--color-rest)'
+                : isDoing
+                ? 'var(--color-accent)'
+                : 'rgba(255,255,255,0.2)'
+            }`,
+            background: isDone ? 'var(--color-rest)' : 'transparent',
+            color: isDone ? 'var(--color-bg)' : 'transparent',
           }}
           title={isDone ? 'Mark as to do' : 'Mark as done'}
         >
-          {isDone ? '●' : '○'}
+          {isDone && (
+            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+              <path
+                d="M1 4L3.5 6.5L9 1"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
         </button>
 
         <div className="flex-1 min-w-0">
@@ -492,16 +510,69 @@ export function TaskList() {
   const [estimate, setEstimate] = useState('');
   const [showDone, setShowDone] = useState(false);
 
+  // Undo-on-delete state
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingDeleteTask, setPendingDeleteTask] = useState<Task | null>(null);
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDelete = (id: string) => {
+    // Flush any existing pending delete immediately
+    if (deleteTimerRef.current) {
+      clearTimeout(deleteTimerRef.current);
+      if (pendingDeleteId) deleteTask(pendingDeleteId);
+    }
+    const task = tasks.find((t) => t.id === id) ?? null;
+    setPendingDeleteId(id);
+    setPendingDeleteTask(task);
+    deleteTimerRef.current = setTimeout(() => {
+      deleteTask(id);
+      setPendingDeleteId(null);
+      setPendingDeleteTask(null);
+    }, 3500);
+  };
+
+  const handleUndoDelete = () => {
+    if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+    setPendingDeleteId(null);
+    setPendingDeleteTask(null);
+  };
+
+  // Flush pending delete on unmount
+  useEffect(() => {
+    return () => {
+      if (deleteTimerRef.current) {
+        clearTimeout(deleteTimerRef.current);
+        if (pendingDeleteId) deleteTask(pendingDeleteId);
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingDeleteId]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
   const today = todayKey();
-  const todayTasks = tasks.filter((t) => t.scheduledDate === today);
+  const todayTasks = useMemo(
+    () => tasks.filter((t) => t.scheduledDate === today),
+    [tasks, today]
+  );
 
-  const activeTasks = todayTasks.filter((t) => t.status !== 'done').sort((a, b) => a.order - b.order);
-  const doneTasks = todayTasks.filter((t) => t.status === 'done').sort((a, b) => a.order - b.order);
+  const activeTasks = useMemo(
+    () =>
+      todayTasks
+        .filter((t) => t.status !== 'done' && t.id !== pendingDeleteId)
+        .sort((a, b) => a.order - b.order),
+    [todayTasks, pendingDeleteId]
+  );
+  const doneTasks = useMemo(
+    () =>
+      todayTasks
+        .filter((t) => t.status === 'done' && t.id !== pendingDeleteId)
+        .sort((a, b) => a.order - b.order),
+    [todayTasks, pendingDeleteId]
+  );
 
   const doingId = activeTasks[0]?.id ?? null;
 
@@ -577,7 +648,7 @@ export function TaskList() {
                 task={task}
                 isDoing={task.id === doingId}
                 onUpdate={updateTask}
-                onDelete={deleteTask}
+                onDelete={handleDelete}
                 onMoveToTomorrow={moveToTomorrow}
                 onAddSubtask={addSubtask}
                 onToggleSubtask={toggleSubtask}
@@ -608,7 +679,7 @@ export function TaskList() {
                   task={task}
                   isDoing={false}
                   onUpdate={updateTask}
-                  onDelete={deleteTask}
+                  onDelete={handleDelete}
                   onMoveToTomorrow={moveToTomorrow}
                   onAddSubtask={addSubtask}
                   onToggleSubtask={toggleSubtask}
@@ -618,6 +689,30 @@ export function TaskList() {
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {/* Undo delete toast */}
+      {pendingDeleteTask && (
+        <div
+          className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 border text-sm"
+          style={{
+            background: 'var(--color-surface-2)',
+            borderColor: 'var(--color-border)',
+            color: 'var(--color-text-muted)',
+          }}
+        >
+          <span className="truncate">
+            Deleted{' '}
+            <span style={{ color: 'var(--color-text)' }}>{pendingDeleteTask.title}</span>
+          </span>
+          <button
+            onClick={handleUndoDelete}
+            className="font-semibold flex-shrink-0 transition-opacity hover:opacity-100 opacity-80"
+            style={{ color: 'var(--color-accent)' }}
+          >
+            Undo
+          </button>
         </div>
       )}
     </div>

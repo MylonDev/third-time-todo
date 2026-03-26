@@ -8,6 +8,7 @@ import { StaleTaskAlert } from './components/StaleTaskAlert';
 import { ModeSelector } from './components/ModeSelector';
 import { OptionsPanel } from './components/OptionsPanel';
 import { EndSessionModal } from './components/EndSessionModal';
+import { RestoreSessionModal } from './components/RestoreSessionModal';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
 import { requestNotificationPermission } from './utils/notifications';
@@ -27,10 +28,54 @@ const item: Variants = {
 };
 
 export default function App() {
-  const { timerState } = useSession();
+  const { timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer } = useSession();
   const { theme, mode } = useSettings();
   const [showOptions, setShowOptions] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
+
+  // Show restore modal if a session was active when the page last closed
+  const [showRestoreModal] = useState(() => {
+    const state = useSession.getState();
+    return state.timerState !== 'idle';
+  });
+
+  // Warn before close/navigate when a session is active; record close time for restore
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (timerState !== 'idle') {
+        useSession.getState().setClosedAt(Date.now());
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [timerState]);
+
+  // Restore handlers
+  const [restoreModalDismissed, setRestoreModalDismissed] = useState(false);
+
+  const handleRestoreReset = () => {
+    clearTimer();
+    setRestoreModalDismissed(true);
+  };
+
+  const handleRestoreContinue = () => {
+    const closedAt = sessionClosedAt ?? Date.now();
+    const elapsedAtClose = timerStart ? closedAt - timerStart : 0;
+    useSession.setState({ timerStart: Date.now() - elapsedAtClose, sessionClosedAt: null });
+    setRestoreModalDismissed(true);
+  };
+
+  const handleRestoreResume = () => {
+    setClosedAt(null);
+    setRestoreModalDismissed(true);
+  };
+
+  // Compute restore modal props
+  const closedAt = sessionClosedAt ?? Date.now();
+  const elapsedAtClose = timerStart ? closedAt - timerStart : 0;
+  const timeAway = sessionClosedAt ? Date.now() - sessionClosedAt : 0;
 
   // Apply theme: dark is default, .light class overrides
   useEffect(() => {
@@ -74,7 +119,7 @@ export default function App() {
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0"
               style={{
-                background: 'linear-gradient(135deg, var(--color-accent) 0%, #4c1d95 100%)',
+                background: 'linear-gradient(135deg, var(--color-accent) 0%, #1e3a8a 100%)',
               }}
             >
               <span
@@ -224,6 +269,17 @@ export default function App() {
 
       {/* ── Overlays ─────────────────────────────────────────── */}
       <OptionsPanel isOpen={showOptions} onClose={() => setShowOptions(false)} />
+
+      {showRestoreModal && !restoreModalDismissed && timerState !== 'idle' && (
+        <RestoreSessionModal
+          timerState={timerState as 'working' | 'on-break'}
+          elapsedAtClose={elapsedAtClose}
+          timeAway={timeAway}
+          onReset={handleRestoreReset}
+          onContinue={handleRestoreContinue}
+          onResume={handleRestoreResume}
+        />
+      )}
 
       <AnimatePresence>
         {showEndModal && (

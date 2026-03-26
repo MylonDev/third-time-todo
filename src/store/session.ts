@@ -10,6 +10,7 @@ interface SessionStore {
   history: HistoryEntry[];
   timerState: TimerState;
   timerStart: number | null;
+  sessionClosedAt: number | null;
 
   startWork: () => void;
   stopWork: (mode: Mode) => void;
@@ -18,6 +19,8 @@ interface SessionStore {
   endSession: (mode: Mode) => SessionReport;
   archiveDay: () => void;
   resetDay: () => void;
+  clearTimer: () => void;
+  setClosedAt: (t: number | null) => void;
 
   getElapsedMs: () => number;
 }
@@ -33,6 +36,7 @@ export const useSession = create<SessionStore>()(
       history: [],
       timerState: 'idle',
       timerStart: null,
+      sessionClosedAt: null,
 
       getElapsedMs: () => {
         const { timerStart } = get();
@@ -142,19 +146,36 @@ export const useSession = create<SessionStore>()(
       },
 
       resetDay: () =>
-        set({ daily: freshDay(), timerState: 'idle', timerStart: null }),
+        set({ daily: freshDay(), timerState: 'idle', timerStart: null, sessionClosedAt: null }),
+
+      clearTimer: () =>
+        set({ timerState: 'idle', timerStart: null, sessionClosedAt: null }),
+
+      setClosedAt: (t) => set({ sessionClosedAt: t }),
     }),
     {
       name: 'tt-session',
-      version: 1,
+      version: 2,
       migrate: (persisted, version) => {
         const s = persisted as { daily?: DailyState; history?: HistoryEntry[] };
-        if (version < 1) {
-          return { daily: s.daily ?? freshDay(), history: [] };
+        if (version < 2) {
+          return {
+            daily: s.daily ?? freshDay(),
+            history: (s as { history?: HistoryEntry[] }).history ?? [],
+            timerState: 'idle',
+            timerStart: null,
+            sessionClosedAt: null,
+          };
         }
         return s as { daily: DailyState; history: HistoryEntry[] };
       },
-      partialize: (s) => ({ daily: s.daily, history: s.history }),
+      partialize: (s) => ({
+        daily: s.daily,
+        history: s.history,
+        timerState: s.timerState,
+        timerStart: s.timerStart,
+        sessionClosedAt: s.sessionClosedAt,
+      }),
     }
   )
 );
