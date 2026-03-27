@@ -11,6 +11,7 @@ import { EndSessionModal } from './components/EndSessionModal';
 import { RestoreSessionModal } from './components/RestoreSessionModal';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
+import { useTasks } from './store/tasks';
 import { requestNotificationPermission } from './utils/notifications';
 
 
@@ -30,6 +31,13 @@ const item: Variants = {
 export default function App() {
   const { timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer } = useSession();
   const { theme, mode } = useSettings();
+  const { rolloverPastTasks } = useTasks();
+
+  // Roll unfinished tasks from past days into today on every load
+  useEffect(() => {
+    rolloverPastTasks();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [showOptions, setShowOptions] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
 
