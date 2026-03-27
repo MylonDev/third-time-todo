@@ -14,6 +14,7 @@ interface TasksState {
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   deleteSubtask: (taskId: string, subtaskId: string) => void;
   editSubtask: (taskId: string, subtaskId: string, title: string) => void;
+  rolloverPastTasks: () => void;
 }
 
 export const useTasks = create<TasksState>()(
@@ -120,6 +121,17 @@ export const useTasks = create<TasksState>()(
               : t
           ),
         })),
+
+      rolloverPastTasks: () => {
+        const today = todayKey();
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.scheduledDate < today && t.status !== 'done'
+              ? { ...t, scheduledDate: today }
+              : t
+          ),
+        }));
+      },
     }),
     {
       name: 'tt-tasks',
