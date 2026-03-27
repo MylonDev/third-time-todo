@@ -193,7 +193,7 @@ function SortableTask({
   });
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition: transition ? transition.replace('250ms', '120ms') : undefined,
+    transition: isDragging ? undefined : transition ? transition.replace('250ms', '120ms') : undefined,
   };
 
   const [editing, setEditing] = useState(false);
@@ -262,7 +262,7 @@ function SortableTask({
     <li
       ref={setNodeRef}
       style={{ ...style, ...cardStyle }}
-      className="flex flex-col rounded-xl border transition-all"
+      className="flex flex-col rounded-xl border transition-[border-color,background-color,opacity]"
     >
       <div className="flex items-start gap-3 p-3">
         {/* Drag handle */}
