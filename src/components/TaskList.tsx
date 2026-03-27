@@ -191,7 +191,10 @@ function SortableTask({
     id: task.id,
     disabled: task.status === 'done',
   });
-  const style = { transform: CSS.Transform.toString(transform), transition };
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition ? transition.replace('250ms', '120ms') : undefined,
+  };
 
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
@@ -549,7 +552,7 @@ export function TaskList() {
   }, [pendingDeleteId]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 2 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
