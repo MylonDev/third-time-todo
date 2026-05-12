@@ -1,7 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Mode, SessionLog, DailyState, SessionReport, HistoryEntry } from '../types';
+import type { Mode, SessionLog, DailyState, SessionReport, HistoryEntry, FocusTarget } from '../types';
 import { applyWork, spendBreak, todayKey } from '../utils/thirdTime';
+import { getCurrentPeriodKey } from '../utils/goalPeriod';
+import { useTasks } from './tasks';
+import { useGoals } from './goals';
 
 type TimerState = 'idle' | 'working' | 'on-break';
 
@@ -11,6 +14,8 @@ interface SessionStore {
   timerState: TimerState;
   timerStart: number | null;
   sessionClosedAt: number | null;
+  focusedItem: FocusTarget | null;
+  focusSegmentStart: number | null; // not persisted — set by startWork/setFocus
 
   startWork: () => void;
   stopWork: (mode: Mode) => void;
@@ -21,12 +26,27 @@ interface SessionStore {
   resetDay: () => void;
   clearTimer: () => void;
   setClosedAt: (t: number | null) => void;
+  setFocus: (target: FocusTarget | null) => void;
 
   getElapsedMs: () => number;
 }
 
 function freshDay(): DailyState {
   return { date: todayKey(), bankMs: 0, sessions: [] };
+}
+
+// Cross-store time attribution — called inside stopWork / setFocus
+function commitFocusSegment(target: FocusTarget, ms: number) {
+  if (ms <= 0) return;
+  if (target.kind === 'task') {
+    useTasks.getState().adjustTrackedMs(target.id, ms);
+  } else {
+    const { goals, commitTime } = useGoals.getState();
+    const goal = goals.find((g) => g.id === target.id);
+    if (goal?.type === 'time') {
+      commitTime(goal.id, getCurrentPeriodKey(goal), ms);
+    }
+  }
 }
 
 export const useSession = create<SessionStore>()(
@@ -37,6 +57,8 @@ export const useSession = create<SessionStore>()(
       timerState: 'idle',
       timerStart: null,
       sessionClosedAt: null,
+      focusedItem: null,
+      focusSegmentStart: null,
 
       getElapsedMs: () => {
         const { timerStart } = get();
@@ -58,18 +80,28 @@ export const useSession = create<SessionStore>()(
       },
 
       startWork: () => {
-        const { daily } = get();
-        // Roll over to a new day if needed
+        const { daily, focusedItem } = get();
         if (daily.date !== todayKey() && daily.sessions.length > 0) {
           get().archiveDay();
           set({ daily: freshDay() });
         }
-        set({ timerState: 'working', timerStart: Date.now() });
+        const now = Date.now();
+        set({
+          timerState: 'working',
+          timerStart: now,
+          focusSegmentStart: focusedItem ? now : null,
+        });
       },
 
       stopWork: (mode: Mode) => {
-        const { timerStart, daily } = get();
+        const { timerStart, daily, focusedItem, focusSegmentStart } = get();
         if (!timerStart) return;
+
+        // Commit focused time segment
+        if (focusedItem && focusSegmentStart) {
+          commitFocusSegment(focusedItem, Date.now() - focusSegmentStart);
+        }
+
         const workMs = Date.now() - timerStart;
         const today = todayKey();
         const base = daily.date === today ? daily : freshDay();
@@ -84,13 +116,13 @@ export const useSession = create<SessionStore>()(
         set({
           timerState: 'idle',
           timerStart: null,
+          focusSegmentStart: null,
           daily: { ...base, bankMs: newBank, sessions: [...base.sessions, log] },
         });
       },
 
       startBreak: (mode: Mode) => {
         const { timerState } = get();
-        // Commit any in-progress work segment before starting break
         if (timerState === 'working') get().stopWork(mode);
         set({ timerState: 'on-break', timerStart: Date.now() });
       },
@@ -102,7 +134,6 @@ export const useSession = create<SessionStore>()(
         const today = todayKey();
         const base = daily.date === today ? daily : freshDay();
         const newBank = spendBreak(base.bankMs, breakMs);
-        // Append break time to most recent session
         const sessions = [...base.sessions];
         if (sessions.length > 0) {
           const last = { ...sessions[sessions.length - 1] };
@@ -126,12 +157,13 @@ export const useSession = create<SessionStore>()(
         const totalBreakMs = daily.sessions.reduce((a, s) => a + s.breakMs, 0);
         const unusedRestMs = Math.max(0, daily.bankMs);
 
-        // Archive before zeroing bank
         get().archiveDay();
 
         set({
           timerState: 'idle',
           timerStart: null,
+          focusedItem: null,
+          focusSegmentStart: null,
           daily: { ...daily, bankMs: 0, unusedRestMs },
         });
 
@@ -140,22 +172,41 @@ export const useSession = create<SessionStore>()(
           totalBreakMs,
           unusedRestMs,
           mode,
-          completedTasks: 0, // filled in by the caller who has task context
+          completedTasks: 0,
           totalTasks: 0,
         };
       },
 
       resetDay: () =>
-        set({ daily: freshDay(), timerState: 'idle', timerStart: null, sessionClosedAt: null }),
+        set({
+          daily: freshDay(),
+          timerState: 'idle',
+          timerStart: null,
+          sessionClosedAt: null,
+          focusedItem: null,
+          focusSegmentStart: null,
+        }),
 
       clearTimer: () =>
         set({ timerState: 'idle', timerStart: null, sessionClosedAt: null }),
 
       setClosedAt: (t) => set({ sessionClosedAt: t }),
+
+      setFocus: (target) => {
+        const { timerState, focusedItem, focusSegmentStart } = get();
+        // Commit elapsed time for the previously focused item before switching
+        if (timerState === 'working' && focusedItem && focusSegmentStart) {
+          commitFocusSegment(focusedItem, Date.now() - focusSegmentStart);
+        }
+        set({
+          focusedItem: target,
+          focusSegmentStart: timerState === 'working' ? Date.now() : null,
+        });
+      },
     }),
     {
       name: 'tt-session',
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         const s = persisted as { daily?: DailyState; history?: HistoryEntry[] };
         if (version < 2) {
@@ -165,6 +216,15 @@ export const useSession = create<SessionStore>()(
             timerState: 'idle',
             timerStart: null,
             sessionClosedAt: null,
+            focusedItem: null,
+            focusSegmentStart: null,
+          };
+        }
+        if (version < 3) {
+          return {
+            ...s,
+            focusedItem: null,
+            focusSegmentStart: null,
           };
         }
         return s as { daily: DailyState; history: HistoryEntry[] };
@@ -175,6 +235,8 @@ export const useSession = create<SessionStore>()(
         timerState: s.timerState,
         timerStart: s.timerStart,
         sessionClosedAt: s.sessionClosedAt,
+        focusedItem: s.focusedItem,
+        // focusSegmentStart is intentionally NOT persisted
       }),
     }
   )

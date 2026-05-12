@@ -15,19 +15,21 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTasks } from '../store/tasks';
-import { todayKey, isStale, daysSince } from '../utils/thirdTime';
-import type { Task } from '../types';
+import { todayKey, isStale, daysSince, formatTimeLong } from '../utils/thirdTime';
+import type { FocusTarget, Task } from '../types';
 
 function TaskMenu({
   onEdit,
   onSubtasks,
   onMoveToTomorrow,
   onDelete,
+  onAdjustTime,
 }: {
   onEdit: () => void;
   onSubtasks: () => void;
   onMoveToTomorrow: () => void;
   onDelete: () => void;
+  onAdjustTime: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -47,10 +49,10 @@ function TaskMenu({
   };
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative flex-shrink-0">
       <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-opacity opacity-40 hover:opacity-100"
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        className="w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-all opacity-60 hover:opacity-100 hover:bg-[var(--color-surface-2)]"
         style={{ color: 'var(--color-text-muted)' }}
         title="Actions"
       >
@@ -58,7 +60,7 @@ function TaskMenu({
       </button>
       {open && (
         <div
-          className="absolute right-0 top-8 z-20 rounded-xl shadow-xl py-1 min-w-[150px] border"
+          className="absolute right-0 top-8 z-20 rounded-xl shadow-xl py-1 min-w-[160px] border"
           style={{
             background: 'var(--color-surface)',
             borderColor: 'var(--color-border)',
@@ -69,10 +71,11 @@ function TaskMenu({
             { label: 'Edit', action: onEdit },
             { label: 'Subtasks', action: onSubtasks },
             { label: 'Move to tomorrow', action: onMoveToTomorrow },
+            { label: 'Adjust tracked time', action: onAdjustTime },
           ].map(({ label, action }) => (
             <button
               key={label}
-              onClick={() => { action(); setOpen(false); }}
+              onClick={(e) => { e.stopPropagation(); action(); setOpen(false); }}
               className="w-full text-left px-3 py-1.5 text-sm transition-colors"
               style={menuItemStyle}
               onMouseEnter={(e) => {
@@ -86,7 +89,7 @@ function TaskMenu({
             </button>
           ))}
           <button
-            onClick={() => { onDelete(); setOpen(false); }}
+            onClick={(e) => { e.stopPropagation(); onDelete(); setOpen(false); }}
             className="w-full text-left px-3 py-1.5 text-sm transition-colors"
             style={{ color: 'var(--color-debt)' }}
             onMouseEnter={(e) => {
@@ -168,7 +171,9 @@ function SubtaskMenu({
 
 function SortableTask({
   task,
-  isDoing,
+  isFocused,
+  timerState,
+  focusSegmentStart,
   onUpdate,
   onDelete,
   onMoveToTomorrow,
@@ -176,9 +181,13 @@ function SortableTask({
   onToggleSubtask,
   onDeleteSubtask,
   onEditSubtask,
+  onFocus,
+  onAdjustTrackedMs,
 }: {
   task: Task;
-  isDoing: boolean;
+  isFocused: boolean;
+  timerState: 'idle' | 'working' | 'on-break';
+  focusSegmentStart: number | null;
   onUpdate: (id: string, patch: Partial<Task>) => void;
   onDelete: (id: string) => void;
   onMoveToTomorrow: (id: string) => void;
@@ -186,6 +195,8 @@ function SortableTask({
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
   onDeleteSubtask: (taskId: string, subtaskId: string) => void;
   onEditSubtask: (taskId: string, subtaskId: string, title: string) => void;
+  onFocus: () => void; // still used for card-level click delegation
+  onAdjustTrackedMs: (id: string, deltaMs: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -203,6 +214,32 @@ function SortableTask({
   const [newSubtask, setNewSubtask] = useState('');
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const [editSubtaskTitle, setEditSubtaskTitle] = useState('');
+  const [showTimeEdit, setShowTimeEdit] = useState(false);
+  const [timeEditMin, setTimeEditMin] = useState('');
+  const [, tick] = useState(0);
+
+  // Live tick when focused and working
+  useEffect(() => {
+    if (!isFocused || timerState !== 'working') return;
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [isFocused, timerState]);
+
+  const liveTrackedMs =
+    isFocused && timerState === 'working' && focusSegmentStart
+      ? (task.trackedMs ?? 0) + (Date.now() - focusSegmentStart)
+      : (task.trackedMs ?? 0);
+
+  const showTracked = liveTrackedMs > 0;
+
+  const handleTimeAdjust = () => {
+    const min = parseFloat(timeEditMin);
+    if (!isNaN(min)) {
+      onAdjustTrackedMs(task.id, Math.round(min * 60_000));
+    }
+    setShowTimeEdit(false);
+    setTimeEditMin('');
+  };
 
   const saveEdit = () => {
     const trimmed = editTitle.trim();
@@ -246,23 +283,32 @@ function SortableTask({
         borderColor: 'var(--color-border)',
         opacity: 0.55,
       }
-    : isDoing
+    : isFocused
     ? {
         background: 'var(--color-surface)',
         borderColor: 'var(--color-accent)',
         borderLeftWidth: '3px',
         boxShadow: `inset 0 0 0 1px rgba(167,139,250,0.08)`,
+        cursor: 'pointer',
       }
     : {
         background: 'var(--color-surface)',
         borderColor: 'var(--color-border)',
+        cursor: isDone ? 'default' : 'pointer',
       };
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (isDone) return;
+    if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
+    onFocus();
+  };
 
   return (
     <li
       ref={setNodeRef}
       style={{ ...style, ...cardStyle }}
       className="flex flex-col rounded-xl border transition-[border-color,background-color,opacity]"
+      onClick={handleCardClick}
     >
       <div className="flex items-start gap-3 p-3">
         {/* Drag handle */}
@@ -292,7 +338,7 @@ function SortableTask({
             border: `2px solid ${
               isDone
                 ? 'var(--color-rest)'
-                : isDoing
+                : isFocused
                 ? 'var(--color-accent)'
                 : 'rgba(255,255,255,0.2)'
             }`,
@@ -366,7 +412,7 @@ function SortableTask({
                 >
                   {task.title}
                 </span>
-                {isDoing && !isDone && (
+                {isFocused && !isDone && (
                   <span
                     className="text-xs px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide"
                     style={{
@@ -374,7 +420,7 @@ function SortableTask({
                       color: 'var(--color-accent)',
                     }}
                   >
-                    Doing
+                    Focused
                   </span>
                 )}
               </div>
@@ -405,11 +451,44 @@ function SortableTask({
                   </button>
                 )}
               </div>
+
+              {/* Tracked time row */}
+              {(showTracked || showTimeEdit) && !isDone && (
+                <div className="flex flex-col gap-1 mt-1">
+                  {showTracked && (
+                    <span
+                      className="text-xs font-semibold"
+                      style={{ color: isFocused && timerState === 'working' ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
+                    >
+                      {formatTimeLong(liveTrackedMs)}
+                    </span>
+                  )}
+                  {showTimeEdit && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        autoFocus
+                        type="number"
+                        placeholder="±min"
+                        value={timeEditMin}
+                        onChange={(e) => setTimeEditMin(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleTimeAdjust();
+                          if (e.key === 'Escape') { setShowTimeEdit(false); setTimeEditMin(''); }
+                        }}
+                        onBlur={handleTimeAdjust}
+                        className="w-20 text-xs rounded px-1.5 py-1 outline-none border"
+                        style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', borderColor: 'var(--color-accent)' }}
+                      />
+                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>min (+ or −)</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
 
-        {/* 3-dot menu / delete */}
+        {/* 3-dot menu */}
         {!isDone && !editing && (
           <TaskMenu
             onEdit={() => {
@@ -420,6 +499,7 @@ function SortableTask({
             onSubtasks={() => setSubtasksOpen((o) => !o)}
             onMoveToTomorrow={() => onMoveToTomorrow(task.id)}
             onDelete={() => onDelete(task.id)}
+            onAdjustTime={() => { setShowTimeEdit(true); setTimeEditMin(''); }}
           />
         )}
         {isDone && (
@@ -504,22 +584,28 @@ function SortableTask({
   );
 }
 
-export function TaskList() {
+interface TaskListProps {
+  focusedItem: FocusTarget | null;
+  timerState: 'idle' | 'working' | 'on-break';
+  focusSegmentStart: number | null;
+  onSetFocus: (target: FocusTarget | null) => void;
+}
+
+export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocus }: TaskListProps) {
   const {
     tasks, addTask, updateTask, deleteTask, moveToTomorrow,
     reorderTasks, addSubtask, toggleSubtask, deleteSubtask, editSubtask,
+    adjustTrackedMs,
   } = useTasks();
   const [title, setTitle] = useState('');
   const [estimate, setEstimate] = useState('');
   const [showDone, setShowDone] = useState(false);
 
-  // Undo-on-delete state
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<Task | null>(null);
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleDelete = (id: string) => {
-    // Flush any existing pending delete immediately
     if (deleteTimerRef.current) {
       clearTimeout(deleteTimerRef.current);
       if (pendingDeleteId) deleteTask(pendingDeleteId);
@@ -540,7 +626,6 @@ export function TaskList() {
     setPendingDeleteTask(null);
   };
 
-  // Flush pending delete on unmount
   useEffect(() => {
     return () => {
       if (deleteTimerRef.current) {
@@ -577,8 +662,6 @@ export function TaskList() {
     [todayTasks, pendingDeleteId]
   );
 
-  const doingId = activeTasks[0]?.id ?? null;
-
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -592,6 +675,11 @@ export function TaskList() {
     if (over && active.id !== over.id) {
       reorderTasks(String(active.id), String(over.id));
     }
+  };
+
+  const handleFocus = (taskId: string) => {
+    const isAlreadyFocused = focusedItem?.kind === 'task' && focusedItem.id === taskId;
+    onSetFocus(isAlreadyFocused ? null : { kind: 'task', id: taskId });
   };
 
   const inputStyle: React.CSSProperties = {
@@ -649,7 +737,9 @@ export function TaskList() {
               <SortableTask
                 key={task.id}
                 task={task}
-                isDoing={task.id === doingId}
+                isFocused={focusedItem?.kind === 'task' && focusedItem.id === task.id}
+                timerState={timerState}
+                focusSegmentStart={focusSegmentStart}
                 onUpdate={updateTask}
                 onDelete={handleDelete}
                 onMoveToTomorrow={moveToTomorrow}
@@ -657,6 +747,8 @@ export function TaskList() {
                 onToggleSubtask={toggleSubtask}
                 onDeleteSubtask={deleteSubtask}
                 onEditSubtask={editSubtask}
+                onFocus={() => handleFocus(task.id)}
+                onAdjustTrackedMs={adjustTrackedMs}
               />
             ))}
           </ul>
@@ -680,7 +772,9 @@ export function TaskList() {
                 <SortableTask
                   key={task.id}
                   task={task}
-                  isDoing={false}
+                  isFocused={false}
+                  timerState={timerState}
+                  focusSegmentStart={null}
                   onUpdate={updateTask}
                   onDelete={handleDelete}
                   onMoveToTomorrow={moveToTomorrow}
@@ -688,6 +782,8 @@ export function TaskList() {
                   onToggleSubtask={toggleSubtask}
                   onDeleteSubtask={deleteSubtask}
                   onEditSubtask={editSubtask}
+                  onFocus={() => {}}
+                  onAdjustTrackedMs={adjustTrackedMs}
                 />
               ))}
             </ul>

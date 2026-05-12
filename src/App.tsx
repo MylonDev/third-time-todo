@@ -3,6 +3,7 @@ import { AnimatePresence, motion, type Variants } from 'framer-motion';
 import { BreakBank } from './components/BreakBank';
 import { SessionTimer } from './components/SessionTimer';
 import { TaskList } from './components/TaskList';
+import { GoalList } from './components/GoalList';
 import { RecentBlocks } from './components/RecentBlocks';
 import { StaleTaskAlert } from './components/StaleTaskAlert';
 import { ModeSelector } from './components/ModeSelector';
@@ -29,7 +30,7 @@ const item: Variants = {
 };
 
 export default function App() {
-  const { timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer } = useSession();
+  const { timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer, focusedItem, focusSegmentStart, setFocus } = useSession();
   const { theme, mode } = useSettings();
   const { rolloverPastTasks } = useTasks();
 
@@ -249,6 +250,30 @@ export default function App() {
           <StaleTaskAlert />
         </motion.div>
 
+        {/* ── Goals ────────────────────────────────────────────── */}
+        <motion.section variants={item}>
+          <div
+            className="text-[13px] font-semibold uppercase tracking-wider mb-2"
+            style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-muted)' }}
+          >
+            Goals
+          </div>
+          <div
+            className="rounded-2xl border p-4"
+            style={{
+              background: 'var(--color-surface)',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            <GoalList
+              focusedItem={focusedItem}
+              timerState={timerState}
+              focusSegmentStart={focusSegmentStart}
+              onSetFocus={setFocus}
+            />
+          </div>
+        </motion.section>
+
         {/* ── Tasks ────────────────────────────────────────────── */}
         <motion.section variants={item}>
           <div
@@ -264,7 +289,12 @@ export default function App() {
               borderColor: 'var(--color-border)',
             }}
           >
-            <TaskList />
+            <TaskList
+              focusedItem={focusedItem}
+              timerState={timerState}
+              focusSegmentStart={focusSegmentStart}
+              onSetFocus={setFocus}
+            />
           </div>
         </motion.section>
 
