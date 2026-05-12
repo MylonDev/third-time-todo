@@ -17,6 +17,7 @@ export interface Task {
   scheduledDate: string; // YYYY-MM-DD
   order: number;
   subtasks: SubTask[];
+  trackedMs: number; // cumulative milliseconds focused while timer was running
 }
 
 export interface SessionLog {
@@ -52,3 +53,27 @@ export interface HistoryEntry {
 }
 
 export type TaskDisposition = 'move-to-tomorrow' | 'mark-done' | 'discard';
+
+// ── Focus ─────────────────────────────────────────────────────────────────────
+
+export type FocusTarget =
+  | { kind: 'task'; id: string }
+  | { kind: 'goal'; id: string };
+
+// ── Goals ─────────────────────────────────────────────────────────────────────
+
+export type GoalType = 'boolean' | 'counter' | 'time'; // time values are ms
+export type GoalPeriod = 'daily' | 'weekly' | 'custom';
+
+export interface Goal {
+  id: string;
+  title: string;
+  type: GoalType;
+  period: GoalPeriod;
+  periodDays?: number;   // only when period === 'custom'
+  target: number;        // boolean: 1 | counter: N times | time: ms
+  deadline?: string;     // YYYY-MM-DD, optional
+  createdAt: number;
+  order: number;
+  progress: Record<string, number>; // periodKey → accumulated value
+}
