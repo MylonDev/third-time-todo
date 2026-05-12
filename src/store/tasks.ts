@@ -15,6 +15,7 @@ interface TasksState {
   deleteSubtask: (taskId: string, subtaskId: string) => void;
   editSubtask: (taskId: string, subtaskId: string, title: string) => void;
   rolloverPastTasks: () => void;
+  adjustTrackedMs: (id: string, deltaMs: number) => void;
 }
 
 export const useTasks = create<TasksState>()(
@@ -35,6 +36,7 @@ export const useTasks = create<TasksState>()(
               scheduledDate,
               order: s.tasks.filter((t) => t.scheduledDate === scheduledDate).length,
               subtasks: [],
+              trackedMs: 0,
             },
           ],
         })),
@@ -132,10 +134,19 @@ export const useTasks = create<TasksState>()(
           ),
         }));
       },
+
+      adjustTrackedMs: (id, deltaMs) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === id
+              ? { ...t, trackedMs: Math.max(0, (t.trackedMs ?? 0) + deltaMs) }
+              : t
+          ),
+        })),
     }),
     {
       name: 'tt-tasks',
-      version: 3,
+      version: 4,
       migrate: (persisted: unknown, version: number) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const state = persisted as { tasks?: any[] };
@@ -150,6 +161,15 @@ export const useTasks = create<TasksState>()(
               scheduledDate: t.scheduledDate ?? todayKey(),
               order: t.order ?? i,
               subtasks: t.subtasks ?? [],
+              trackedMs: 0,
+            })),
+          };
+        }
+        if (version < 4) {
+          return {
+            tasks: (state.tasks ?? []).map((t: any) => ({
+              ...t,
+              trackedMs: t.trackedMs ?? 0,
             })),
           };
         }
