@@ -11,12 +11,14 @@ interface SettingsState {
   theme: Theme;
   breakIncrements: number[]; // in minutes
   lastBreakMs: number | null; // in ms
+  checklistsCollapsed: boolean;
   setMode: (mode: Mode) => void;
   setLongWorkReminderMin: (min: number) => void;
   setSoundsEnabled: (enabled: boolean) => void;
   setTheme: (theme: Theme) => void;
   setBreakIncrements: (increments: number[]) => void;
   setLastBreakMs: (ms: number | null) => void;
+  setChecklistsCollapsed: (v: boolean) => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -28,16 +30,18 @@ export const useSettings = create<SettingsState>()(
       theme: 'system',
       breakIncrements: [5, 10],
       lastBreakMs: null,
+      checklistsCollapsed: false,
       setMode: (mode) => set({ mode }),
       setLongWorkReminderMin: (min) => set({ longWorkReminderMin: Math.max(15, min) }),
       setSoundsEnabled: (enabled) => set({ soundsEnabled: enabled }),
       setTheme: (theme) => set({ theme }),
       setBreakIncrements: (increments) => set({ breakIncrements: increments }),
       setLastBreakMs: (ms) => set({ lastBreakMs: ms }),
+      setChecklistsCollapsed: (v) => set({ checklistsCollapsed: v }),
     }),
     {
       name: 'tt-settings',
-      version: 2,
+      version: 3,
       migrate: (persisted: unknown, version: number) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const state = persisted as any;
@@ -47,7 +51,11 @@ export const useSettings = create<SettingsState>()(
             theme: state.darkMode ? 'dark' : 'light',
             breakIncrements: state.breakIncrements ?? [5, 10],
             lastBreakMs: state.lastBreakMs ?? null,
+            checklistsCollapsed: false,
           };
+        }
+        if (version < 3) {
+          return { ...state, checklistsCollapsed: false };
         }
         return state;
       },
