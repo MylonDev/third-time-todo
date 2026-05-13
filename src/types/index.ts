@@ -77,3 +77,23 @@ export interface Goal {
   order: number;
   progress: Record<string, number>; // periodKey → accumulated value
 }
+
+// ── Checklists ─────────────────────────────────────────────────────────────────
+
+export interface ChecklistItem {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
+export interface Checklist {
+  id: string;
+  title: string;
+  period: GoalPeriod;
+  periodDays?: number;
+  items: ChecklistItem[];
+  createdAt: number;
+  order: number;
+  lastResetKey?: string; // periodKey when items were last reset
+  snoozedUntil?: string; // YYYY-MM-DD; hide while today < this
+}

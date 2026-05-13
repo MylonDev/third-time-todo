@@ -4,6 +4,7 @@ import { BreakBank } from './components/BreakBank';
 import { SessionTimer } from './components/SessionTimer';
 import { TaskList } from './components/TaskList';
 import { GoalList } from './components/GoalList';
+import { ChecklistList } from './components/ChecklistList';
 import { RecentBlocks } from './components/RecentBlocks';
 import { StaleTaskAlert } from './components/StaleTaskAlert';
 import { ModeSelector } from './components/ModeSelector';
@@ -13,6 +14,7 @@ import { RestoreSessionModal } from './components/RestoreSessionModal';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
 import { useTasks } from './store/tasks';
+import { useChecklists } from './store/checklists';
 import { requestNotificationPermission } from './utils/notifications';
 
 
@@ -31,12 +33,14 @@ const item: Variants = {
 
 export default function App() {
   const { timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer, focusedItem, focusSegmentStart, setFocus } = useSession();
-  const { theme, mode } = useSettings();
+  const { theme, mode, checklistsCollapsed, setChecklistsCollapsed } = useSettings();
   const { rolloverPastTasks } = useTasks();
+  const { resetStaleChecklists } = useChecklists();
 
-  // Roll unfinished tasks from past days into today on every load
+  // Roll unfinished tasks from past days into today; reset checklist items whose period rolled over
   useEffect(() => {
     rolloverPastTasks();
+    resetStaleChecklists();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [showOptions, setShowOptions] = useState(false);
@@ -249,6 +253,38 @@ export default function App() {
         <motion.div variants={item}>
           <StaleTaskAlert />
         </motion.div>
+
+        {/* ── Checklists ───────────────────────────────────────── */}
+        <motion.section variants={item}>
+          <button
+            onClick={() => setChecklistsCollapsed(!checklistsCollapsed)}
+            className="flex items-center gap-1.5 mb-2 w-full text-left group"
+          >
+            <span
+              className="text-[13px] font-semibold uppercase tracking-wider"
+              style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-muted)' }}
+            >
+              Checklists
+            </span>
+            <span
+              className="text-xs transition-transform"
+              style={{ color: 'var(--color-text-muted)', display: 'inline-block', transform: checklistsCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+            >
+              ▾
+            </span>
+          </button>
+          {!checklistsCollapsed && (
+            <div
+              className="rounded-2xl border p-4"
+              style={{
+                background: 'var(--color-surface)',
+                borderColor: 'var(--color-border)',
+              }}
+            >
+              <ChecklistList />
+            </div>
+          )}
+        </motion.section>
 
         {/* ── Goals ────────────────────────────────────────────── */}
         <motion.section variants={item}>

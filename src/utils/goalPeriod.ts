@@ -1,4 +1,4 @@
-import type { Goal } from '../types';
+import type { Goal, GoalPeriod } from '../types';
 import { todayKey, daysSince, formatTimeLong } from './thirdTime';
 
 export function getWeekKey(date: Date): string {
@@ -13,13 +13,16 @@ export function getWeekKey(date: Date): string {
   ].join('-');
 }
 
-export function getCurrentPeriodKey(goal: Goal): string {
-  if (goal.period === 'daily') return todayKey();
-  if (goal.period === 'weekly') return getWeekKey(new Date());
-  // custom: window index since createdAt
-  const days = Math.floor(daysSince(goal.createdAt));
-  const windowIndex = Math.floor(days / (goal.periodDays ?? 1));
+export function getPeriodKey(period: GoalPeriod, periodDays: number | undefined, createdAt: number): string {
+  if (period === 'daily') return todayKey();
+  if (period === 'weekly') return getWeekKey(new Date());
+  const days = Math.floor(daysSince(createdAt));
+  const windowIndex = Math.floor(days / (periodDays ?? 1));
   return `custom-${windowIndex}`;
+}
+
+export function getCurrentPeriodKey(goal: Goal): string {
+  return getPeriodKey(goal.period, goal.periodDays, goal.createdAt);
 }
 
 export function getPeriodLabel(goal: Goal): string {
