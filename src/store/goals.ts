@@ -16,14 +16,14 @@ interface GoalsState {
   addGoal: (params: AddGoalParams) => void;
   updateGoal: (id: string, patch: Partial<Omit<Goal, 'id' | 'createdAt'>>) => void;
   deleteGoal: (id: string) => void;
-  reorderGoals: (activeId: string, overId: string) => void;
+  reorderGoals: (orderedIds: string[]) => void;
   commitTime: (goalId: string, periodKey: string, ms: number) => void;
   adjustProgress: (goalId: string, periodKey: string, delta: number) => void;
 }
 
 export const useGoals = create<GoalsState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       goals: [],
 
       addGoal: (params) =>
@@ -53,21 +53,13 @@ export const useGoals = create<GoalsState>()(
       deleteGoal: (id) =>
         set((s) => ({ goals: s.goals.filter((g) => g.id !== id) })),
 
-      reorderGoals: (activeId, overId) => {
-        const { goals } = get();
-        const active = goals.find((g) => g.id === activeId);
-        const over = goals.find((g) => g.id === overId);
-        if (!active || !over) return;
-        const activeOrder = active.order;
-        const overOrder = over.order;
-        set({
-          goals: goals.map((g) => {
-            if (g.id === activeId) return { ...g, order: overOrder };
-            if (g.id === overId) return { ...g, order: activeOrder };
-            return g;
+      reorderGoals: (orderedIds) =>
+        set((s) => ({
+          goals: s.goals.map((g) => {
+            const newOrder = orderedIds.indexOf(g.id);
+            return newOrder >= 0 ? { ...g, order: newOrder } : g;
           }),
-        });
-      },
+        })),
 
       commitTime: (goalId, periodKey, ms) =>
         set((s) => ({
