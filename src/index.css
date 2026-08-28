@@ -28,13 +28,13 @@
   --color-text:       #e8e8e8;
   --color-text-muted: rgba(232, 232, 232, 0.55); /* 5.1:1+ on every surface */
 
-  /* Modes are an ordinal heat ramp: pale -> hot as the ratio gets leaner.
-     Deliberately one hue family, and never green or red — those mean
-     earned rest and debt, and the mode must not be mistaken for either. */
-  --color-mode-half:        #fde68a; /* Easy   */
-  --color-mode-half-dim:    rgba(253, 230, 138, 0.12);
-  --color-mode-third:       #fbbf24; /* Medium */
-  --color-mode-third-dim:   rgba(251, 191, 36, 0.12);
+  /* Modes run cool -> hot as the ratio gets leaner. The Medium green sits
+     close to --color-rest; it is a saturated grass green against the rest
+     mint, so keep them apart if either is ever retuned. */
+  --color-mode-half:        #38bdf8; /* Easy   */
+  --color-mode-half-dim:    rgba(56, 189, 248, 0.12);
+  --color-mode-third:       #22c55e; /* Medium */
+  --color-mode-third-dim:   rgba(34, 197, 94, 0.12);
   --color-mode-quarter:     #fb923c; /* Hard   */
   --color-mode-quarter-dim: rgba(251, 146, 60, 0.12);
 
@@ -65,10 +65,10 @@
   --color-debt-dim:  rgba(220, 38, 38, 0.1);
   --color-text:       #111111;
   --color-text-muted: rgba(17, 17, 17, 0.62); /* 4.9:1+ on every surface */
-  --color-mode-half:        #a16207;
-  --color-mode-half-dim:    rgba(161, 98, 7, 0.10);
-  --color-mode-third:       #b45309;
-  --color-mode-third-dim:   rgba(180, 83, 9, 0.10);
+  --color-mode-half:        #0369a1;
+  --color-mode-half-dim:    rgba(3, 105, 161, 0.10);
+  --color-mode-third:       #15803d;
+  --color-mode-third-dim:   rgba(21, 128, 61, 0.10);
   --color-mode-quarter:     #c2410c;
   --color-mode-quarter-dim: rgba(194, 65, 12, 0.10);
   --color-danger:     #dc2626;

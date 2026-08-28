@@ -5,13 +5,13 @@ import { SessionTimer } from './components/SessionTimer';
 import { TaskList } from './components/TaskList';
 import { GoalList } from './components/GoalList';
 import { Activity } from './components/Activity';
-import { StaleTaskAlert } from './components/StaleTaskAlert';
 import { ModeSelector } from './components/ModeSelector';
 import { OptionsPanel } from './components/OptionsPanel';
 import { EndSessionModal } from './components/EndSessionModal';
 import { RestoreSessionModal } from './components/RestoreSessionModal';
 import { SessionBar } from './components/SessionBar';
 import { RoutinesModal } from './components/RoutinesModal';
+import { RoutinePanel } from './components/RoutinePanel';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
 import { useTasks } from './store/tasks';
@@ -165,7 +165,8 @@ export default function App() {
   // Status line under the Tasks heading — what the section is worth at a glance.
   const taskSummary = useMemo(() => {
     const today = todayKey();
-    const todays = tasks.filter((t) => t.scheduledDate === today);
+    // Routine steps have their own panel, so they are not counted here.
+    const todays = tasks.filter((t) => t.scheduledDate === today && !t.routineId);
     if (todays.length === 0) return '';
     const done = todays.filter((t) => t.status === 'done').length;
     const trackedMs = todays.reduce((a, t) => a + (t.trackedMs ?? 0), 0);
@@ -287,6 +288,17 @@ export default function App() {
           {/* ── Working column ─────────────────────────────────── */}
           <main className="order-2 lg:order-1 min-w-0 flex flex-col gap-5">
 
+            {/* Routines sit above Tasks as their own block — they recur, and
+                they are not part of the list you curate. */}
+            <motion.div variants={item}>
+              <RoutinePanel
+                focusedItem={focusedItem}
+                timerState={timerState}
+                focusSegmentStart={focusSegmentStart}
+                onSetFocus={setFocus}
+              />
+            </motion.div>
+
             {/* Tasks — the page's primary section */}
             <motion.section variants={item}>
               <div className="flex items-baseline gap-2.5 flex-wrap mb-2.5">
@@ -317,10 +329,6 @@ export default function App() {
               />
             </motion.section>
 
-            <motion.div variants={item}>
-              <StaleTaskAlert />
-            </motion.div>
-
             {/* Goals */}
             <motion.section variants={item}>
               <h2 className="section-label mb-2.5">Goals</h2>
@@ -349,7 +357,7 @@ export default function App() {
                     onClick={handleStart}
                     className="w-full px-5 py-2.5 rounded-xl font-bold text-sm transition-all"
                     style={{
-                      background: 'var(--color-mode-third)',
+                      background: `var(--color-mode-${mode})`,
                       color: 'var(--color-bg)',
                       fontFamily: 'var(--font-display)',
                       letterSpacing: '0.02em',

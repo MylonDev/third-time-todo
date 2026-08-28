@@ -12,7 +12,6 @@ interface TasksState {
   deleteTask: (id: string) => void;
   restoreTask: (task: Task) => void;
   moveToTomorrow: (id: string) => void;
-  prioritizeTask: (id: string) => void;
   reorderTasks: (orderedIds: string[]) => void;
   addSubtask: (taskId: string, title: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
@@ -135,24 +134,6 @@ export const useTasks = create<TasksState>()(
             t.id === id ? { ...t, scheduledDate: tomorrowKey() } : t
           ),
         })),
-
-      // Bring a task to the top of today and restart its staleness clock, so the
-      // stale banner stops nagging about something the user has just acted on.
-      prioritizeTask: (id) =>
-        set((s) => {
-          const today = todayKey();
-          const topOrder = Math.min(
-            0,
-            ...s.tasks.filter((t) => t.scheduledDate === today).map((t) => t.order)
-          );
-          return {
-            tasks: s.tasks.map((t) =>
-              t.id === id
-                ? { ...t, scheduledDate: today, order: topOrder - 1, acknowledgedAt: Date.now() }
-                : t
-            ),
-          };
-        }),
 
       reorderTasks: (orderedIds) =>
         set((s) => ({
@@ -312,12 +293,21 @@ export const useTasks = create<TasksState>()(
           ),
         })),
 
+      // Skipping has to remove the steps it already put in today's list —
+      // otherwise nothing visibly happens. Completed steps stay: they were done.
       snoozeRoutine: (id) =>
-        set((s) => ({
-          routines: s.routines.map((r) =>
-            r.id === id ? { ...r, snoozedUntil: tomorrowKey(), lastSpawnKey: undefined } : r
-          ),
-        })),
+        set((s) => {
+          const today = todayKey();
+          return {
+            routines: s.routines.map((r) =>
+              r.id === id ? { ...r, snoozedUntil: tomorrowKey(), lastSpawnKey: undefined } : r
+            ),
+            tasks: s.tasks.filter(
+              (t) =>
+                !(t.routineId === id && t.scheduledDate === today && t.status !== 'done')
+            ),
+          };
+        }),
 
       /**
        * Put today's routine items into today's list. Runs on load and at
