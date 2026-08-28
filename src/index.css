@@ -9,6 +9,8 @@
 
   /* Borders — slightly more visible for geometric clarity */
   --color-border:    rgba(255, 255, 255, 0.1);
+  /* Borders on interactive controls — must clear 3:1 against their surface */
+  --color-border-strong: rgba(255, 255, 255, 0.45);
 
   /* Accent — electric blue */
   --color-accent:     #4f8ef7;
@@ -24,24 +26,28 @@
 
   /* Text */
   --color-text:       #e8e8e8;
-  --color-text-muted: rgba(232, 232, 232, 0.38);
+  --color-text-muted: rgba(232, 232, 232, 0.55); /* 5.1:1+ on every surface */
 
-  /* Mode-specific colours: half=blue (easy), third=green (balanced), quarter=orange (hard) */
-  --color-mode-half:        #60a5fa;
-  --color-mode-half-dim:    rgba(96, 165, 250, 0.12);
-  --color-mode-third:       #4ade80;
-  --color-mode-third-dim:   rgba(74, 222, 128, 0.12);
-  --color-mode-quarter:     #fb923c;
+  /* Modes are an ordinal heat ramp: pale -> hot as the ratio gets leaner.
+     Deliberately one hue family, and never green or red — those mean
+     earned rest and debt, and the mode must not be mistaken for either. */
+  --color-mode-half:        #fde68a; /* Easy   */
+  --color-mode-half-dim:    rgba(253, 230, 138, 0.12);
+  --color-mode-third:       #fbbf24; /* Medium */
+  --color-mode-third-dim:   rgba(251, 191, 36, 0.12);
+  --color-mode-quarter:     #fb923c; /* Hard   */
   --color-mode-quarter-dim: rgba(251, 146, 60, 0.12);
 
   /* Danger */
   --color-danger:     #e05555;
   --color-danger-dim: rgba(224, 85, 85, 0.12);
 
-  /* Typography — full monospace */
-  --font-display: 'JetBrains Mono', monospace;
-  --font-body:    'JetBrains Mono', monospace;
-  --font-mono:    'JetBrains Mono', monospace;
+  /* Typography — a UI face carries the words, mono carries the numbers.
+     Plex Sans shares JetBrains Mono's mechanical humanism, so the two read
+     as one system while being unmistakably different at a glance. */
+  --font-display: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body:    'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 }
 
 /* ─── Light theme override ───────────────────────────────────── */
@@ -50,6 +56,7 @@
   --color-surface:   #ffffff;
   --color-surface-2: #ebebeb;
   --color-border:    rgba(0, 0, 0, 0.1);
+  --color-border-strong: rgba(0, 0, 0, 0.45);
   --color-accent:     #2563eb;
   --color-accent-dim: rgba(37, 99, 235, 0.12);
   --color-rest:      #059669;
@@ -57,13 +64,13 @@
   --color-debt:      #dc2626;
   --color-debt-dim:  rgba(220, 38, 38, 0.1);
   --color-text:       #111111;
-  --color-text-muted: rgba(17, 17, 17, 0.45);
-  --color-mode-half:        #2563eb;
-  --color-mode-half-dim:    rgba(37, 99, 235, 0.1);
-  --color-mode-third:       #16a34a;
-  --color-mode-third-dim:   rgba(22, 163, 74, 0.1);
-  --color-mode-quarter:     #ea580c;
-  --color-mode-quarter-dim: rgba(234, 88, 12, 0.1);
+  --color-text-muted: rgba(17, 17, 17, 0.62); /* 4.9:1+ on every surface */
+  --color-mode-half:        #a16207;
+  --color-mode-half-dim:    rgba(161, 98, 7, 0.10);
+  --color-mode-third:       #b45309;
+  --color-mode-third-dim:   rgba(180, 83, 9, 0.10);
+  --color-mode-quarter:     #c2410c;
+  --color-mode-quarter-dim: rgba(194, 65, 12, 0.10);
   --color-danger:     #dc2626;
   --color-danger-dim: rgba(220, 38, 38, 0.1);
 }
@@ -78,7 +85,8 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-size: 17px;
+  /* 106.25% of the reader's own default, rather than overriding it with a px value */
+  font-size: 106.25%;
 }
 
 body {
@@ -93,11 +101,43 @@ h1, h2, h3, h4 {
   font-family: var(--font-display);
 }
 
-/* ─── Utility: mono font for timer digits ─────────────────────── */
+/* ─── Focus ──────────────────────────────────────────────────────
+   Sits outside Tailwind's layers so it beats the `outline-none`
+   utility that every input in the app carries. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Section labels — quiet, so the content they name reads first ─────── */
+.section-label {
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* ─── Utility: mono for timer digits, and for figures set in running text ── */
 .font-timer {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+}
+
+/* Inline figures — durations, counts, ratios. Anything the eye compares
+   down a column belongs in mono with tabular figures. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.94em;
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────── */

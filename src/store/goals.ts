@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Goal, GoalType, GoalPeriod } from '../types';
+import { prunePeriods } from '../utils/goalPeriod';
 
 interface AddGoalParams {
   title: string;
@@ -47,7 +48,15 @@ export const useGoals = create<GoalsState>()(
 
       updateGoal: (id, patch) =>
         set((s) => ({
-          goals: s.goals.map((g) => (g.id === id ? { ...g, ...patch } : g)),
+          goals: s.goals.map((g) => {
+            if (g.id !== id) return g;
+            // Custom window keys are derived by counting days from the anchor, so
+            // changing the cadence would silently renumber every past window.
+            // Re-anchor instead: history keeps its keys, the new cadence starts now.
+            const cadenceChanged =
+              patch.periodDays !== undefined && patch.periodDays !== g.periodDays;
+            return { ...g, ...patch, ...(cadenceChanged ? { periodAnchor: Date.now() } : {}) };
+          }),
         })),
 
       deleteGoal: (id) =>
@@ -65,7 +74,13 @@ export const useGoals = create<GoalsState>()(
         set((s) => ({
           goals: s.goals.map((g) =>
             g.id === goalId
-              ? { ...g, progress: { ...g.progress, [periodKey]: (g.progress[periodKey] ?? 0) + ms } }
+              ? {
+                  ...g,
+                  progress: prunePeriods({
+                    ...g.progress,
+                    [periodKey]: (g.progress[periodKey] ?? 0) + ms,
+                  }),
+                }
               : g
           ),
         })),
@@ -78,7 +93,7 @@ export const useGoals = create<GoalsState>()(
             const next = g.type === 'boolean'
               ? Math.max(0, Math.min(1, current + delta))
               : Math.max(0, current + delta);
-            return { ...g, progress: { ...g.progress, [periodKey]: next } };
+            return { ...g, progress: prunePeriods({ ...g.progress, [periodKey]: next }) };
           }),
         })),
     }),

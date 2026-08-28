@@ -18,6 +18,8 @@ export interface Task {
   order: number;
   subtasks: SubTask[];
   trackedMs: number; // cumulative milliseconds focused while timer was running
+  acknowledgedAt?: number; // staleness is measured from here once the task is prioritised
+  routineId?: string;      // spawned from a routine; grouped under it in the list
 }
 
 export interface SessionLog {
@@ -71,6 +73,7 @@ export interface Goal {
   type: GoalType;
   period: GoalPeriod;
   periodDays?: number;   // only when period === 'custom'
+  periodAnchor?: number; // custom windows count from here; reset when periodDays changes
   target: number;        // boolean: 1 | counter: N times | time: ms
   deadline?: string;     // YYYY-MM-DD, optional
   createdAt: number;
@@ -78,22 +81,26 @@ export interface Goal {
   progress: Record<string, number>; // periodKey → accumulated value
 }
 
-// ── Checklists ─────────────────────────────────────────────────────────────────
+// ── Routines ───────────────────────────────────────────────────────────────────
 
-export interface ChecklistItem {
+/** A template line in a routine. It has no state — the spawned Task carries that. */
+export interface RoutineItem {
   id: string;
   title: string;
-  done: boolean;
 }
 
-export interface Checklist {
+/**
+ * A named group of recurring tasks. Each period turnover spawns one Task per
+ * item into today's list, tagged with `routineId` so the list can group them.
+ */
+export interface Routine {
   id: string;
   title: string;
   period: GoalPeriod;
   periodDays?: number;
-  items: ChecklistItem[];
+  items: RoutineItem[];
   createdAt: number;
   order: number;
-  lastResetKey?: string; // periodKey when items were last reset
-  snoozedUntil?: string; // YYYY-MM-DD; hide while today < this
+  lastSpawnKey?: string; // periodKey the items were last spawned for
+  snoozedUntil?: string; // YYYY-MM-DD; skip spawning while today < this
 }
