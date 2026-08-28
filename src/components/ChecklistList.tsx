@@ -4,6 +4,7 @@ import {
   closestCenter,
   PointerSensor,
   TouchSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -13,6 +14,7 @@ import {
   horizontalListSortingStrategy,
   verticalListSortingStrategy,
   useSortable,
+  sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useChecklists } from '../store/checklists';
@@ -65,6 +67,7 @@ function ChecklistMenu({
         className="w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-all opacity-60 hover:opacity-100 hover:bg-[var(--color-surface-2)]"
         style={{ color: 'var(--color-text-muted)' }}
         title="Actions"
+        aria-label="Checklist actions"
       >
         ⋯
       </button>
@@ -154,6 +157,7 @@ function SortableChecklistItem({
           className="touch-none cursor-grab active:cursor-grabbing opacity-30 hover:opacity-70 flex-shrink-0 text-xs"
           style={{ color: 'var(--color-text-muted)' }}
           tabIndex={-1}
+        aria-label={`Reorder ${item.title}`}
         >
           ⠿
         </button>
@@ -161,9 +165,12 @@ function SortableChecklistItem({
       {!modifyMode && (
         <button
           onClick={() => toggleItem(checklistId, item.id)}
+          role="checkbox"
+          aria-checked={item.done}
+          aria-label={item.title}
           className="w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center transition-all"
           style={{
-            borderColor: item.done ? 'var(--color-rest)' : 'var(--color-border)',
+            borderColor: item.done ? 'var(--color-rest)' : 'var(--color-border-strong)',
             background: item.done ? 'var(--color-rest)' : 'transparent',
           }}
         >
@@ -239,7 +246,9 @@ function ChecklistCard({
 
   const itemSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 2 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    // Reordering with the keyboard: focus a drag handle, space to lift, arrows to move.
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const handleItemDragEnd = (event: DragEndEvent) => {
@@ -293,6 +302,7 @@ function ChecklistCard({
             className="touch-none cursor-grab active:cursor-grabbing opacity-20 hover:opacity-50 mt-0.5 flex-shrink-0 text-xs"
             style={{ color: 'var(--color-text-muted)' }}
             tabIndex={-1}
+          aria-label={`Reorder ${checklist.title}`}
           >
             ⠿
           </button>
@@ -552,7 +562,9 @@ export function ChecklistList() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 2 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    // Reordering with the keyboard: focus a drag handle, space to lift, arrows to move.
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -604,6 +616,7 @@ export function ChecklistList() {
               disabled={clampedPage === 0}
               className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-opacity disabled:opacity-20"
               style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
+            aria-label="Previous checklist"
             >
               ‹
             </button>
@@ -625,6 +638,7 @@ export function ChecklistList() {
               disabled={clampedPage === totalPages - 1}
               className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-opacity disabled:opacity-20"
               style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
+            aria-label="Next checklist"
             >
               ›
             </button>
@@ -639,6 +653,8 @@ export function ChecklistList() {
             <button
               key={i}
               onClick={() => setPage(i)}
+              aria-label={`Show checklist ${i + 1} of ${totalPages}`}
+              aria-current={i === clampedPage}
               className="rounded-full transition-all"
               style={{
                 width: i === clampedPage ? '18px' : '6px',

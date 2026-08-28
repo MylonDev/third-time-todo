@@ -27,12 +27,23 @@ interface SessionStore {
   clearTimer: () => void;
   setClosedAt: (t: number | null) => void;
   setFocus: (target: FocusTarget | null) => void;
+  setFocusSegmentStart: (t: number | null) => void;
+  pruneFocus: () => void;
 
   getElapsedMs: () => number;
 }
 
 function freshDay(): DailyState {
   return { date: todayKey(), bankMs: 0, sessions: [] };
+}
+
+/** Only time goals accumulate focused time, so only they can be focused. */
+function isFocusable(target: FocusTarget): boolean {
+  if (target.kind === 'task') {
+    const task = useTasks.getState().tasks.find((t) => t.id === target.id);
+    return !!task && task.status !== 'done';
+  }
+  return useGoals.getState().goals.find((g) => g.id === target.id)?.type === 'time';
 }
 
 // Cross-store time attribution — called inside stopWork / setFocus
@@ -188,11 +199,19 @@ export const useSession = create<SessionStore>()(
         }),
 
       clearTimer: () =>
-        set({ timerState: 'idle', timerStart: null, sessionClosedAt: null }),
+        set({
+          timerState: 'idle',
+          timerStart: null,
+          sessionClosedAt: null,
+          focusSegmentStart: null,
+        }),
 
       setClosedAt: (t) => set({ sessionClosedAt: t }),
 
       setFocus: (target) => {
+        // Refuse targets that can never accrue time — focusing one would silently
+        // end the current segment and then record nothing.
+        if (target && !isFocusable(target)) return;
         const { timerState, focusedItem, focusSegmentStart } = get();
         // Commit elapsed time for the previously focused item before switching
         if (timerState === 'working' && focusedItem && focusSegmentStart) {
@@ -202,6 +221,19 @@ export const useSession = create<SessionStore>()(
           focusedItem: target,
           focusSegmentStart: timerState === 'working' ? Date.now() : null,
         });
+      },
+
+      // focusSegmentStart is never persisted, so it has to be re-established after a
+      // reload — otherwise the timer keeps running and stopWork commits nothing.
+      setFocusSegmentStart: (t) => set({ focusSegmentStart: t }),
+
+      // Drops a focus target that no longer exists or is no longer focusable
+      // (deleted task, goal retyped away from 'time'), which can survive a reload.
+      pruneFocus: () => {
+        const { focusedItem } = get();
+        if (focusedItem && !isFocusable(focusedItem)) {
+          set({ focusedItem: null, focusSegmentStart: null });
+        }
       },
     }),
     {
