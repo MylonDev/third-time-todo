@@ -133,6 +133,7 @@ export function SessionTimer() {
               setReminderDismissedAt(elapsed);
               firedReminder.current = false;
             }}
+          aria-label="Dismiss reminder"
           >
             ✕
           </button>

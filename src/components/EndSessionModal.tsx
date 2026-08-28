@@ -11,6 +11,8 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   mode: Mode;
+  /** Banked rest that ending the day will clear, sampled when the modal opened. */
+  bankToClear: number;
 }
 
 const DISPOSITION_LABELS: Record<TaskDisposition, string> = {
@@ -19,13 +21,15 @@ const DISPOSITION_LABELS: Record<TaskDisposition, string> = {
   discard: 'Discard',
 };
 
-export function EndSessionModal({ isOpen, onClose, mode }: Props) {
+export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
   const { endSession } = useSession();
   const { tasks, updateTask, deleteTask, moveToTomorrow } = useTasks();
 
   const [step, setStep] = useState<Step>('confirm');
   const [report, setReport] = useState<SessionReport | null>(null);
   const [dispositions, setDispositions] = useState<Record<string, TaskDisposition>>({});
+
+  const restToBeCleared = Math.max(0, bankToClear);
 
   useEffect(() => {
     if (!isOpen) {
@@ -59,6 +63,11 @@ export function EndSessionModal({ isOpen, onClose, mode }: Props) {
     if (unfinishedTasks.length === 0) {
       setStep('report');
     } else {
+      // Tomorrow is what almost always happens, so make it the default rather
+      // than asking for an explicit decision on every open task.
+      setDispositions(
+        Object.fromEntries(unfinishedTasks.map((t) => [t.id, 'move-to-tomorrow' as TaskDisposition]))
+      );
       setStep('disposition');
     }
   };
@@ -72,8 +81,6 @@ export function EndSessionModal({ isOpen, onClose, mode }: Props) {
     });
     setStep('report');
   };
-
-  const allDisposed = unfinishedTasks.every((t) => dispositions[t.id] !== undefined);
 
   const workBreakRatio =
     report && report.totalBreakMs > 0
@@ -104,11 +111,18 @@ export function EndSessionModal({ isOpen, onClose, mode }: Props) {
                 className="text-lg font-bold"
                 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}
               >
-                End this session?
+                End the day?
               </h2>
               <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                Your timer will be stopped and the day summarised.
+                Your timer stops and today is summarised and archived.
               </p>
+              {restToBeCleared > 0 && (
+                <p className="text-sm mt-2" style={{ color: 'var(--color-debt)' }}>
+                  Your banked rest of{' '}
+                  <span className="font-timer font-bold">{formatTimeLong(restToBeCleared)}</span>{' '}
+                  will be cleared. Take it before you end the day if you want it.
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
               <button
@@ -116,7 +130,7 @@ export function EndSessionModal({ isOpen, onClose, mode }: Props) {
                 className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors"
                 style={{ background: 'var(--color-accent)', color: '#fff' }}
               >
-                End Session
+                End the Day
               </button>
               <button
                 onClick={onClose}
@@ -144,7 +158,7 @@ export function EndSessionModal({ isOpen, onClose, mode }: Props) {
                 Unfinished tasks
               </h2>
               <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                What should happen to these?
+                All set to move to tomorrow. Change any you want handled differently.
               </p>
             </div>
             <ul className="flex flex-col gap-3 max-h-64 overflow-y-auto">
@@ -190,11 +204,10 @@ export function EndSessionModal({ isOpen, onClose, mode }: Props) {
             </ul>
             <button
               onClick={handleApplyDispositions}
-              disabled={!allDisposed}
-              className="py-2.5 rounded-xl font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="py-2.5 rounded-xl font-semibold text-sm transition-colors"
               style={{ background: 'var(--color-accent)', color: '#fff' }}
             >
-              Continue to Report
+              Apply and continue
             </button>
           </>
         )}
