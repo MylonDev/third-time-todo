@@ -10,6 +10,7 @@ import {
 } from '@dnd-kit/core';
 import {
   SortableContext,
+  arrayMove,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
@@ -673,7 +674,9 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      reorderTasks(String(active.id), String(over.id));
+      const oldIndex = activeTasks.findIndex((t) => t.id === active.id);
+      const newIndex = activeTasks.findIndex((t) => t.id === over.id);
+      reorderTasks(arrayMove(activeTasks, oldIndex, newIndex).map((t) => t.id));
     }
   };
 
