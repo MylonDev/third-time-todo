@@ -26,8 +26,8 @@ export function ModeSelector({ locked = false }: Props) {
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* Pills row — equal-width buttons */}
-      <div className="flex gap-1.5 items-center">
+      {/* Pills row — equal columns that shrink rather than overflow on narrow screens */}
+      <div className="grid grid-cols-3 gap-1.5 items-center">
         {MODES.map((m) => {
           const cfg = MODE_CONFIG[m];
           const colors = MODE_COLORS[m];
@@ -39,7 +39,8 @@ export function ModeSelector({ locked = false }: Props) {
               onClick={() => !locked && setMode(m)}
               onMouseEnter={() => !locked && setHovered(m)}
               onMouseLeave={() => setHovered(null)}
-              className="relative flex flex-col items-center min-w-[7rem] px-3 py-2 rounded-xl text-sm font-semibold transition-all select-none"
+              aria-pressed={isActive}
+              className="relative flex flex-col items-center min-w-0 px-3 py-2 rounded-xl text-sm font-semibold transition-all select-none"
               style={
                 isActive
                   ? {
@@ -60,7 +61,7 @@ export function ModeSelector({ locked = false }: Props) {
               <span className="whitespace-nowrap" style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>
                 {cfg.label}
               </span>
-              <span className="text-xs font-normal mt-0.5" style={{ opacity: 0.65 }}>
+              <span className="num text-xs font-normal mt-0.5" style={{ opacity: 0.75 }}>
                 1:{cfg.ratio}
               </span>
               {isActive && locked && (

@@ -4,6 +4,7 @@ import {
   closestCenter,
   PointerSensor,
   TouchSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -12,6 +13,7 @@ import {
   SortableContext,
   arrayMove,
   useSortable,
+  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -21,7 +23,6 @@ import {
   getPeriodLabel,
   getProgressForPeriod,
   formatGoalProgress,
-  formatGoalTarget,
 } from '../utils/goalPeriod';
 import type { FocusTarget, Goal, GoalPeriod, GoalType } from '../types';
 
@@ -55,6 +56,7 @@ function GoalMenu({
         className="w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-all opacity-60 hover:opacity-100 hover:bg-[var(--color-surface-2)]"
         style={{ color: 'var(--color-text-muted)' }}
         title="Actions"
+        aria-label="Goal actions"
       >
         ⋯
       </button>
@@ -150,8 +152,13 @@ function GoalCard({
     ? Math.min(100, (liveValue / goal.target) * 100)
     : liveValue >= 1 ? 100 : 0;
 
+  // Only time goals accrue focused time, so only they are focusable — focusing any
+  // other type would end the running segment and then record nothing.
+  const canFocus = goal.type === 'time';
+
   // Click anywhere on the card (not on a button/input) to toggle focus
   const handleCardClick = (e: React.MouseEvent) => {
+    if (!canFocus) return;
     if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
     onSetFocus(isFocused ? null : { kind: 'goal', id: goal.id });
   };
@@ -193,12 +200,12 @@ function GoalCard({
         background: 'var(--color-surface-2)',
         borderColor: 'var(--color-rest)',
         opacity: 0.8,
-        cursor: 'pointer',
+        cursor: canFocus ? 'pointer' : 'default',
       }
     : {
         background: 'var(--color-surface)',
         borderColor: 'var(--color-border)',
-        cursor: 'pointer',
+        cursor: canFocus ? 'pointer' : 'default',
       };
 
   return (
@@ -216,6 +223,7 @@ function GoalCard({
           className="mt-1 flex-shrink-0 touch-none cursor-grab active:cursor-grabbing opacity-20 hover:opacity-60 transition-opacity"
           style={{ color: 'var(--color-text-muted)' }}
           title="Drag to reorder"
+          aria-label={`Reorder ${goal.title}`}
         >
           ⠿
         </button>
@@ -263,7 +271,7 @@ function GoalCard({
             <>
               {/* Title row */}
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-sm" style={{ color: complete ? 'var(--color-text-muted)' : 'var(--color-text)' }}>
+                <span className="text-[15px] font-medium leading-snug" style={{ color: complete ? 'var(--color-text-muted)' : 'var(--color-text)' }}>
                   {goal.title}
                 </span>
                 {isFocused && (
@@ -308,16 +316,18 @@ function GoalCard({
                       onClick={(e) => { e.stopPropagation(); adjustProgress(goal.id, periodKey, -1); }}
                       className="w-6 h-6 rounded flex items-center justify-center text-sm font-bold transition-opacity hover:opacity-80"
                       style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
+                    aria-label={`Decrease ${goal.title}`}
                     >
                       −
                     </button>
-                    <span className="text-sm font-semibold min-w-[60px] text-center" style={{ color: complete ? 'var(--color-rest)' : 'var(--color-text)' }}>
+                    <span className="num text-sm font-semibold min-w-[60px] text-center" style={{ color: complete ? 'var(--color-rest)' : 'var(--color-text)' }}>
                       {liveValue} / {goal.target}
                     </span>
                     <button
                       onClick={(e) => { e.stopPropagation(); adjustProgress(goal.id, periodKey, 1); }}
                       className="w-6 h-6 rounded flex items-center justify-center text-sm font-bold transition-opacity hover:opacity-80"
                       style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
+                    aria-label={`Increase ${goal.title}`}
                     >
                       +
                     </button>
@@ -325,7 +335,7 @@ function GoalCard({
                 ) : (
                   // time goal
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold" style={{ color: complete ? 'var(--color-rest)' : isFocused && timerState === 'working' ? 'var(--color-accent)' : 'var(--color-text)' }}>
+                    <span className="num text-sm font-semibold" style={{ color: complete ? 'var(--color-rest)' : isFocused && timerState === 'working' ? 'var(--color-accent)' : 'var(--color-text)' }}>
                       {formatGoalProgress(goal, liveValue)}
                     </span>
                     {showTimeEdit && (
@@ -366,11 +376,6 @@ function GoalCard({
                   </div>
                 )}
 
-                <div className="mt-0.5">
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Target: {formatGoalTarget(goal)} {getPeriodLabel(goal).toLowerCase()}
-                  </span>
-                </div>
               </div>
             </>
           )}
@@ -583,7 +588,9 @@ export function GoalList({ focusedItem, timerState, focusSegmentStart, onSetFocu
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 2 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    // Reordering with the keyboard: focus a drag handle, space to lift, arrows to move.
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
