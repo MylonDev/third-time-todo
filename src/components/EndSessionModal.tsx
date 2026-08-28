@@ -63,6 +63,11 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
     if (unfinishedTasks.length === 0) {
       setStep('report');
     } else {
+      // Tomorrow is what almost always happens, so make it the default rather
+      // than asking for an explicit decision on every open task.
+      setDispositions(
+        Object.fromEntries(unfinishedTasks.map((t) => [t.id, 'move-to-tomorrow' as TaskDisposition]))
+      );
       setStep('disposition');
     }
   };
@@ -76,8 +81,6 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
     });
     setStep('report');
   };
-
-  const allDisposed = unfinishedTasks.every((t) => dispositions[t.id] !== undefined);
 
   const workBreakRatio =
     report && report.totalBreakMs > 0
@@ -155,7 +158,7 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
                 Unfinished tasks
               </h2>
               <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                What should happen to these?
+                All set to move to tomorrow. Change any you want handled differently.
               </p>
             </div>
             <ul className="flex flex-col gap-3 max-h-64 overflow-y-auto">
@@ -201,11 +204,10 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
             </ul>
             <button
               onClick={handleApplyDispositions}
-              disabled={!allDisposed}
-              className="py-2.5 rounded-xl font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="py-2.5 rounded-xl font-semibold text-sm transition-colors"
               style={{ background: 'var(--color-accent)', color: '#fff' }}
             >
-              Continue to Report
+              Apply and continue
             </button>
           </>
         )}

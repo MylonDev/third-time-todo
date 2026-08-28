@@ -11,14 +11,14 @@ interface SettingsState {
   theme: Theme;
   breakIncrements: number[]; // in minutes
   lastBreakMs: number | null; // in ms
-  checklistsCollapsed: boolean;
+  staleAlertDismissedOn: string | null; // YYYY-MM-DD
   setMode: (mode: Mode) => void;
   setLongWorkReminderMin: (min: number) => void;
   setSoundsEnabled: (enabled: boolean) => void;
   setTheme: (theme: Theme) => void;
   setBreakIncrements: (increments: number[]) => void;
   setLastBreakMs: (ms: number | null) => void;
-  setChecklistsCollapsed: (v: boolean) => void;
+  setStaleAlertDismissedOn: (day: string | null) => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -30,32 +30,36 @@ export const useSettings = create<SettingsState>()(
       theme: 'system',
       breakIncrements: [5, 10],
       lastBreakMs: null,
-      checklistsCollapsed: false,
+      staleAlertDismissedOn: null,
       setMode: (mode) => set({ mode }),
       setLongWorkReminderMin: (min) => set({ longWorkReminderMin: Math.max(15, min) }),
       setSoundsEnabled: (enabled) => set({ soundsEnabled: enabled }),
       setTheme: (theme) => set({ theme }),
       setBreakIncrements: (increments) => set({ breakIncrements: increments }),
       setLastBreakMs: (ms) => set({ lastBreakMs: ms }),
-      setChecklistsCollapsed: (v) => set({ checklistsCollapsed: v }),
+      setStaleAlertDismissedOn: (day) => set({ staleAlertDismissedOn: day }),
     }),
     {
       name: 'tt-settings',
-      version: 3,
+      version: 5,
       migrate: (persisted: unknown, version: number) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const state = persisted as any;
+        let state = persisted as any;
         if (version < 2) {
           return {
             ...state,
             theme: state.darkMode ? 'dark' : 'light',
             breakIncrements: state.breakIncrements ?? [5, 10],
             lastBreakMs: state.lastBreakMs ?? null,
-            checklistsCollapsed: false,
-          };
+                };
         }
-        if (version < 3) {
-          return { ...state, checklistsCollapsed: false };
+        if (version < 4) {
+          state = { ...state, staleAlertDismissedOn: null };
+        }
+        if (version < 5) {
+          // Checklists became routines; the collapse flag has no section to hide.
+          delete state.checklistsCollapsed;
+          return state;
         }
         return state;
       },

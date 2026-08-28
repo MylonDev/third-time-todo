@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { formatTimeLong } from '../utils/thirdTime';
+import { formatTimeLong, formatDuration } from '../utils/thirdTime';
 
 interface Props {
   timerState: 'working' | 'on-break';
@@ -20,6 +20,11 @@ export function RestoreSessionModal({
 }: Props) {
   const isWorking = timerState === 'working';
 
+  // "Resume" credits the whole gap as active time, which at 1:3 mints real break
+  // out of thin air. Past half an hour that is never what happened, so don't offer it.
+  const RESUME_LIMIT_MS = 30 * 60_000;
+  const canResume = timeAway <= RESUME_LIMIT_MS;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <motion.div
@@ -37,7 +42,7 @@ export function RestoreSessionModal({
             className="text-lg font-bold"
             style={{ color: 'var(--color-text)' }}
           >
-            Session Restored
+            Pick up your session
           </h2>
           <p className="text-sm mt-1.5" style={{ color: 'var(--color-text-muted)' }}>
             You were{' '}
@@ -48,24 +53,31 @@ export function RestoreSessionModal({
             {timeAway > 0 && (
               <> You&apos;ve been away for{' '}
                 <span style={{ color: 'var(--color-text)' }}>
-                  {formatTimeLong(timeAway)}
+                  {formatDuration(timeAway)}
                 </span>.
+              </>
+            )}
+            {!canResume && (
+              <> That&apos;s too long to count as active time, so pick up where you left
+                off or start fresh.
               </>
             )}
           </p>
         </div>
 
         <div className="flex flex-col gap-2">
-          <button
-            onClick={onResume}
-            className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all"
-            style={{
-              background: 'var(--color-accent)',
-              color: 'var(--color-bg)',
-            }}
-          >
-            Resume — count time away as {isWorking ? 'active time' : 'rest taken'}
-          </button>
+          {canResume && (
+            <button
+              onClick={onResume}
+              className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all"
+              style={{
+                background: 'var(--color-accent)',
+                color: 'var(--color-bg)',
+              }}
+            >
+              Resume — count time away as {isWorking ? 'active time' : 'rest taken'}
+            </button>
+          )}
           <button
             onClick={onContinue}
             className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all border"

@@ -86,7 +86,7 @@ export const useSession = create<SessionStore>()(
           unusedRestMs: Math.max(0, daily.bankMs),
           sessions: daily.sessions,
         };
-        const updated = [entry, ...history.filter((h) => h.date !== entry.date)].slice(0, 15);
+        const updated = [entry, ...history.filter((h) => h.date !== entry.date)].slice(0, 30);
         set({ history: updated });
       },
 

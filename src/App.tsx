@@ -1,22 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
 import { BreakBank } from './components/BreakBank';
 import { SessionTimer } from './components/SessionTimer';
 import { TaskList } from './components/TaskList';
 import { GoalList } from './components/GoalList';
-import { ChecklistList } from './components/ChecklistList';
-import { RecentBlocks } from './components/RecentBlocks';
+import { Activity } from './components/Activity';
 import { StaleTaskAlert } from './components/StaleTaskAlert';
 import { ModeSelector } from './components/ModeSelector';
 import { OptionsPanel } from './components/OptionsPanel';
 import { EndSessionModal } from './components/EndSessionModal';
 import { RestoreSessionModal } from './components/RestoreSessionModal';
+import { SessionBar } from './components/SessionBar';
+import { RoutinesModal } from './components/RoutinesModal';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
 import { useTasks } from './store/tasks';
-import { useChecklists } from './store/checklists';
 import { requestNotificationPermission } from './utils/notifications';
-import { earnBreak } from './utils/thirdTime';
+import { earnBreak, formatDuration, todayKey } from './utils/thirdTime';
 
 
 // Animation variants for staggered section entrance
@@ -37,19 +37,20 @@ export default function App() {
     timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer,
     focusedItem, focusSegmentStart, setFocus, setFocusSegmentStart, pruneFocus,
   } = useSession();
-  const { theme, mode, checklistsCollapsed, setChecklistsCollapsed } = useSettings();
-  const { rolloverPastTasks } = useTasks();
-  const { resetStaleChecklists } = useChecklists();
+  const { theme, mode } = useSettings();
+  const { rolloverPastTasks, tasks, spawnDueRoutines } = useTasks();
 
-  // Roll unfinished tasks from past days into today; reset checklist items whose period rolled over
+  // Roll unfinished tasks from past days into today, then add anything the
+  // routines owe today.
   useEffect(() => {
     rolloverPastTasks();
-    resetStaleChecklists();
+    spawnDueRoutines();
     pruneFocus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [showOptions, setShowOptions] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [showRoutines, setShowRoutines] = useState(false);
   const [bankToClear, setBankToClear] = useState(0);
 
   // Sample the bank as the modal opens so it can warn about what ending the day
@@ -73,18 +74,37 @@ export default function App() {
     return state.timerState !== 'idle';
   });
 
-  // Warn before close/navigate when a session is active; record close time for restore
+  // Record when the page went away so the session can be restored. `pagehide`
+  // and `visibilitychange` fire reliably on mobile, where `beforeunload` does
+  // not — and neither of them raises a "Leave site?" dialog on every close.
   useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (timerState !== 'idle') {
+    const record = () => {
+      if (useSession.getState().timerState !== 'idle') {
         useSession.getState().setClosedAt(Date.now());
-        e.preventDefault();
-        e.returnValue = '';
       }
     };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [timerState]);
+    const onVisibility = () => { if (document.visibilityState === 'hidden') record(); };
+    window.addEventListener('pagehide', record);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', record);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+
+  // A tab left open across midnight keeps yesterday's task list and checklist
+  // ticks, because rollover only runs on mount. Re-run it as the day turns.
+  const [dayKey, setDayKey] = useState(() => todayKey());
+  useEffect(() => {
+    const next = new Date();
+    next.setHours(24, 0, 0, 500);
+    const id = setTimeout(() => {
+      rolloverPastTasks();
+      spawnDueRoutines();
+      setDayKey(todayKey());
+    }, next.getTime() - Date.now());
+    return () => clearTimeout(id);
+  }, [dayKey, rolloverPastTasks, spawnDueRoutines]);
 
   // Restore handlers
   const [restoreModalDismissed, setRestoreModalDismissed] = useState(false);
@@ -142,13 +162,42 @@ export default function App() {
   const sessionActive = timerState !== 'idle';
   const isLocked = sessionActive;
 
+  // Status line under the Tasks heading — what the section is worth at a glance.
+  const taskSummary = useMemo(() => {
+    const today = todayKey();
+    const todays = tasks.filter((t) => t.scheduledDate === today);
+    if (todays.length === 0) return '';
+    const done = todays.filter((t) => t.status === 'done').length;
+    const trackedMs = todays.reduce((a, t) => a + (t.trackedMs ?? 0), 0);
+    const parts = [`${done} of ${todays.length} done`];
+    if (trackedMs > 0) parts.push(`${formatDuration(trackedMs)} tracked`);
+    return parts.join(' · ');
+  // dayKey re-derives the summary when the date rolls over under an open tab
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, dayKey]);
+
+  // Watch a sentinel below the session panels: once it scrolls out of view the
+  // compact bar takes over, so the clock is never more than a glance away.
+  const sessionSentinelRef = useRef<HTMLDivElement>(null);
+  const [sessionScrolledAway, setSessionScrolledAway] = useState(false);
+  useEffect(() => {
+    const el = sessionSentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setSessionScrolledAway(!entry.isIntersecting && entry.boundingClientRect.top < 0),
+      { threshold: 0 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
     <div
       className="min-h-screen py-8 px-4"
       style={{ background: 'transparent' /* body handles bg */ }}
     >
       <motion.div
-        className="max-w-2xl mx-auto flex flex-col gap-5"
+        className="mx-auto w-full max-w-[760px] lg:max-w-[1160px] flex flex-col gap-5"
         variants={container}
         initial="hidden"
         animate="show"
@@ -230,146 +279,122 @@ export default function App() {
           </div>
         </motion.header>
 
-        {/* ── Session Controls Row ─────────────────────────────── */}
-        <motion.div
-          variants={item}
-          className="flex items-center gap-3 flex-wrap"
-        >
-          <ModeSelector locked={isLocked} />
-          <AnimatePresence>
-            {!sessionActive && (
-              <motion.button
-                key="start"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.15 }}
-                onClick={handleStart}
-                className="px-5 py-2 rounded-xl font-bold text-sm transition-all ml-auto"
-                style={{
-                  background: 'var(--color-mode-third)',
-                  color: 'var(--color-bg)',
-                  fontFamily: 'var(--font-display)',
-                  letterSpacing: '0.02em',
-                }}
-              >
-                Start →
-              </motion.button>
-            )}
-          </AnimatePresence>
-        </motion.div>
+        {/* Everything below the header splits into a working column and a
+            session rail on wide screens. On narrow screens the rail comes
+            first, so the clock and the mode picker stay above the lists. */}
+        <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start gap-5">
 
-        {/* ── Timer Panels (only when active) ──────────────────── */}
-        <AnimatePresence>
-          {sessionActive && (
-            <motion.div
-              key="timer-panels"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="overflow-hidden"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <SessionTimer />
-                <BreakBank />
+          {/* ── Working column ─────────────────────────────────── */}
+          <main className="order-2 lg:order-1 min-w-0 flex flex-col gap-5">
+
+            {/* Tasks — the page's primary section */}
+            <motion.section variants={item}>
+              <div className="flex items-baseline gap-2.5 flex-wrap mb-2.5">
+                <h2
+                  className="text-[15px] font-semibold"
+                  style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}
+                >
+                  Tasks
+                </h2>
+                {taskSummary && (
+                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    {taskSummary}
+                  </span>
+                )}
+                <button
+                  onClick={() => setShowRoutines(true)}
+                  className="ml-auto text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
+                  style={{ color: 'var(--color-accent)' }}
+                >
+                  Routines
+                </button>
               </div>
+              <TaskList
+                focusedItem={focusedItem}
+                timerState={timerState}
+                focusSegmentStart={focusSegmentStart}
+                onSetFocus={setFocus}
+              />
+            </motion.section>
+
+            <motion.div variants={item}>
+              <StaleTaskAlert />
             </motion.div>
-          )}
-        </AnimatePresence>
 
-        {/* ── Stale Task Alert ─────────────────────────────────── */}
+            {/* Goals */}
+            <motion.section variants={item}>
+              <h2 className="section-label mb-2.5">Goals</h2>
+              <GoalList
+                focusedItem={focusedItem}
+                timerState={timerState}
+                focusSegmentStart={focusSegmentStart}
+                onSetFocus={setFocus}
+              />
+            </motion.section>
+
+          </main>
+
+          {/* ── Session rail ───────────────────────────────────── */}
+          <aside className="order-1 lg:order-2 min-w-0 flex flex-col gap-4 lg:sticky lg:top-6">
+            <motion.div variants={item} className="flex flex-col gap-3">
+              <ModeSelector locked={isLocked} />
+              <AnimatePresence>
+                {!sessionActive && (
+                  <motion.button
+                    key="start"
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                    onClick={handleStart}
+                    className="w-full px-5 py-2.5 rounded-xl font-bold text-sm transition-all"
+                    style={{
+                      background: 'var(--color-mode-third)',
+                      color: 'var(--color-bg)',
+                      fontFamily: 'var(--font-display)',
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    Start →
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            <AnimatePresence>
+              {sessionActive && (
+                <motion.div
+                  key="timer-panels"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+                    <SessionTimer />
+                    <BreakBank />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Sentinel: once this scrolls past, the compact bar takes over */}
+            <div ref={sessionSentinelRef} aria-hidden="true" className="h-px -mt-4" />
+          </aside>
+        </div>
+
+        {/* Activity spans the full width — it is a chart, not a sidebar widget,
+            and it belongs at the end of the page on every breakpoint. */}
         <motion.div variants={item}>
-          <StaleTaskAlert />
-        </motion.div>
-
-        {/* ── Checklists ───────────────────────────────────────── */}
-        <motion.section variants={item}>
-          <button
-            onClick={() => setChecklistsCollapsed(!checklistsCollapsed)}
-            aria-expanded={!checklistsCollapsed}
-            className="flex items-center gap-1.5 mb-2 w-full text-left group"
-          >
-            <span
-              className="text-[13px] font-semibold uppercase tracking-wider"
-              style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-muted)' }}
-            >
-              Checklists
-            </span>
-            <span
-              className="text-xs transition-transform"
-              style={{ color: 'var(--color-text-muted)', display: 'inline-block', transform: checklistsCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
-            >
-              ▾
-            </span>
-          </button>
-          {!checklistsCollapsed && (
-            <div
-              className="rounded-2xl border p-4"
-              style={{
-                background: 'var(--color-surface)',
-                borderColor: 'var(--color-border)',
-              }}
-            >
-              <ChecklistList />
-            </div>
-          )}
-        </motion.section>
-
-        {/* ── Goals ────────────────────────────────────────────── */}
-        <motion.section variants={item}>
-          <div
-            className="text-[13px] font-semibold uppercase tracking-wider mb-2"
-            style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-muted)' }}
-          >
-            Goals
-          </div>
-          <div
-            className="rounded-2xl border p-4"
-            style={{
-              background: 'var(--color-surface)',
-              borderColor: 'var(--color-border)',
-            }}
-          >
-            <GoalList
-              focusedItem={focusedItem}
-              timerState={timerState}
-              focusSegmentStart={focusSegmentStart}
-              onSetFocus={setFocus}
-            />
-          </div>
-        </motion.section>
-
-        {/* ── Tasks ────────────────────────────────────────────── */}
-        <motion.section variants={item}>
-          <div
-            className="text-[13px] font-semibold uppercase tracking-wider mb-2"
-            style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-muted)' }}
-          >
-            Tasks
-          </div>
-          <div
-            className="rounded-2xl border p-4"
-            style={{
-              background: 'var(--color-surface)',
-              borderColor: 'var(--color-border)',
-            }}
-          >
-            <TaskList
-              focusedItem={focusedItem}
-              timerState={timerState}
-              focusSegmentStart={focusSegmentStart}
-              onSetFocus={setFocus}
-            />
-          </div>
-        </motion.section>
-
-        {/* ── Recent Blocks ────────────────────────────────────── */}
-        <motion.div variants={item}>
-          <RecentBlocks />
+          <Activity />
         </motion.div>
 
       </motion.div>
+
+      <SessionBar visible={sessionScrolledAway} />
+
+      <RoutinesModal isOpen={showRoutines} onClose={() => setShowRoutines(false)} />
 
       {/* ── Overlays ─────────────────────────────────────────── */}
       <OptionsPanel isOpen={showOptions} onClose={() => setShowOptions(false)} />
