@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from '../store/session';
 import { earnBreak, formatDuration, todayKey } from '../utils/thirdTime';
+import { RoutineAdherence } from './RoutineAdherence';
 import type { HistoryEntry, SessionLog } from '../types';
 
 const DAYS = 14;
@@ -117,6 +118,7 @@ export function Activity() {
   const { daily, history, timerState } = useSession();
   const today = todayKey();
   const [selected, setSelected] = useState<string | null>(null);
+  const [tab, setTab] = useState<'sessions' | 'routines'>('sessions');
 
   const days: Day[] = useMemo(() => {
     const byDate = new Map<string, HistoryEntry>();
@@ -170,32 +172,56 @@ export function Activity() {
       style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
     >
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
-        <div className="flex items-baseline gap-2.5 flex-wrap">
-          <h2 className="section-label">Activity · last {DAYS} days</h2>
-          {meanMs > 0 && (
-            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              averaging <span className="num font-semibold">{formatDuration(meanMs)}</span> a day
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {legend.map(({ color, label }) => (
-            <span key={label} className="flex items-center gap-1.5">
-              <span className="inline-block w-2 h-2 rounded-full" style={{ background: color }} />
-              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                {label}
-              </span>
-            </span>
+        <div className="flex items-center gap-1" role="tablist" aria-label="Activity views">
+          {([
+            ['sessions', 'Sessions'],
+            ['routines', 'Routines'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              role="tab"
+              aria-selected={tab === value}
+              onClick={() => setTab(value)}
+              className="section-label px-2 py-1 rounded-lg transition-colors"
+              style={
+                tab === value
+                  ? { background: 'var(--color-surface-2)', color: 'var(--color-text)' }
+                  : { background: 'transparent' }
+              }
+            >
+              {label}
+            </button>
           ))}
         </div>
+        {tab === 'sessions' ? (
+          <div className="flex items-center gap-3">
+            {legend.map(({ color, label }) => (
+              <span key={label} className="flex items-center gap-1.5">
+                <span className="inline-block w-2 h-2 rounded-full" style={{ background: color }} />
+                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  {label}
+                </span>
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
 
-      {!hasData ? (
+      {tab === 'routines' ? (
+        <RoutineAdherence />
+      ) : !hasData ? (
         <p className="text-sm text-center py-8" style={{ color: 'var(--color-text-muted)' }}>
           Start a session and your days will appear here.
         </p>
       ) : (
         <>
+          <p className="text-xs -mt-1" style={{ color: 'var(--color-text-muted)' }}>
+            Last <span className="num">{DAYS}</span> days
+            {meanMs > 0 && (
+              <>, averaging <span className="num font-semibold">{formatDuration(meanMs)}</span> a day</>
+            )}
+          </p>
+
           {/* ── Columns, with the mean drawn inside the plot ─────────────── */}
           <div className="relative" style={{ height: PLOT_HEIGHT }}>
             {meanMs > 0 && (
