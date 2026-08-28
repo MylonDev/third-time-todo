@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useTasks } from '../store/tasks';
-import { todayKey, formatTimeLong } from '../utils/thirdTime';
+import { useTasks, usePendingRoutines } from '../store/tasks';
+import { formatTimeLong } from '../utils/thirdTime';
 import type { FocusTarget, Routine, Task } from '../types';
 
 function periodLabel(routine: Routine): string {
@@ -104,21 +104,17 @@ interface Props {
  * moment it is finished — the next one then takes its place on its own.
  */
 export function RoutinePanel({ focusedItem, timerState, focusSegmentStart, onSetFocus }: Props) {
-  const { tasks, routines, updateTask, snoozeRoutine } = useTasks();
+  const { updateTask, snoozeRoutine } = useTasks();
   const [index, setIndex] = useState(0);
+  const pending = usePendingRoutines();
 
-  const today = todayKey();
-  const pending = [...routines]
-    .sort((a, b) => a.order - b.order)
-    .map((routine) => ({
-      routine,
-      steps: tasks
-        .filter((t) => t.routineId === routine.id && t.scheduledDate === today)
-        .sort((a, b) => a.order - b.order),
-    }))
-    .filter(({ steps }) => steps.length > 0 && steps.some((t) => t.status !== 'done'));
-
-  if (pending.length === 0) return null;
+  if (pending.length === 0) {
+    return (
+      <p className="text-sm py-1" style={{ color: 'var(--color-text-muted)' }}>
+        Nothing outstanding — your routines come back next period.
+      </p>
+    );
+  }
 
   // The list shrinks as routines are finished, so clamp rather than store.
   const cursor = Math.min(index, pending.length - 1);

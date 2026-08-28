@@ -12,9 +12,10 @@ import { RestoreSessionModal } from './components/RestoreSessionModal';
 import { SessionBar } from './components/SessionBar';
 import { RoutinesModal } from './components/RoutinesModal';
 import { RoutinePanel } from './components/RoutinePanel';
+import { CollapsibleSection } from './components/CollapsibleSection';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
-import { useTasks } from './store/tasks';
+import { useTasks, usePendingRoutines } from './store/tasks';
 import { requestNotificationPermission } from './utils/notifications';
 import { earnBreak, formatDuration, todayKey } from './utils/thirdTime';
 
@@ -37,8 +38,9 @@ export default function App() {
     timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer,
     focusedItem, focusSegmentStart, setFocus, setFocusSegmentStart, pruneFocus,
   } = useSession();
-  const { theme, mode } = useSettings();
-  const { rolloverPastTasks, tasks, spawnDueRoutines } = useTasks();
+  const { theme, mode, collapsedSections, toggleSection } = useSettings();
+  const { rolloverPastTasks, tasks, spawnDueRoutines, routines } = useTasks();
+  const pendingRoutines = usePendingRoutines();
 
   // Roll unfinished tasks from past days into today, then add anything the
   // routines owe today.
@@ -288,58 +290,82 @@ export default function App() {
           {/* ── Working column ─────────────────────────────────── */}
           <main className="order-2 lg:order-1 min-w-0 flex flex-col gap-5">
 
-            {/* Routines sit above Tasks as their own block — they recur, and
-                they are not part of the list you curate. */}
+            {/* Routines and Tasks are parallel sections, each collapsible, so a
+                recurring block is never mixed into the list you curate. */}
+            {routines.length > 0 && (
+              <motion.div variants={item}>
+                <CollapsibleSection
+                  label="Routines"
+                  collapsed={!!collapsedSections.routines}
+                  onToggle={() => toggleSection('routines')}
+                  summary={
+                    pendingRoutines.length === 0
+                      ? 'all done for now'
+                      : `${pendingRoutines.length} outstanding`
+                  }
+                  action={
+                    <button
+                      onClick={() => setShowRoutines(true)}
+                      className="text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
+                      style={{ color: 'var(--color-accent)' }}
+                    >
+                      Manage
+                    </button>
+                  }
+                >
+                  <RoutinePanel
+                    focusedItem={focusedItem}
+                    timerState={timerState}
+                    focusSegmentStart={focusSegmentStart}
+                    onSetFocus={setFocus}
+                  />
+                </CollapsibleSection>
+              </motion.div>
+            )}
+
             <motion.div variants={item}>
-              <RoutinePanel
-                focusedItem={focusedItem}
-                timerState={timerState}
-                focusSegmentStart={focusSegmentStart}
-                onSetFocus={setFocus}
-              />
+              <CollapsibleSection
+                label="Tasks"
+                prominent
+                collapsed={!!collapsedSections.tasks}
+                onToggle={() => toggleSection('tasks')}
+                summary={taskSummary}
+                action={
+                  routines.length === 0 ? (
+                    <button
+                      onClick={() => setShowRoutines(true)}
+                      className="text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
+                      style={{ color: 'var(--color-accent)' }}
+                    >
+                      Routines
+                    </button>
+                  ) : undefined
+                }
+              >
+                <TaskList
+                  focusedItem={focusedItem}
+                  timerState={timerState}
+                  focusSegmentStart={focusSegmentStart}
+                  onSetFocus={setFocus}
+                />
+              </CollapsibleSection>
             </motion.div>
 
-            {/* Tasks — the page's primary section */}
-            <motion.section variants={item}>
-              <div className="flex items-baseline gap-2.5 flex-wrap mb-2.5">
-                <h2
-                  className="text-[15px] font-semibold"
-                  style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}
-                >
-                  Tasks
-                </h2>
-                {taskSummary && (
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    {taskSummary}
-                  </span>
-                )}
-                <button
-                  onClick={() => setShowRoutines(true)}
-                  className="ml-auto text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
-                  style={{ color: 'var(--color-accent)' }}
-                >
-                  Routines
-                </button>
-              </div>
-              <TaskList
-                focusedItem={focusedItem}
-                timerState={timerState}
-                focusSegmentStart={focusSegmentStart}
-                onSetFocus={setFocus}
-              />
-            </motion.section>
-
             {/* Goals */}
-            <motion.section variants={item}>
-              <h2 className="section-label mb-2.5">Goals</h2>
-              <GoalList
-                focusedItem={focusedItem}
-                timerState={timerState}
-                focusSegmentStart={focusSegmentStart}
-                onSetFocus={setFocus}
-              />
-            </motion.section>
-
+            <motion.div variants={item}>
+              <CollapsibleSection
+                label="Goals"
+                collapsed={!!collapsedSections.goals}
+                onToggle={() => toggleSection('goals')}
+              >
+                <GoalList
+                  focusedItem={focusedItem}
+                  timerState={timerState}
+                  focusSegmentStart={focusSegmentStart}
+                  onSetFocus={setFocus}
+                />
+              </CollapsibleSection>
+            </motion.div>
           </main>
 
           {/* ── Session rail ───────────────────────────────────── */}
