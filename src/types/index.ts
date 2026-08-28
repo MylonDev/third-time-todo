@@ -18,7 +18,8 @@ export interface Task {
   order: number;
   subtasks: SubTask[];
   trackedMs: number; // cumulative milliseconds focused while timer was running
-  routineId?: string;      // spawned from a routine; grouped under it in the list
+  routineId?: string;        // spawned from a routine
+  routinePeriodKey?: string; // which of that routine's periods it belongs to
 }
 
 export interface SessionLog {
@@ -103,3 +104,14 @@ export interface Routine {
   lastSpawnKey?: string; // periodKey the items were last spawned for
   snoozedUntil?: string; // YYYY-MM-DD; skip spawning while today < this
 }
+
+/** What a routine achieved in one of its periods, recorded when that period closes. */
+export interface RoutinePeriodRecord {
+  done: number;
+  total: number;
+  trackedMs: number;
+  skipped?: boolean;
+}
+
+/** routineId → periodKey → outcome */
+export type RoutineHistory = Record<string, Record<string, RoutinePeriodRecord>>;
