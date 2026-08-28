@@ -18,7 +18,6 @@ export interface Task {
   order: number;
   subtasks: SubTask[];
   trackedMs: number; // cumulative milliseconds focused while timer was running
-  acknowledgedAt?: number; // staleness is measured from here once the task is prioritised
   routineId?: string;      // spawned from a routine; grouped under it in the list
 }
 
