@@ -10,12 +10,14 @@ interface SettingsState {
   soundsEnabled: boolean;
   theme: Theme;
   breakIncrements: number[]; // in minutes
+  collapsedSections: Record<string, boolean>;
   lastBreakMs: number | null; // in ms
   setMode: (mode: Mode) => void;
   setLongWorkReminderMin: (min: number) => void;
   setSoundsEnabled: (enabled: boolean) => void;
   setTheme: (theme: Theme) => void;
   setBreakIncrements: (increments: number[]) => void;
+  toggleSection: (key: string) => void;
   setLastBreakMs: (ms: number | null) => void;
 }
 
@@ -27,17 +29,22 @@ export const useSettings = create<SettingsState>()(
       soundsEnabled: true,
       theme: 'system',
       breakIncrements: [5, 10],
+      collapsedSections: {},
       lastBreakMs: null,
       setMode: (mode) => set({ mode }),
       setLongWorkReminderMin: (min) => set({ longWorkReminderMin: Math.max(15, min) }),
       setSoundsEnabled: (enabled) => set({ soundsEnabled: enabled }),
       setTheme: (theme) => set({ theme }),
       setBreakIncrements: (increments) => set({ breakIncrements: increments }),
+      toggleSection: (key) =>
+        set((s) => ({
+          collapsedSections: { ...s.collapsedSections, [key]: !s.collapsedSections[key] },
+        })),
       setLastBreakMs: (ms) => set({ lastBreakMs: ms }),
     }),
     {
       name: 'tt-settings',
-      version: 6,
+      version: 7,
       migrate: (persisted: unknown, version: number) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const state = persisted as any;
@@ -56,7 +63,9 @@ export const useSettings = create<SettingsState>()(
         if (version < 6) {
           // The stale-task banner was removed; the row badge says the same thing.
           delete state.staleAlertDismissedOn;
-          return state;
+        }
+        if (version < 7) {
+          return { ...state, collapsedSections: {} };
         }
         return state;
       },
