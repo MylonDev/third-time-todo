@@ -8,6 +8,7 @@ interface TasksState {
   addTask: (title: string, scheduledDate: string, estimateMin?: number) => void;
   updateTask: (id: string, patch: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
   deleteTask: (id: string) => void;
+  restoreTask: (task: Task) => void;
   moveToTomorrow: (id: string) => void;
   reorderTasks: (orderedIds: string[]) => void;
   addSubtask: (taskId: string, title: string) => void;
@@ -48,6 +49,13 @@ export const useTasks = create<TasksState>()(
 
       deleteTask: (id) =>
         set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
+
+      // Puts a deleted task back exactly as it was — `order` is preserved, so it
+      // returns to its old position in the list.
+      restoreTask: (task) =>
+        set((s) =>
+          s.tasks.some((t) => t.id === task.id) ? s : { tasks: [...s.tasks, task] }
+        ),
 
       moveToTomorrow: (id) =>
         set((s) => ({
