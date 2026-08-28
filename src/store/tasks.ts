@@ -1,18 +1,20 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Task, TaskStatus, SubTask, Routine, RoutineItem, GoalPeriod } from '../types';
+import type {
+  Task, TaskStatus, SubTask, Routine, RoutineItem, GoalPeriod, RoutineHistory,
+} from '../types';
 import { todayKey, tomorrowKey } from '../utils/thirdTime';
 import { getPeriodKey } from '../utils/goalPeriod';
 
 interface TasksState {
   tasks: Task[];
   routines: Routine[];
+  routineHistory: RoutineHistory;
   addTask: (title: string, scheduledDate: string, estimateMin?: number) => void;
   updateTask: (id: string, patch: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
   deleteTask: (id: string) => void;
   restoreTask: (task: Task) => void;
   moveToTomorrow: (id: string) => void;
-  prioritizeTask: (id: string) => void;
   reorderTasks: (orderedIds: string[]) => void;
   addSubtask: (taskId: string, title: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
@@ -90,11 +92,50 @@ function migrateChecklists(existingTasks: any[]): Routine[] {
   }
 }
 
+const MAX_ROUTINE_PERIODS = 60;
+
+/**
+ * Bank one period's outcome. Never overwrites an existing record — a period that
+ * was explicitly skipped keeps the counts it had at the moment it was skipped.
+ */
+function recordPeriod(
+  history: RoutineHistory,
+  routineId: string,
+  periodKey: string,
+  steps: Task[],
+  skipped = false
+): RoutineHistory {
+  const existing = history[routineId] ?? {};
+  if (existing[periodKey] || steps.length === 0) return history;
+  const next = {
+    ...existing,
+    [periodKey]: {
+      done: steps.filter((t) => t.status === 'done').length,
+      total: steps.length,
+      trackedMs: steps.reduce((a, t) => a + (t.trackedMs ?? 0), 0),
+      ...(skipped ? { skipped: true } : {}),
+    },
+  };
+  const keys = Object.keys(next);
+  if (keys.length > MAX_ROUTINE_PERIODS) {
+    const kept = keys
+      .sort((a, b) => {
+        const na = a.startsWith('custom-') ? Number(a.slice(7)) : NaN;
+        const nb = b.startsWith('custom-') ? Number(b.slice(7)) : NaN;
+        return !isNaN(na) && !isNaN(nb) ? na - nb : a.localeCompare(b);
+      })
+      .slice(-MAX_ROUTINE_PERIODS);
+    return { ...history, [routineId]: Object.fromEntries(kept.map((k) => [k, next[k]])) };
+  }
+  return { ...history, [routineId]: next };
+}
+
 export const useTasks = create<TasksState>()(
   persist(
     (set, get) => ({
       tasks: [],
       routines: [],
+      routineHistory: {},
 
       addTask: (title, scheduledDate, estimateMin) =>
         set((s) => ({
@@ -135,24 +176,6 @@ export const useTasks = create<TasksState>()(
             t.id === id ? { ...t, scheduledDate: tomorrowKey() } : t
           ),
         })),
-
-      // Bring a task to the top of today and restart its staleness clock, so the
-      // stale banner stops nagging about something the user has just acted on.
-      prioritizeTask: (id) =>
-        set((s) => {
-          const today = todayKey();
-          const topOrder = Math.min(
-            0,
-            ...s.tasks.filter((t) => t.scheduledDate === today).map((t) => t.order)
-          );
-          return {
-            tasks: s.tasks.map((t) =>
-              t.id === id
-                ? { ...t, scheduledDate: today, order: topOrder - 1, acknowledgedAt: Date.now() }
-                : t
-            ),
-          };
-        }),
 
       reorderTasks: (orderedIds) =>
         set((s) => ({
@@ -218,7 +241,7 @@ export const useTasks = create<TasksState>()(
         const today = todayKey();
         set((s) => ({
           tasks: s.tasks.map((t) =>
-            t.scheduledDate < today && t.status !== 'done'
+            t.scheduledDate < today && t.status !== 'done' && !t.routineId
               ? { ...t, scheduledDate: today }
               : t
           ),
@@ -260,10 +283,17 @@ export const useTasks = create<TasksState>()(
       // Removing a routine leaves the tasks it already spawned alone — they are
       // real tasks now, and silently deleting today's work would be a surprise.
       deleteRoutine: (id) =>
-        set((s) => ({
-          routines: s.routines.filter((r) => r.id !== id),
-          tasks: s.tasks.map((t) => (t.routineId === id ? { ...t, routineId: undefined } : t)),
-        })),
+        set((s) => {
+          const history = { ...s.routineHistory };
+          delete history[id];
+          return {
+            routines: s.routines.filter((r) => r.id !== id),
+            routineHistory: history,
+            tasks: s.tasks.map((t) =>
+              t.routineId === id ? { ...t, routineId: undefined, routinePeriodKey: undefined } : t
+            ),
+          };
+        }),
 
       reorderRoutines: (orderedIds) =>
         set((s) => ({
@@ -312,12 +342,26 @@ export const useTasks = create<TasksState>()(
           ),
         })),
 
+      // Skipping has to remove the steps it already put in today's list —
+      // otherwise nothing visibly happens. Completed steps stay: they were done.
       snoozeRoutine: (id) =>
-        set((s) => ({
-          routines: s.routines.map((r) =>
-            r.id === id ? { ...r, snoozedUntil: tomorrowKey(), lastSpawnKey: undefined } : r
-          ),
-        })),
+        set((s) => {
+          const routine = s.routines.find((r) => r.id === id);
+          if (!routine) return s;
+          const key = routine.lastSpawnKey ?? getPeriodKey(routine.period, routine.periodDays, routine.createdAt);
+          const steps = s.tasks.filter(
+            (t) => t.routineId === id && (t.routinePeriodKey ?? routine.lastSpawnKey) === key
+          );
+          return {
+            // lastSpawnKey is kept so the period still closes cleanly; snoozedUntil
+            // is what stops it coming back before its next turn.
+            routines: s.routines.map((r) =>
+              r.id === id ? { ...r, snoozedUntil: tomorrowKey() } : r
+            ),
+            tasks: s.tasks.filter((t) => !(steps.includes(t) && t.status !== 'done')),
+            routineHistory: recordPeriod(s.routineHistory, id, key, steps, true),
+          };
+        }),
 
       /**
        * Put today's routine items into today's list. Runs on load and at
@@ -326,12 +370,27 @@ export const useTasks = create<TasksState>()(
        */
       spawnDueRoutines: () => {
         const today = todayKey();
-        const { routines, tasks } = get();
+        const { routines, tasks, routineHistory } = get();
         const spawned: Task[] = [];
+        const retired = new Set<string>();
+        let history = routineHistory;
+
         const updated = routines.map((r) => {
           const key = getPeriodKey(r.period, r.periodDays, r.createdAt);
           if (r.lastSpawnKey === key) return r;
+
+          // The previous period has closed: bank what it achieved, then clear its
+          // steps out so they cannot be confused with the new period's.
+          if (r.lastSpawnKey) {
+            const old = tasks.filter(
+              (t) => t.routineId === r.id && (t.routinePeriodKey ?? r.lastSpawnKey) === r.lastSpawnKey
+            );
+            history = recordPeriod(history, r.id, r.lastSpawnKey, old);
+            old.forEach((t) => retired.add(t.id));
+          }
+
           if (r.snoozedUntil && today < r.snoozedUntil) return r;
+
           let order = tasks.filter((t) => t.scheduledDate === today).length + spawned.length;
           r.items.forEach((item) => {
             spawned.push({
@@ -344,20 +403,30 @@ export const useTasks = create<TasksState>()(
               subtasks: [],
               trackedMs: 0,
               routineId: r.id,
+              routinePeriodKey: key,
             });
           });
           return { ...r, lastSpawnKey: key, snoozedUntil: undefined };
         });
-        if (spawned.length === 0 && updated.every((r, i) => r === routines[i])) return;
-        set((s) => ({ routines: updated, tasks: [...s.tasks, ...spawned] }));
+
+        const unchanged =
+          spawned.length === 0 && retired.size === 0 && updated.every((r, i) => r === routines[i]);
+        if (unchanged) return;
+
+        set((s) => ({
+          routines: updated,
+          routineHistory: history,
+          tasks: [...s.tasks.filter((t) => !retired.has(t.id)), ...spawned],
+        }));
       },
     }),
     {
       name: 'tt-tasks',
-      version: 5,
+      version: 6,
       migrate: (persisted: unknown, version: number) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let state = persisted as { tasks?: any[] };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let state = persisted as any;
         if (version < 3) {
           return {
             tasks: (state.tasks ?? []).map((t: any, i: number) => ({
@@ -382,7 +451,10 @@ export const useTasks = create<TasksState>()(
           };
         }
         if (version < 5) {
-          return { ...state, routines: migrateChecklists(state.tasks ?? []) };
+          state = { ...state, routines: migrateChecklists(state.tasks ?? []) };
+        }
+        if (version < 6) {
+          return { ...state, routineHistory: {} };
         }
         return state;
       },

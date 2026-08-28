@@ -11,14 +11,12 @@ interface SettingsState {
   theme: Theme;
   breakIncrements: number[]; // in minutes
   lastBreakMs: number | null; // in ms
-  staleAlertDismissedOn: string | null; // YYYY-MM-DD
   setMode: (mode: Mode) => void;
   setLongWorkReminderMin: (min: number) => void;
   setSoundsEnabled: (enabled: boolean) => void;
   setTheme: (theme: Theme) => void;
   setBreakIncrements: (increments: number[]) => void;
   setLastBreakMs: (ms: number | null) => void;
-  setStaleAlertDismissedOn: (day: string | null) => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -30,21 +28,19 @@ export const useSettings = create<SettingsState>()(
       theme: 'system',
       breakIncrements: [5, 10],
       lastBreakMs: null,
-      staleAlertDismissedOn: null,
       setMode: (mode) => set({ mode }),
       setLongWorkReminderMin: (min) => set({ longWorkReminderMin: Math.max(15, min) }),
       setSoundsEnabled: (enabled) => set({ soundsEnabled: enabled }),
       setTheme: (theme) => set({ theme }),
       setBreakIncrements: (increments) => set({ breakIncrements: increments }),
       setLastBreakMs: (ms) => set({ lastBreakMs: ms }),
-      setStaleAlertDismissedOn: (day) => set({ staleAlertDismissedOn: day }),
     }),
     {
       name: 'tt-settings',
-      version: 5,
+      version: 6,
       migrate: (persisted: unknown, version: number) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let state = persisted as any;
+        const state = persisted as any;
         if (version < 2) {
           return {
             ...state,
@@ -53,12 +49,13 @@ export const useSettings = create<SettingsState>()(
             lastBreakMs: state.lastBreakMs ?? null,
                 };
         }
-        if (version < 4) {
-          state = { ...state, staleAlertDismissedOn: null };
-        }
         if (version < 5) {
           // Checklists became routines; the collapse flag has no section to hide.
           delete state.checklistsCollapsed;
+        }
+        if (version < 6) {
+          // The stale-task banner was removed; the row badge says the same thing.
+          delete state.staleAlertDismissedOn;
           return state;
         }
         return state;
