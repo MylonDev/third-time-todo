@@ -92,6 +92,30 @@ function migrateChecklists(existingTasks: any[]): Routine[] {
   }
 }
 
+export interface PendingRoutine {
+  routine: Routine;
+  steps: Task[];
+}
+
+/**
+ * Routines that still have something outstanding this period, in the order the
+ * user arranged them. Shared with the section header so it can summarise them.
+ */
+export function usePendingRoutines(): PendingRoutine[] {
+  const tasks = useTasks((s) => s.tasks);
+  const routines = useTasks((s) => s.routines);
+  const today = todayKey();
+  return [...routines]
+    .sort((a, b) => a.order - b.order)
+    .map((routine) => ({
+      routine,
+      steps: tasks
+        .filter((t) => t.routineId === routine.id && t.scheduledDate === today)
+        .sort((a, b) => a.order - b.order),
+    }))
+    .filter(({ steps }) => steps.length > 0 && steps.some((t) => t.status !== 'done'));
+}
+
 const MAX_ROUTINE_PERIODS = 60;
 
 /**
