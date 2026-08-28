@@ -77,6 +77,7 @@ export function OptionsPanel({ isOpen, onClose }: Props) {
             onClick={onClose}
             className="text-xl leading-none transition-opacity opacity-40 hover:opacity-100"
             style={{ color: 'var(--color-text)' }}
+          aria-label="Close options"
           >
             ✕
           </button>
@@ -191,6 +192,7 @@ export function OptionsPanel({ isOpen, onClose }: Props) {
                     onClick={() => handleRemoveIncrement(m)}
                     className="transition-opacity opacity-50 hover:opacity-100 ml-0.5"
                     style={{ color: 'var(--color-rest)' }}
+                  aria-label={`Remove ${m} minute rest option`}
                   >
                     ✕
                   </button>

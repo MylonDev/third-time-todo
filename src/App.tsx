@@ -16,6 +16,7 @@ import { useSettings } from './store/settings';
 import { useTasks } from './store/tasks';
 import { useChecklists } from './store/checklists';
 import { requestNotificationPermission } from './utils/notifications';
+import { earnBreak } from './utils/thirdTime';
 
 
 // Animation variants for staggered section entrance
@@ -32,7 +33,10 @@ const item: Variants = {
 };
 
 export default function App() {
-  const { timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer, focusedItem, focusSegmentStart, setFocus } = useSession();
+  const {
+    timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer,
+    focusedItem, focusSegmentStart, setFocus, setFocusSegmentStart, pruneFocus,
+  } = useSession();
   const { theme, mode, checklistsCollapsed, setChecklistsCollapsed } = useSettings();
   const { rolloverPastTasks } = useTasks();
   const { resetStaleChecklists } = useChecklists();
@@ -41,10 +45,27 @@ export default function App() {
   useEffect(() => {
     rolloverPastTasks();
     resetStaleChecklists();
+    pruneFocus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [showOptions, setShowOptions] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [bankToClear, setBankToClear] = useState(0);
+
+  // Sample the bank as the modal opens so it can warn about what ending the day
+  // will destroy. Includes the rest the running timer has earned but not banked.
+  const handleOpenEndModal = () => {
+    const { daily, timerStart: start, timerState: state } = useSession.getState();
+    const elapsed = start ? Date.now() - start : 0;
+    setBankToClear(
+      state === 'working'
+        ? daily.bankMs + earnBreak(elapsed, mode)
+        : state === 'on-break'
+        ? daily.bankMs - elapsed
+        : daily.bankMs
+    );
+    setShowEndModal(true);
+  };
 
   // Show restore modal if a session was active when the page last closed
   const [showRestoreModal] = useState(() => {
@@ -76,12 +97,19 @@ export default function App() {
   const handleRestoreContinue = () => {
     const closedAt = sessionClosedAt ?? Date.now();
     const elapsedAtClose = timerStart ? closedAt - timerStart : 0;
-    useSession.setState({ timerStart: Date.now() - elapsedAtClose, sessionClosedAt: null });
+    const resumedStart = Date.now() - elapsedAtClose;
+    useSession.setState({ timerStart: resumedStart, sessionClosedAt: null });
+    // Time away is discarded, so the focus segment restarts from the same point
+    // the session timer does.
+    if (focusedItem) setFocusSegmentStart(resumedStart);
     setRestoreModalDismissed(true);
   };
 
   const handleRestoreResume = () => {
     setClosedAt(null);
+    // Time away counts as active, so the whole session — including the part that
+    // ran before the tab closed — belongs to the focused item.
+    if (focusedItem && timerStart) setFocusSegmentStart(timerStart);
     setRestoreModalDismissed(true);
   };
 
@@ -168,7 +196,7 @@ export default function App() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.15 }}
-                  onClick={() => setShowEndModal(true)}
+                  onClick={handleOpenEndModal}
                   className="px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
                   style={{
                     background: 'var(--color-danger-dim)',
@@ -177,7 +205,7 @@ export default function App() {
                     fontFamily: 'var(--font-display)',
                   }}
                 >
-                  End Session
+                  End Day
                 </motion.button>
               )}
             </AnimatePresence>
@@ -190,6 +218,7 @@ export default function App() {
                 color: 'var(--color-text-muted)',
               }}
               title="Options"
+              aria-label="Options"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -258,6 +287,7 @@ export default function App() {
         <motion.section variants={item}>
           <button
             onClick={() => setChecklistsCollapsed(!checklistsCollapsed)}
+            aria-expanded={!checklistsCollapsed}
             className="flex items-center gap-1.5 mb-2 w-full text-left group"
           >
             <span
@@ -361,6 +391,7 @@ export default function App() {
             isOpen={showEndModal}
             onClose={() => setShowEndModal(false)}
             mode={mode}
+            bankToClear={bankToClear}
           />
         )}
       </AnimatePresence>

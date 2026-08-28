@@ -4,6 +4,7 @@ import {
   closestCenter,
   PointerSensor,
   TouchSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -12,6 +13,7 @@ import {
   SortableContext,
   arrayMove,
   useSortable,
+  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -56,6 +58,7 @@ function TaskMenu({
         className="w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-all opacity-60 hover:opacity-100 hover:bg-[var(--color-surface-2)]"
         style={{ color: 'var(--color-text-muted)' }}
         title="Actions"
+        aria-label="Task actions"
       >
         ⋯
       </button>
@@ -134,6 +137,7 @@ function SubtaskMenu({
         className="w-6 h-6 flex items-center justify-center rounded text-xs opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
         style={{ color: 'var(--color-text-muted)' }}
         title="Actions"
+        aria-label="Subtask actions"
       >
         ⋯
       </button>
@@ -320,6 +324,7 @@ function SortableTask({
             className="mt-1 flex-shrink-0 touch-none cursor-grab active:cursor-grabbing opacity-20 hover:opacity-60 transition-opacity"
             style={{ color: 'var(--color-text-muted)' }}
             title="Drag to reorder"
+            aria-label={`Reorder ${task.title}`}
           >
             ⠿
           </button>
@@ -330,6 +335,9 @@ function SortableTask({
         {/* Status toggle — square checkbox */}
         <button
           onClick={() => onUpdate(task.id, { status: isDone ? 'todo' : 'done' })}
+          role="checkbox"
+          aria-checked={isDone}
+          aria-label={task.title}
           className="flex-shrink-0 flex items-center justify-center transition-all"
           style={{
             width: '20px',
@@ -341,7 +349,7 @@ function SortableTask({
                 ? 'var(--color-rest)'
                 : isFocused
                 ? 'var(--color-accent)'
-                : 'rgba(255,255,255,0.2)'
+                : 'var(--color-border-strong)'
             }`,
             background: isDone ? 'var(--color-rest)' : 'transparent',
             color: isDone ? 'var(--color-bg)' : 'transparent',
@@ -509,6 +517,7 @@ function SortableTask({
             className="opacity-30 hover:opacity-100 transition-opacity text-sm flex-shrink-0"
             style={{ color: 'var(--color-debt)' }}
             title="Delete"
+            aria-label={`Delete ${task.title}`}
           >
             ✕
           </button>
@@ -525,10 +534,13 @@ function SortableTask({
             <div key={st.id} className="flex items-center gap-2 group">
               <button
                 onClick={() => onToggleSubtask(task.id, st.id)}
+                role="checkbox"
+                aria-checked={st.done}
+                aria-label={st.title}
                 className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center text-[10px] transition-colors"
                 style={{
                   background: st.done ? 'var(--color-rest)' : 'transparent',
-                  borderColor: st.done ? 'var(--color-rest)' : 'var(--color-border)',
+                  borderColor: st.done ? 'var(--color-rest)' : 'var(--color-border-strong)',
                   color: st.done ? 'var(--color-bg)' : 'transparent',
                 }}
               >
@@ -596,50 +608,50 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
   const {
     tasks, addTask, updateTask, deleteTask, moveToTomorrow,
     reorderTasks, addSubtask, toggleSubtask, deleteSubtask, editSubtask,
-    adjustTrackedMs,
+    adjustTrackedMs, restoreTask,
   } = useTasks();
   const [title, setTitle] = useState('');
   const [estimate, setEstimate] = useState('');
   const [showDone, setShowDone] = useState(false);
 
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [pendingDeleteTask, setPendingDeleteTask] = useState<Task | null>(null);
-  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Delete commits immediately; the toast holds a snapshot so Undo can put it back.
+  // (A deferred delete loses the task if the tab closes while the toast is up.)
+  const [undoTask, setUndoTask] = useState<Task | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleDelete = (id: string) => {
-    if (deleteTimerRef.current) {
-      clearTimeout(deleteTimerRef.current);
-      if (pendingDeleteId) deleteTask(pendingDeleteId);
-    }
-    const task = tasks.find((t) => t.id === id) ?? null;
-    setPendingDeleteId(id);
-    setPendingDeleteTask(task);
-    deleteTimerRef.current = setTimeout(() => {
-      deleteTask(id);
-      setPendingDeleteId(null);
-      setPendingDeleteTask(null);
-    }, 3500);
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    deleteTask(id);
+    setUndoTask(task);
+    undoTimerRef.current = setTimeout(() => {
+      undoTimerRef.current = null;
+      setUndoTask(null);
+    }, 6000);
   };
 
   const handleUndoDelete = () => {
-    if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
-    setPendingDeleteId(null);
-    setPendingDeleteTask(null);
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+    if (undoTask) restoreTask(undoTask);
+    setUndoTask(null);
   };
 
-  useEffect(() => {
-    return () => {
-      if (deleteTimerRef.current) {
-        clearTimeout(deleteTimerRef.current);
-        if (pendingDeleteId) deleteTask(pendingDeleteId);
-      }
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingDeleteId]);
+  useEffect(
+    () => () => {
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    },
+    []
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 2 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    // Reordering with the keyboard: focus a drag handle, space to lift, arrows to move.
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const today = todayKey();
@@ -649,18 +661,12 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
   );
 
   const activeTasks = useMemo(
-    () =>
-      todayTasks
-        .filter((t) => t.status !== 'done' && t.id !== pendingDeleteId)
-        .sort((a, b) => a.order - b.order),
-    [todayTasks, pendingDeleteId]
+    () => todayTasks.filter((t) => t.status !== 'done').sort((a, b) => a.order - b.order),
+    [todayTasks]
   );
   const doneTasks = useMemo(
-    () =>
-      todayTasks
-        .filter((t) => t.status === 'done' && t.id !== pendingDeleteId)
-        .sort((a, b) => a.order - b.order),
-    [todayTasks, pendingDeleteId]
+    () => todayTasks.filter((t) => t.status === 'done').sort((a, b) => a.order - b.order),
+    [todayTasks]
   );
 
   const handleAdd = (e: React.FormEvent) => {
@@ -795,7 +801,7 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
       )}
 
       {/* Undo delete toast */}
-      {pendingDeleteTask && (
+      {undoTask && (
         <div
           className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 border text-sm"
           style={{
@@ -806,7 +812,7 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
         >
           <span className="truncate">
             Deleted{' '}
-            <span style={{ color: 'var(--color-text)' }}>{pendingDeleteTask.title}</span>
+            <span style={{ color: 'var(--color-text)' }}>{undoTask.title}</span>
           </span>
           <button
             onClick={handleUndoDelete}
