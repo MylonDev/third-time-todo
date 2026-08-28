@@ -9,7 +9,7 @@ interface TasksState {
   updateTask: (id: string, patch: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
   deleteTask: (id: string) => void;
   moveToTomorrow: (id: string) => void;
-  reorderTasks: (activeId: string, overId: string) => void;
+  reorderTasks: (orderedIds: string[]) => void;
   addSubtask: (taskId: string, title: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   deleteSubtask: (taskId: string, subtaskId: string) => void;
@@ -20,7 +20,7 @@ interface TasksState {
 
 export const useTasks = create<TasksState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       tasks: [],
 
       addTask: (title, scheduledDate, estimateMin) =>
@@ -56,21 +56,13 @@ export const useTasks = create<TasksState>()(
           ),
         })),
 
-      reorderTasks: (activeId, overId) => {
-        const { tasks } = get();
-        const activeTask = tasks.find((t) => t.id === activeId);
-        const overTask = tasks.find((t) => t.id === overId);
-        if (!activeTask || !overTask) return;
-        const activeOrder = activeTask.order;
-        const overOrder = overTask.order;
-        set({
-          tasks: tasks.map((t) => {
-            if (t.id === activeId) return { ...t, order: overOrder };
-            if (t.id === overId) return { ...t, order: activeOrder };
-            return t;
+      reorderTasks: (orderedIds) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) => {
+            const newOrder = orderedIds.indexOf(t.id);
+            return newOrder >= 0 ? { ...t, order: newOrder } : t;
           }),
-        });
-      },
+        })),
 
       addSubtask: (taskId, title) =>
         set((s) => ({

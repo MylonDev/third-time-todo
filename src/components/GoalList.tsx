@@ -1,4 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useGoals } from '../store/goals';
 import {
   getCurrentPeriodKey,
@@ -102,6 +118,11 @@ function GoalCard({
   onSetFocus: (target: FocusTarget | null) => void;
 }) {
   const { adjustProgress, updateGoal, deleteGoal } = useGoals();
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: goal.id });
+  const sortableStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition: isDragging ? undefined : transition ? transition.replace('250ms', '120ms') : undefined,
+  };
   const [, tick] = useState(0);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(goal.title);
@@ -182,11 +203,22 @@ function GoalCard({
 
   return (
     <li
-      style={cardStyle}
+      ref={setNodeRef}
+      style={{ ...sortableStyle, ...cardStyle }}
       className="flex flex-col rounded-xl border transition-[border-color,background-color,opacity]"
       onClick={handleCardClick}
     >
       <div className="flex items-start gap-3 p-3">
+        {/* Drag handle */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="mt-1 flex-shrink-0 touch-none cursor-grab active:cursor-grabbing opacity-20 hover:opacity-60 transition-opacity"
+          style={{ color: 'var(--color-text-muted)' }}
+          title="Drag to reorder"
+        >
+          ⠿
+        </button>
         <div className="flex-1 min-w-0">
           {editing ? (
             <div className="flex flex-col gap-1.5">
@@ -544,10 +576,24 @@ interface GoalListProps {
 }
 
 export function GoalList({ focusedItem, timerState, focusSegmentStart, onSetFocus }: GoalListProps) {
-  const { goals } = useGoals();
+  const { goals, reorderGoals } = useGoals();
   const [showForm, setShowForm] = useState(false);
 
   const sorted = [...goals].sort((a, b) => a.order - b.order);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 2 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = sorted.findIndex((g) => g.id === active.id);
+      const newIndex = sorted.findIndex((g) => g.id === over.id);
+      reorderGoals(arrayMove(sorted, oldIndex, newIndex).map((g) => g.id));
+    }
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -577,18 +623,22 @@ export function GoalList({ focusedItem, timerState, focusSegmentStart, onSetFocu
         </p>
       )}
 
-      <ul className="flex flex-col gap-1.5">
-        {sorted.map((goal) => (
-          <GoalCard
-            key={goal.id}
-            goal={goal}
-            isFocused={focusedItem?.kind === 'goal' && focusedItem.id === goal.id}
-            timerState={timerState}
-            focusSegmentStart={focusSegmentStart}
-            onSetFocus={onSetFocus}
-          />
-        ))}
-      </ul>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={sorted.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+          <ul className="flex flex-col gap-1.5">
+            {sorted.map((goal) => (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                isFocused={focusedItem?.kind === 'goal' && focusedItem.id === goal.id}
+                timerState={timerState}
+                focusSegmentStart={focusSegmentStart}
+                onSetFocus={onSetFocus}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }
