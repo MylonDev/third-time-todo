@@ -13,6 +13,34 @@ export function getWeekKey(date: Date): string {
   ].join('-');
 }
 
+/**
+ * The `count` most recent period keys for a cadence, oldest first — the x axis
+ * for anything that charts a routine or goal over time.
+ */
+export function pastPeriodKeys(
+  period: GoalPeriod,
+  periodDays: number | undefined,
+  anchor: number,
+  count: number
+): string[] {
+  if (period === 'custom') {
+    const days = Math.floor(daysSince(anchor));
+    const current = Math.floor(days / (periodDays ?? 1));
+    return Array.from({ length: count }, (_, i) => `custom-${current - (count - 1 - i)}`)
+      .filter((key) => Number(key.slice(7)) >= 0);
+  }
+  const step = period === 'weekly' ? 7 : 1;
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (count - 1 - i) * step);
+    return period === 'weekly' ? getWeekKey(d) : [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0'),
+    ].join('-');
+  });
+}
+
 export function getPeriodKey(period: GoalPeriod, periodDays: number | undefined, createdAt: number): string {
   if (period === 'daily') return todayKey();
   if (period === 'weekly') return getWeekKey(new Date());
