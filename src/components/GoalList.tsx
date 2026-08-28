@@ -23,7 +23,6 @@ import {
   getPeriodLabel,
   getProgressForPeriod,
   formatGoalProgress,
-  formatGoalTarget,
 } from '../utils/goalPeriod';
 import type { FocusTarget, Goal, GoalPeriod, GoalType } from '../types';
 
@@ -272,7 +271,7 @@ function GoalCard({
             <>
               {/* Title row */}
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-sm" style={{ color: complete ? 'var(--color-text-muted)' : 'var(--color-text)' }}>
+                <span className="text-[15px] font-medium leading-snug" style={{ color: complete ? 'var(--color-text-muted)' : 'var(--color-text)' }}>
                   {goal.title}
                 </span>
                 {isFocused && (
@@ -321,7 +320,7 @@ function GoalCard({
                     >
                       −
                     </button>
-                    <span className="text-sm font-semibold min-w-[60px] text-center" style={{ color: complete ? 'var(--color-rest)' : 'var(--color-text)' }}>
+                    <span className="num text-sm font-semibold min-w-[60px] text-center" style={{ color: complete ? 'var(--color-rest)' : 'var(--color-text)' }}>
                       {liveValue} / {goal.target}
                     </span>
                     <button
@@ -336,7 +335,7 @@ function GoalCard({
                 ) : (
                   // time goal
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold" style={{ color: complete ? 'var(--color-rest)' : isFocused && timerState === 'working' ? 'var(--color-accent)' : 'var(--color-text)' }}>
+                    <span className="num text-sm font-semibold" style={{ color: complete ? 'var(--color-rest)' : isFocused && timerState === 'working' ? 'var(--color-accent)' : 'var(--color-text)' }}>
                       {formatGoalProgress(goal, liveValue)}
                     </span>
                     {showTimeEdit && (
@@ -377,11 +376,6 @@ function GoalCard({
                   </div>
                 )}
 
-                <div className="mt-0.5">
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Target: {formatGoalTarget(goal)} {getPeriodLabel(goal).toLowerCase()}
-                  </span>
-                </div>
               </div>
             </>
           )}

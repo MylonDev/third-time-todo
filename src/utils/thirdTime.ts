@@ -1,22 +1,27 @@
 import type { Mode } from '../types';
 
+/**
+ * Difficulty is the label; the ratio is the mechanic. The `Mode` keys stay
+ * 'quarter' | 'third' | 'half' so persisted settings and every archived
+ * SessionLog.mode keep working — only what the user reads has changed.
+ */
 export const MODE_CONFIG: Record<Mode, { label: string; ratio: number; description: string; color: string }> = {
   quarter: {
-    label: 'Quarter Time',
+    label: 'Hard',
     ratio: 4,
-    description: 'Deep focus — earn 1 min rest per 4 min active',
+    description: 'Lean rest — 1 min back for every 4 min active',
     color: 'orange',
   },
   third: {
-    label: 'Third Time',
+    label: 'Medium',
     ratio: 3,
-    description: 'Balanced — earn 1 min rest per 3 min active',
+    description: 'Balanced — 1 min back for every 3 min active',
     color: 'purple',
   },
   half: {
-    label: 'Half Time',
+    label: 'Easy',
     ratio: 2,
-    description: 'Relaxed — earn 1 min rest per 2 min active',
+    description: 'Generous rest — 1 min back for every 2 min active',
     color: 'teal',
   },
 };
@@ -58,6 +63,19 @@ export function formatTimeLong(ms: number): string {
     return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Human duration for goals and targets — "1h 36m", "45m". Distinct from
+ * formatTimeLong, which is a running stopwatch and needs seconds.
+ */
+export function formatDuration(ms: number): string {
+  const totalMinutes = Math.round(Math.abs(ms) / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
 }
 
 export function todayKey(): string {
