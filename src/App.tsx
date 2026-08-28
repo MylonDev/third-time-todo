@@ -290,8 +290,34 @@ export default function App() {
           {/* ── Working column ─────────────────────────────────── */}
           <main className="order-2 lg:order-1 min-w-0 flex flex-col gap-5">
 
-            {/* Routines and Tasks are parallel sections, each collapsible, so a
-                recurring block is never mixed into the list you curate. */}
+            <motion.div variants={item}>
+              <CollapsibleSection
+                label="Tasks"
+                collapsed={!!collapsedSections.tasks}
+                onToggle={() => toggleSection('tasks')}
+                summary={taskSummary}
+                action={
+                  routines.length === 0 ? (
+                    <button
+                      onClick={() => setShowRoutines(true)}
+                      className="text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
+                      style={{ color: 'var(--color-accent)' }}
+                    >
+                      Routines
+                    </button>
+                  ) : undefined
+                }
+              >
+                <TaskList
+                  focusedItem={focusedItem}
+                  timerState={timerState}
+                  focusSegmentStart={focusSegmentStart}
+                  onSetFocus={setFocus}
+                />
+              </CollapsibleSection>
+            </motion.div>
+
+            {/* Routines are their own section, never mixed into the list you curate. */}
             {routines.length > 0 && (
               <motion.div variants={item}>
                 <CollapsibleSection
@@ -323,34 +349,6 @@ export default function App() {
               </motion.div>
             )}
 
-            <motion.div variants={item}>
-              <CollapsibleSection
-                label="Tasks"
-                prominent
-                collapsed={!!collapsedSections.tasks}
-                onToggle={() => toggleSection('tasks')}
-                summary={taskSummary}
-                action={
-                  routines.length === 0 ? (
-                    <button
-                      onClick={() => setShowRoutines(true)}
-                      className="text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
-                      style={{ color: 'var(--color-accent)' }}
-                    >
-                      Routines
-                    </button>
-                  ) : undefined
-                }
-              >
-                <TaskList
-                  focusedItem={focusedItem}
-                  timerState={timerState}
-                  focusSegmentStart={focusSegmentStart}
-                  onSetFocus={setFocus}
-                />
-              </CollapsibleSection>
-            </motion.div>
-
             {/* Goals */}
             <motion.div variants={item}>
               <CollapsibleSection
@@ -364,6 +362,17 @@ export default function App() {
                   focusSegmentStart={focusSegmentStart}
                   onSetFocus={setFocus}
                 />
+              </CollapsibleSection>
+            </motion.div>
+
+            {/* Activity */}
+            <motion.div variants={item}>
+              <CollapsibleSection
+                label="Activity"
+                collapsed={!!collapsedSections.activity}
+                onToggle={() => toggleSection('activity')}
+              >
+                <Activity />
               </CollapsibleSection>
             </motion.div>
           </main>
@@ -417,12 +426,6 @@ export default function App() {
             <div ref={sessionSentinelRef} aria-hidden="true" className="h-px -mt-4" />
           </aside>
         </div>
-
-        {/* Activity spans the full width — it is a chart, not a sidebar widget,
-            and it belongs at the end of the page on every breakpoint. */}
-        <motion.div variants={item}>
-          <Activity />
-        </motion.div>
 
       </motion.div>
 
