@@ -1,5 +1,5 @@
 import type { Goal, GoalPeriod } from '../types';
-import { todayKey, daysSince, formatTimeLong } from './thirdTime';
+import { todayKey, daysSince, formatDuration } from './thirdTime';
 
 export function getWeekKey(date: Date): string {
   const d = new Date(date);
@@ -22,7 +22,27 @@ export function getPeriodKey(period: GoalPeriod, periodDays: number | undefined,
 }
 
 export function getCurrentPeriodKey(goal: Goal): string {
-  return getPeriodKey(goal.period, goal.periodDays, goal.createdAt);
+  return getPeriodKey(goal.period, goal.periodDays, goal.periodAnchor ?? goal.createdAt);
+}
+
+/**
+ * Progress is keyed by period and never expires on its own, so a daily goal
+ * would add a key a day to localStorage forever. Keep a couple of years.
+ */
+const MAX_PERIODS = 90;
+
+export function prunePeriods(progress: Record<string, number>): Record<string, number> {
+  const keys = Object.keys(progress);
+  if (keys.length <= MAX_PERIODS) return progress;
+  const ordered = keys.sort((a, b) => {
+    const na = a.startsWith('custom-') ? Number(a.slice(7)) : NaN;
+    const nb = b.startsWith('custom-') ? Number(b.slice(7)) : NaN;
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return a.localeCompare(b);
+  });
+  return Object.fromEntries(
+    ordered.slice(-MAX_PERIODS).map((k) => [k, progress[k]])
+  );
 }
 
 export function getPeriodLabel(goal: Goal): string {
@@ -43,11 +63,11 @@ export function formatGoalProgress(goal: Goal, value: number): string {
   if (goal.type === 'boolean') return value >= 1 ? 'Done' : 'Not done';
   if (goal.type === 'counter') return `${value} / ${goal.target}`;
   // time — value and target are ms
-  return `${formatTimeLong(value)} / ${formatTimeLong(goal.target)}`;
+  return `${formatDuration(value)} / ${formatDuration(goal.target)}`;
 }
 
 export function formatGoalTarget(goal: Goal): string {
   if (goal.type === 'boolean') return 'Done / Not done';
   if (goal.type === 'counter') return `${goal.target}×`;
-  return formatTimeLong(goal.target);
+  return formatDuration(goal.target);
 }
