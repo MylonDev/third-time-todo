@@ -439,7 +439,7 @@ function SortableTask({
                     <span className="num">{task.estimateMin}</span> min est.
                   </span>
                 )}
-                {isStale(task.acknowledgedAt ?? task.createdAt) && !isDone && (
+                {isStale(task.createdAt) && !isDone && (
                   <span
                     className="text-xs px-1.5 py-0.5 rounded-full font-medium"
                     style={{
@@ -447,7 +447,7 @@ function SortableTask({
                       color: 'var(--color-accent)',
                     }}
                   >
-                    <span className="num">{daysSince(task.acknowledgedAt ?? task.createdAt)}d</span> old
+                    <span className="num">{daysSince(task.createdAt)}d</span> old
                   </span>
                 )}
                 {subtasks.length > 0 && (
@@ -609,9 +609,8 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
   const {
     tasks, addTask, updateTask, deleteTask, moveToTomorrow,
     reorderTasks, addSubtask, toggleSubtask, deleteSubtask, editSubtask,
-    adjustTrackedMs, restoreTask, routines, snoozeRoutine,
+    adjustTrackedMs, restoreTask,
   } = useTasks();
-  const [collapsedRoutines, setCollapsedRoutines] = useState<Record<string, boolean>>({});
   const [title, setTitle] = useState('');
   const [estimate, setEstimate] = useState('');
   const [showDone, setShowDone] = useState(false);
@@ -667,22 +666,8 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
     [todayTasks]
   );
 
-  // Routine tasks are grouped under their routine's name; everything else is a
-  // loose task. Only routines with something left to do get a group.
-  const routineGroups = useMemo(() => {
-    return [...routines]
-      .sort((a, b) => a.order - b.order)
-      .map((r) => ({
-        routine: r,
-        items: todayTasks.filter((t) => t.routineId === r.id).sort((a, b) => a.order - b.order),
-      }))
-      .filter((g) => g.items.length > 0);
-  }, [routines, todayTasks]);
-
-  const looseTasks = useMemo(
-    () => activeTasks.filter((t) => !t.routineId || !routines.some((r) => r.id === t.routineId)),
-    [activeTasks, routines]
-  );
+  // Routine steps have their own panel above the list, so they are not repeated here.
+  const looseTasks = useMemo(() => activeTasks.filter((t) => !t.routineId), [activeTasks]);
   const doneTasks = useMemo(
     () =>
       todayTasks
@@ -754,77 +739,11 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
         </button>
       </form>
 
-      {/* Routine groups */}
-      {routineGroups.map(({ routine, items }) => {
-        const done = items.filter((t) => t.status === 'done').length;
-        const collapsed = collapsedRoutines[routine.id] ?? false;
-        const allDone = done === items.length;
-        return (
-          <div key={routine.id} className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() =>
-                  setCollapsedRoutines((c) => ({ ...c, [routine.id]: !collapsed }))
-                }
-                aria-expanded={!collapsed}
-                className="flex items-center gap-1.5 text-left"
-              >
-                <span
-                  className="text-xs transition-transform"
-                  style={{ color: 'var(--color-text-muted)', display: 'inline-block', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
-                >
-                  ▾
-                </span>
-                <span className="text-[13px] font-semibold" style={{ color: 'var(--color-text)' }}>
-                  {routine.title}
-                </span>
-                <span
-                  className="num text-xs"
-                  style={{ color: allDone ? 'var(--color-rest)' : 'var(--color-text-muted)' }}
-                >
-                  {done}/{items.length}
-                </span>
-              </button>
-              <button
-                onClick={() => snoozeRoutine(routine.id)}
-                className="ml-auto text-xs transition-opacity opacity-50 hover:opacity-100"
-                style={{ color: 'var(--color-text-muted)' }}
-                title="Hide this routine until tomorrow"
-              >
-                Skip today
-              </button>
-            </div>
-            {!collapsed && (
-              <ul className="flex flex-col gap-1.5 pl-3">
-                {items.map((task) => (
-                  <SortableTask
-                    key={task.id}
-                    task={task}
-                    isFocused={focusedItem?.kind === 'task' && focusedItem.id === task.id}
-                    timerState={timerState}
-                    focusSegmentStart={focusSegmentStart}
-                    onUpdate={updateTask}
-                    onDelete={handleDelete}
-                    onMoveToTomorrow={moveToTomorrow}
-                    onAddSubtask={addSubtask}
-                    onToggleSubtask={toggleSubtask}
-                    onDeleteSubtask={deleteSubtask}
-                    onEditSubtask={editSubtask}
-                    onFocus={() => handleFocus(task.id)}
-                    onAdjustTrackedMs={adjustTrackedMs}
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
-        );
-      })}
-
       {/* Loose tasks */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={looseTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           <ul className="flex flex-col gap-1.5">
-            {looseTasks.length === 0 && doneTasks.length === 0 && routineGroups.length === 0 && (
+            {looseTasks.length === 0 && doneTasks.length === 0 && (
               <li
                 className="text-center text-sm py-8"
                 style={{ color: 'var(--color-text-muted)' }}
