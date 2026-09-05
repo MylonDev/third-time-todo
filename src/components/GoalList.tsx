@@ -50,7 +50,6 @@ function GoalCard({ goal }: { goal: Goal }) {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(goal.title);
   const [editTarget, setEditTarget] = useState('');
-  const [editDeadline, setEditDeadline] = useState(goal.deadline ?? '');
   const [showTimeEdit, setShowTimeEdit] = useState(false);
   const [timeEditMin, setTimeEditMin] = useState('');
 
@@ -79,7 +78,6 @@ function GoalCard({ goal }: { goal: Goal }) {
         ...(editTarget && !isNaN(targetNum) && targetNum > 0
           ? { target: goal.type === 'time' ? targetNum * 60_000 : targetNum }
           : {}),
-        deadline: editDeadline || undefined,
       });
     }
     setEditing(false);
@@ -163,13 +161,6 @@ function GoalCard({ goal }: { goal: Goal }) {
                   </span>
                 </div>
               )}
-              <input
-                type="date"
-                value={editDeadline}
-                onChange={(e) => setEditDeadline(e.target.value)}
-                className="text-xs rounded-lg px-2 py-1 outline-none border w-36"
-                style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', borderColor: 'var(--color-border)' }}
-              />
             </div>
           ) : (
             <>
@@ -188,16 +179,10 @@ function GoalCard({ goal }: { goal: Goal }) {
                 )}
               </div>
 
-              {/* Period + deadline */}
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                   {getPeriodLabel(goal)}
                 </span>
-                {goal.deadline && (
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    · Due {goal.deadline}
-                  </span>
-                )}
               </div>
 
               {/* Progress controls */}
@@ -298,7 +283,6 @@ function GoalCard({ goal }: { goal: Goal }) {
                       ? String(goal.target)
                       : ''
                   );
-                  setEditDeadline(goal.deadline ?? '');
                   setEditing(true);
                 },
               },
@@ -328,7 +312,6 @@ function AddGoalForm({ onDone }: { onDone: () => void }) {
   const [periodDays, setPeriodDays] = useState('7');
   const [targetMin, setTargetMin] = useState('');
   const [targetTimes, setTargetTimes] = useState('');
-  const [deadline, setDeadline] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -349,7 +332,6 @@ function AddGoalForm({ onDone }: { onDone: () => void }) {
       period,
       periodDays: period === 'custom' ? Math.max(1, Number(periodDays) || 7) : undefined,
       target,
-      deadline: deadline || undefined,
     });
     onDone();
   };
@@ -453,16 +435,6 @@ function AddGoalForm({ onDone }: { onDone: () => void }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <label className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Deadline (optional)</label>
-        <input
-          type="date"
-          value={deadline}
-          onChange={(e) => setDeadline(e.target.value)}
-          className="text-xs rounded-lg px-2 py-1 outline-none border"
-          style={inputStyle}
-        />
-      </div>
 
       <div className="flex gap-2">
         <button

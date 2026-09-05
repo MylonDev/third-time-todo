@@ -11,7 +11,6 @@ export interface SubTask {
 export interface Task {
   id: string;
   title: string;
-  estimateMin?: number;
   status: TaskStatus;
   createdAt: number;
   scheduledDate: string; // YYYY-MM-DD
@@ -34,13 +33,23 @@ export interface DailyState {
   date: string; // YYYY-MM-DD
   bankMs: number; // can be negative (debt)
   sessions: SessionLog[];
-  unusedRestMs?: number; // captured when session ends
+  /** Running total for the day: each ended session adds what it left unspent. */
+  unusedRestMs?: number;
+  /**
+   * When the open session began, or undefined when none is. A SessionLog is
+   * one work stint; a session is everything from Start to End Session, which
+   * may be several of them.
+   */
+  sessionStartedAt?: number;
 }
 
+/** What the session that just ended did, plus where that leaves the day. */
 export interface SessionReport {
   totalWorkMs: number;
   totalBreakMs: number;
   unusedRestMs: number;
+  dayWorkMs: number;
+  dayBreakMs: number;
   mode: Mode;
   completedTasks: number;
   totalTasks: number;
@@ -54,7 +63,8 @@ export interface HistoryEntry {
   sessions: SessionLog[];
 }
 
-export type TaskDisposition = 'move-to-tomorrow' | 'mark-done' | 'discard';
+/** What to do with a task carried over from a previous day. */
+export type TaskDisposition = 'keep' | 'mark-done' | 'discard';
 
 // ── Focus ─────────────────────────────────────────────────────────────────────
 
@@ -75,7 +85,6 @@ export interface Goal {
   periodDays?: number;   // only when period === 'custom'
   periodAnchor?: number; // custom windows count from here; reset when periodDays changes
   target: number;        // boolean: 1 | counter: N times | time: ms
-  deadline?: string;     // YYYY-MM-DD, optional
   createdAt: number;
   order: number;
   progress: Record<string, number>; // periodKey → accumulated value

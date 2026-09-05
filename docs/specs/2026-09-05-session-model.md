@@ -1,6 +1,6 @@
 # Sessions, not days — plus two removals
 
-**Status:** proposed, awaiting review
+**Status:** implemented
 **Scope:** B, C and E from the product discussion. A (the pace band) is
 deliberately left out so it can be reworked or dropped without disturbing
 any of this. D was resolved as "leave as is".
@@ -177,9 +177,29 @@ purpose, watch it go red — per `CLAUDE.md`.
 
 ---
 
-## Open question
+## Found while implementing
 
-Nothing blocking. One judgement call made without asking: the session
-summary leads with *this session* and shows today's total underneath, on the
-grounds that a button named End Session should report the session. Say if
-you'd rather it stayed a day summary.
+Two things the spec did not anticipate, both fixed:
+
+**`clearTimer` left the session open.** "Reset — start a new session" on the
+restore prompt set the timer idle but left `sessionStartedAt` set, so the
+next session's summary covered the abandoned one's stints as well as its
+own. It now closes the session.
+
+**StrictMode cleared the triage before it rendered.** The mount effect runs
+twice in development; the second `rolloverPastTasks()` finds nothing left to
+move and returned an empty list, which overwrote the first result. The
+effect now only ever widens the list.
+
+## Judgement call
+
+The session summary leads with *this session* and shows today's total
+underneath, on the grounds that a button named End Session should report the
+session. Easy to flip.
+
+## Not covered by a test
+
+`maybeArchivePreviousDay` keys off `timerState` alone. An earlier draft also
+refused when `sessionStartedAt` was set; with `clearTimer` fixed, no UI path
+reaches "idle with a session still open", so both versions behave
+identically and no test distinguishes them. Kept the simpler one.
