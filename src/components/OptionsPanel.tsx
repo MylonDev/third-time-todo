@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Modal } from './Modal';
 import { useSettings } from '../store/settings';
 import type { Theme } from '../store/settings';
 
@@ -47,22 +48,7 @@ export function OptionsPanel({ isOpen, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 backdrop-blur-sm"
-        style={{ background: 'rgba(0,0,0,0.4)' }}
-        onClick={onClose}
-      />
-
-      {/* Panel */}
-      <div
-        className="relative w-full max-w-sm h-full flex flex-col shadow-2xl overflow-y-auto border-l"
-        style={{
-          background: 'var(--color-surface)',
-          borderColor: 'var(--color-border)',
-        }}
-      >
+    <Modal onClose={onClose} label="Options" variant="sheet">
         <div
           className="flex items-center justify-between px-5 py-4 border-b"
           style={{ borderColor: 'var(--color-border)' }}
@@ -224,8 +210,7 @@ export function OptionsPanel({ isOpen, onClose }: Props) {
             </div>
           </section>
 
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { Modal } from './Modal';
 import { useSession } from '../store/session';
 import { useTasks } from '../store/tasks';
 import { formatTimeLong, todayKey } from '../utils/thirdTime';
@@ -90,18 +90,12 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
       : '';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <motion.div
-        className="rounded-2xl shadow-2xl w-full max-w-md flex flex-col gap-5 p-6 border"
-        style={{
-          background: 'var(--color-surface)',
-          borderColor: 'var(--color-border)',
-        }}
-        initial={{ opacity: 0, y: 40, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 20, scale: 0.97 }}
-        transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-      >
+    <Modal
+      onClose={onClose}
+      label={step === 'report' ? "The day's summary" : step === 'disposition' ? 'Unfinished tasks' : 'End the day'}
+      size="md"
+      className="gap-5 p-6"
+    >
         {/* Step 1: Confirm */}
         {step === 'confirm' && (
           <>
@@ -265,7 +259,6 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
             </button>
           </>
         )}
-      </motion.div>
-    </div>
+    </Modal>
   );
 }
