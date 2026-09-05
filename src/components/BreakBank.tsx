@@ -102,9 +102,9 @@ export function BreakBank() {
     .filter((ms) => ms <= bankForPicker);
 
   const cardStyle: React.CSSProperties = debt
-    ? { background: 'var(--color-debt-dim)', borderColor: 'rgba(248,113,113,0.3)' }
+    ? { background: 'var(--color-debt-dim)', borderColor: 'var(--color-debt-edge)' }
     : isOnBreak
-    ? { background: 'var(--color-rest-dim)', borderColor: 'rgba(52,211,153,0.25)' }
+    ? { background: 'var(--color-rest-dim)', borderColor: 'var(--color-rest-edge)' }
     : { background: 'var(--color-surface)', borderColor: 'var(--color-border)' };
 
   return (
@@ -190,7 +190,7 @@ export function BreakBank() {
           className="rounded-xl p-3 flex flex-col gap-2 border"
           style={{
             background: 'var(--color-debt-dim)',
-            borderColor: 'rgba(248,113,113,0.3)',
+            borderColor: 'var(--color-debt-edge)',
           }}
         >
           <p className="text-sm font-medium" style={{ color: 'var(--color-debt)' }}>
@@ -204,7 +204,7 @@ export function BreakBank() {
                 startBreak(mode);
               }}
               className="flex-1 py-1.5 text-sm font-semibold rounded-lg transition-colors"
-              style={{ background: 'var(--color-debt)', color: '#fff' }}
+              style={{ background: 'var(--color-debt)', color: 'var(--color-on-accent)' }}
             >
               Rest Anyway
             </button>
@@ -241,7 +241,7 @@ export function BreakBank() {
                 style={{
                   background: ms === lastBreakMs ? 'var(--color-rest)' : 'var(--color-rest-dim)',
                   color: ms === lastBreakMs ? 'var(--color-bg)' : 'var(--color-rest)',
-                  border: `1px solid ${ms === lastBreakMs ? 'var(--color-rest)' : 'rgba(52,211,153,0.3)'}`,
+                  border: `1px solid ${ms === lastBreakMs ? 'var(--color-rest)' : 'var(--color-rest-edge)'}`,
                 }}
               >
                 {ms / 60_000} min
@@ -253,7 +253,7 @@ export function BreakBank() {
               style={{
                 background: 'var(--color-rest-dim)',
                 color: 'var(--color-rest)',
-                border: '1px solid rgba(52,211,153,0.3)',
+                border: '1px solid var(--color-rest-edge)',
               }}
             >
               All ({formatTimeLong(bankForPicker)})

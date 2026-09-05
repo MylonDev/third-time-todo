@@ -212,7 +212,7 @@ export default function App() {
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0"
               style={{
-                background: 'linear-gradient(135deg, var(--color-accent) 0%, #1e3a8a 100%)',
+                background: 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-deep) 100%)',
               }}
             >
               <span

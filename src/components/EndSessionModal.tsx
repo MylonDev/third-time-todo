@@ -122,7 +122,7 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
               <button
                 onClick={handleConfirm}
                 className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors"
-                style={{ background: 'var(--color-accent)', color: '#fff' }}
+                style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
               >
                 End the Day
               </button>
@@ -199,7 +199,7 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
             <button
               onClick={handleApplyDispositions}
               className="py-2.5 rounded-xl font-semibold text-sm transition-colors"
-              style={{ background: 'var(--color-accent)', color: '#fff' }}
+              style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
             >
               Apply and continue
             </button>
@@ -253,7 +253,7 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
             <button
               onClick={onClose}
               className="py-2.5 rounded-xl font-semibold text-sm transition-colors"
-              style={{ background: 'var(--color-accent)', color: '#fff' }}
+              style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
             >
               Done
             </button>
