@@ -27,7 +27,7 @@ type Cell = { key: string; record?: RoutinePeriodRecord; isCurrent: boolean };
 function RoutineRow({ routine }: { routine: Routine }) {
   const { routineHistory, tasks } = useTasks();
 
-  const { cells, rate, streak, trackedMs, recorded } = useMemo(() => {
+  const { cells, rate, trackedMs, recorded } = useMemo(() => {
     const anchor = routine.createdAt;
     const currentKey = getPeriodKey(routine.period, routine.periodDays, anchor);
     const history = routineHistory[routine.id] ?? {};
@@ -56,21 +56,11 @@ function RoutineRow({ routine }: { routine: Routine }) {
       ? closed.reduce((a, c) => a + c.record!.done / Math.max(1, c.record!.total), 0) / closed.length
       : null;
 
-    // Consecutive complete periods, counting back from the most recent closed one.
-    let streak = 0;
-    for (let i = cells.length - 1; i >= 0; i--) {
-      const c = cells[i];
-      if (c.isCurrent) {
-        // An unfinished current period does not break the streak, it just doesn't add.
-        if (c.record && c.record.total > 0 && c.record.done === c.record.total) streak++;
-        continue;
-      }
-      if (c.record && c.record.total > 0 && c.record.done === c.record.total) streak++;
-      else break;
-    }
-
+    // No streak here on purpose: a streak makes the missed period the loudest
+    // thing on screen, and the adherence rate already says how it is going
+    // without punishing a day off.
     const trackedMs = cells.reduce((a, c) => a + (c.record?.trackedMs ?? 0), 0);
-    return { cells, rate, streak, trackedMs, recorded: closed.length };
+    return { cells, rate, trackedMs, recorded: closed.length };
   }, [routine, routineHistory, tasks]);
 
   return (
@@ -82,11 +72,6 @@ function RoutineRow({ routine }: { routine: Routine }) {
         {rate !== null && (
           <span className="num text-xs font-semibold" style={{ color: 'var(--color-rest)' }}>
             {Math.round(rate * 100)}%
-          </span>
-        )}
-        {streak > 1 && (
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            <span className="num">{streak}</span> in a row
           </span>
         )}
         <span className="text-xs ml-auto" style={{ color: 'var(--color-text-muted)' }}>

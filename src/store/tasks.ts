@@ -10,7 +10,7 @@ interface TasksState {
   tasks: Task[];
   routines: Routine[];
   routineHistory: RoutineHistory;
-  addTask: (title: string, scheduledDate: string, estimateMin?: number) => void;
+  addTask: (title: string, scheduledDate: string) => void;
   updateTask: (id: string, patch: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
   deleteTask: (id: string) => void;
   restoreTask: (task: Task) => void;
@@ -20,7 +20,8 @@ interface TasksState {
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   deleteSubtask: (taskId: string, subtaskId: string) => void;
   editSubtask: (taskId: string, subtaskId: string, title: string) => void;
-  rolloverPastTasks: () => void;
+  /** Moves unfinished tasks from past days into today, returning their ids. */
+  rolloverPastTasks: () => string[];
   adjustTrackedMs: (id: string, deltaMs: number) => void;
 
   addRoutine: (title: string, period: GoalPeriod, periodDays?: number) => void;
@@ -176,14 +177,13 @@ export const useTasks = create<TasksState>()(
       routines: [],
       routineHistory: {},
 
-      addTask: (title, scheduledDate, estimateMin) =>
+      addTask: (title, scheduledDate) =>
         set((s) => ({
           tasks: [
             ...s.tasks,
             {
               id: crypto.randomUUID(),
               title,
-              estimateMin,
               status: 'todo' as TaskStatus,
               createdAt: Date.now(),
               scheduledDate,
@@ -278,13 +278,18 @@ export const useTasks = create<TasksState>()(
 
       rolloverPastTasks: () => {
         const today = todayKey();
+        const carried = get()
+          .tasks.filter(
+            (t) => t.scheduledDate < today && t.status !== 'done' && !t.routineId
+          )
+          .map((t) => t.id);
+        if (carried.length === 0) return [];
         set((s) => ({
           tasks: s.tasks.map((t) =>
-            t.scheduledDate < today && t.status !== 'done' && !t.routineId
-              ? { ...t, scheduledDate: today }
-              : t
+            carried.includes(t.id) ? { ...t, scheduledDate: today } : t
           ),
         }));
+        return carried;
       },
 
       adjustTrackedMs: (id, deltaMs) =>
@@ -469,7 +474,6 @@ export const useTasks = create<TasksState>()(
             tasks: (state.tasks ?? []).map((t, i) => ({
               id: t.id,
               title: t.title,
-              estimateMin: t.estimateMin,
               status: (t.status === 'in-progress' || t.status === 'parked') ? 'todo' : (t.status ?? 'todo'),
               createdAt: t.createdAt ?? Date.now(),
               scheduledDate: t.scheduledDate ?? todayKey(),

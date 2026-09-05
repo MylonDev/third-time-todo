@@ -38,10 +38,10 @@ test.describe('every overlay is a real dialog', () => {
     await expect(dialog(app)).toBeHidden();
   });
 
-  test('End Day opens a labelled dialog and Escape closes it', async ({ app }) => {
+  test('End Session opens a labelled dialog and Escape closes it', async ({ app }) => {
     await startSession(app);
-    await app.getByRole('button', { name: 'End Day' }).click();
-    await expect(dialog(app)).toHaveAttribute('aria-label', 'End the day');
+    await app.getByRole('button', { name: 'End Session' }).click();
+    await expect(dialog(app)).toHaveAttribute('aria-label', 'End the session');
     await app.keyboard.press('Escape');
     await expect(dialog(app)).toBeHidden();
   });
