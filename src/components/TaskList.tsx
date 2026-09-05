@@ -60,7 +60,6 @@ function SortableTask({
 
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
-  const [editEstimate, setEditEstimate] = useState(task.estimateMin ? String(task.estimateMin) : '');
   const [subtasksOpen, setSubtasksOpen] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
@@ -84,10 +83,7 @@ function SortableTask({
   const saveEdit = () => {
     const trimmed = editTitle.trim();
     if (trimmed) {
-      onUpdate(task.id, {
-        title: trimmed,
-        estimateMin: editEstimate ? Number(editEstimate) : undefined,
-      });
+      onUpdate(task.id, { title: trimmed });
     }
     setEditing(false);
   };
@@ -216,20 +212,6 @@ function SortableTask({
                 onBlur={saveEdit}
                 className="w-full text-sm"
               />
-              <div className="flex items-center gap-1.5">
-                <InlineInput
-                  type="number"
-                  min="1"
-                  value={editEstimate}
-                  onChange={(e) => setEditEstimate(e.target.value)}
-                  onCommit={saveEdit}
-                  onCancel={() => setEditing(false)}
-                  placeholder="Est. min"
-                  className="w-20 text-xs"
-                  style={{ borderColor: 'var(--color-border)' }}
-                />
-                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>min</span>
-              </div>
             </div>
           ) : (
             <>
@@ -256,11 +238,6 @@ function SortableTask({
                 )}
               </div>
               <div className="flex gap-1.5 mt-0.5 flex-wrap items-center">
-                {task.estimateMin && (
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    <span className="num">{task.estimateMin}</span> min est.
-                  </span>
-                )}
                 {isStale(task.createdAt) && !isDone && (
                   <span
                     className="text-xs px-1.5 py-0.5 rounded-full font-medium"
@@ -326,7 +303,6 @@ function SortableTask({
                 label: 'Edit',
                 onSelect: () => {
                   setEditTitle(task.title);
-                  setEditEstimate(task.estimateMin ? String(task.estimateMin) : '');
                   setEditing(true);
                 },
               },
@@ -439,7 +415,6 @@ export function TaskList() {
     adjustTrackedMs, restoreTask,
   } = useTasks();
   const [title, setTitle] = useState('');
-  const [estimate, setEstimate] = useState('');
   const [showDone, setShowDone] = useState(false);
 
   // Delete commits immediately; the toast holds a snapshot so Undo can put it back.
@@ -506,9 +481,8 @@ export function TaskList() {
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    addTask(title.trim(), today, estimate ? Number(estimate) : undefined);
+    addTask(title.trim(), today);
     setTitle('');
-    setEstimate('');
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -536,15 +510,6 @@ export function TaskList() {
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add a task…"
           className="flex-1 rounded-xl px-3 py-2 text-sm outline-none border transition-colors"
-          style={inputStyle}
-        />
-        <input
-          value={estimate}
-          onChange={(e) => setEstimate(e.target.value)}
-          placeholder="min"
-          type="number"
-          min="1"
-          className="w-16 rounded-xl px-2 py-2 text-sm text-center outline-none border transition-colors"
           style={inputStyle}
         />
         <button

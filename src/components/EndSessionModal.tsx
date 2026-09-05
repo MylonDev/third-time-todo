@@ -3,40 +3,34 @@ import { Modal } from './Modal';
 import { useSession } from '../store/session';
 import { useTasks } from '../store/tasks';
 import { formatTimeLong, todayKey } from '../utils/thirdTime';
-import type { Mode, SessionReport, TaskDisposition } from '../types';
+import type { Mode, SessionReport } from '../types';
 
-type Step = 'confirm' | 'disposition' | 'report';
+type Step = 'confirm' | 'report';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   mode: Mode;
-  /** Banked rest that ending the day will clear, sampled when the modal opened. */
+  /** Rest earned this session and not spent, sampled when the modal opened. */
   bankToClear: number;
 }
 
-const DISPOSITION_LABELS: Record<TaskDisposition, string> = {
-  'move-to-tomorrow': 'Tomorrow',
-  'mark-done': 'Done',
-  discard: 'Discard',
-};
-
 export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
   const { endSession } = useSession();
-  const { tasks, updateTask, deleteTask, moveToTomorrow } = useTasks();
+  const { tasks } = useTasks();
 
   const [step, setStep] = useState<Step>('confirm');
   const [report, setReport] = useState<SessionReport | null>(null);
-  const [dispositions, setDispositions] = useState<Record<string, TaskDisposition>>({});
 
-  const restToBeCleared = Math.max(0, bankToClear);
+  // Below a second it formats as 0:00, and a line announcing nothing is
+  // noise. Say it only when there is something to say.
+  const restLeft = bankToClear >= 1000 ? bankToClear : 0;
 
   useEffect(() => {
     if (!isOpen) {
       setTimeout(() => {
         setStep('confirm');
         setReport(null);
-        setDispositions({});
       }, 300);
     }
   }, [isOpen]);
@@ -44,41 +38,12 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
   if (!isOpen) return null;
 
   const today = todayKey();
-  const unfinishedTasks = tasks.filter(
-    (t) => t.scheduledDate === today && t.status !== 'done'
-  );
-  const completedTasks = tasks.filter(
-    (t) => t.scheduledDate === today && t.status === 'done'
-  ).length;
-  const totalTasks = tasks.filter((t) => t.scheduledDate === today).length;
+  const todays = tasks.filter((t) => t.scheduledDate === today);
+  const completedTasks = todays.filter((t) => t.status === 'done').length;
 
   const handleConfirm = () => {
     const raw = endSession(mode);
-    const fullReport: SessionReport = {
-      ...raw,
-      completedTasks,
-      totalTasks,
-    };
-    setReport(fullReport);
-    if (unfinishedTasks.length === 0) {
-      setStep('report');
-    } else {
-      // Tomorrow is what almost always happens, so make it the default rather
-      // than asking for an explicit decision on every open task.
-      setDispositions(
-        Object.fromEntries(unfinishedTasks.map((t) => [t.id, 'move-to-tomorrow' as TaskDisposition]))
-      );
-      setStep('disposition');
-    }
-  };
-
-  const handleApplyDispositions = () => {
-    unfinishedTasks.forEach((task) => {
-      const d = dispositions[task.id];
-      if (d === 'mark-done') updateTask(task.id, { status: 'done' });
-      else if (d === 'move-to-tomorrow') moveToTomorrow(task.id);
-      else if (d === 'discard') deleteTask(task.id);
-    });
+    setReport({ ...raw, completedTasks, totalTasks: todays.length });
     setStep('report');
   };
 
@@ -86,179 +51,123 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
     report && report.totalBreakMs > 0
       ? `${(report.totalWorkMs / report.totalBreakMs).toFixed(1)}:1`
       : report
-      ? 'No breaks'
+      ? 'No rest taken'
       : '';
+
+  const sameAsSession =
+    report && report.dayWorkMs === report.totalWorkMs && report.dayBreakMs === report.totalBreakMs;
 
   return (
     <Modal
       onClose={onClose}
-      label={step === 'report' ? "The day's summary" : step === 'disposition' ? 'Unfinished tasks' : 'End the day'}
+      label={step === 'report' ? "The session's summary" : 'End the session'}
       size="md"
       className="gap-5 p-6"
     >
-        {/* Step 1: Confirm */}
-        {step === 'confirm' && (
-          <>
-            <div className="text-center">
-              <div className="text-2xl mb-2">🏁</div>
-              <h2
-                className="text-lg font-bold"
-                style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}
-              >
-                End the day?
-              </h2>
-              <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                Your timer stops and today is summarised and archived.
-              </p>
-              {restToBeCleared > 0 && (
-                <p className="text-sm mt-2" style={{ color: 'var(--color-debt)' }}>
-                  Your banked rest of{' '}
-                  <span className="font-timer font-bold">{formatTimeLong(restToBeCleared)}</span>{' '}
-                  will be cleared. Take it before you end the day if you want it.
-                </p>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleConfirm}
-                className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors"
-                style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
-              >
-                End the Day
-              </button>
-              <button
-                onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors"
-                style={{
-                  background: 'var(--color-surface-2)',
-                  color: 'var(--color-text-muted)',
-                  border: '1px solid var(--color-border)',
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </>
-        )}
-
-        {/* Step 2: Task Disposition */}
-        {step === 'disposition' && (
-          <>
-            <div>
-              <h2
-                className="text-lg font-bold"
-                style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}
-              >
-                Unfinished tasks
-              </h2>
-              <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                All set to move to tomorrow. Change any you want handled differently.
-              </p>
-            </div>
-            <ul className="flex flex-col gap-3 max-h-64 overflow-y-auto">
-              {unfinishedTasks.map((task) => (
-                <li key={task.id} className="flex flex-col gap-1.5">
-                  <span className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>
-                    {task.title}
-                  </span>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {(['move-to-tomorrow', 'mark-done', 'discard'] as TaskDisposition[]).map((d) => {
-                      const isSelected = dispositions[task.id] === d;
-                      const colors: Record<TaskDisposition, { bg: string; text: string }> = {
-                        'move-to-tomorrow': { bg: 'var(--color-accent-dim)', text: 'var(--color-accent)' },
-                        'mark-done': { bg: 'var(--color-rest-dim)', text: 'var(--color-rest)' },
-                        discard: { bg: 'var(--color-debt-dim)', text: 'var(--color-debt)' },
-                      };
-                      return (
-                        <button
-                          key={d}
-                          onClick={() => setDispositions((prev) => ({ ...prev, [task.id]: d }))}
-                          className="px-3 py-1 rounded-full text-xs font-semibold transition-all border"
-                          style={
-                            isSelected
-                              ? {
-                                  background: colors[d].bg,
-                                  color: colors[d].text,
-                                  borderColor: colors[d].text,
-                                }
-                              : {
-                                  background: 'transparent',
-                                  color: 'var(--color-text-muted)',
-                                  borderColor: 'var(--color-border)',
-                                }
-                          }
-                        >
-                          {DISPOSITION_LABELS[d]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={handleApplyDispositions}
-              className="py-2.5 rounded-xl font-semibold text-sm transition-colors"
-              style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
+      {step === 'confirm' && (
+        <>
+          <div className="text-center">
+            <div className="text-2xl mb-2">☕</div>
+            <h2
+              className="text-lg font-bold"
+              style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}
             >
-              Apply and continue
-            </button>
-          </>
-        )}
+              End the session?
+            </h2>
+            <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
+              Your timer stops and the session is summarised. Today stays open —
+              start another whenever you like.
+            </p>
+            {restLeft > 0 && (
+              // Rest left on the table means the pace was sustainable. Stated
+              // plainly, in muted text: it is not a loss to be warned about.
+              <p className="text-sm mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                You finish with{' '}
+                <span className="num" style={{ color: 'var(--color-rest)' }}>
+                  {formatTimeLong(restLeft)}
+                </span>{' '}
+                of rest unspent. The next session starts fresh.
+              </p>
+            )}
+          </div>
+          <button
+            onClick={handleConfirm}
+            className="py-2.5 rounded-xl font-semibold text-sm transition-colors"
+            style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
+          >
+            End the Session
+          </button>
+          <button
+            onClick={onClose}
+            className="py-2.5 rounded-xl font-semibold text-sm transition-colors"
+            style={{
+              background: 'var(--color-surface-2)',
+              color: 'var(--color-text-muted)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            Cancel
+          </button>
+        </>
+      )}
 
-        {/* Step 3: Report */}
-        {step === 'report' && report && (
-          <>
-            <div className="text-center">
-              <div className="text-2xl mb-2">✅</div>
-              <h2
-                className="text-lg font-bold"
-                style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}
+      {step === 'report' && report && (
+        <>
+          <div className="text-center">
+            <div className="text-2xl mb-2">✅</div>
+            <h2
+              className="text-lg font-bold"
+              style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}
+            >
+              Session complete
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {[
+              { label: 'Active Time', value: formatTimeLong(report.totalWorkMs) },
+              { label: 'Rest Time', value: formatTimeLong(report.totalBreakMs) },
+              { label: 'Active : Rest', value: workBreakRatio },
+              { label: 'Tasks Done', value: `${report.completedTasks} / ${report.totalTasks}` },
+              {
+                label: 'Rest Unspent',
+                value: formatTimeLong(report.unusedRestMs),
+                highlight: report.unusedRestMs > 0,
+              },
+            ].map(({ label, value, highlight }) => (
+              <div
+                key={label}
+                className="rounded-xl p-3 text-center"
+                style={{ background: 'var(--color-surface-2)' }}
               >
-                Session complete
-              </h2>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { label: 'Active Time', value: formatTimeLong(report.totalWorkMs) },
-                { label: 'Rest Time', value: formatTimeLong(report.totalBreakMs) },
-                { label: 'Active : Rest', value: workBreakRatio },
-                { label: 'Tasks Done', value: `${report.completedTasks} / ${report.totalTasks}` },
-                {
-                  label: 'Unused Rest',
-                  value: formatTimeLong(report.unusedRestMs),
-                  highlight: report.unusedRestMs > 0,
-                },
-              ].map(({ label, value, highlight }) => (
-                <div
-                  key={label}
-                  className="rounded-xl p-3 text-center"
-                  style={{ background: 'var(--color-surface-2)' }}
-                >
-                  <div
-                    className="text-sm mb-0.5"
-                    style={{ color: 'var(--color-text-muted)' }}
-                  >
-                    {label}
-                  </div>
-                  <div
-                    className="font-timer font-bold text-base"
-                    style={{ color: highlight ? 'var(--color-rest)' : 'var(--color-text)' }}
-                  >
-                    {value}
-                  </div>
+                <div className="text-sm mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                  {label}
                 </div>
-              ))}
-            </div>
-            <button
-              onClick={onClose}
-              className="py-2.5 rounded-xl font-semibold text-sm transition-colors"
-              style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
-            >
-              Done
-            </button>
-          </>
-        )}
+                <div
+                  className="font-timer font-bold text-base"
+                  style={{ color: highlight ? 'var(--color-rest)' : 'var(--color-text)' }}
+                >
+                  {value}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Only worth saying once there has been more than one session today. */}
+          {!sameAsSession && (
+            <p className="text-sm text-center" style={{ color: 'var(--color-text-muted)' }}>
+              Today so far:{' '}
+              <span className="num">{formatTimeLong(report.dayWorkMs)}</span> active,{' '}
+              <span className="num">{formatTimeLong(report.dayBreakMs)}</span> rest.
+            </p>
+          )}
+          <button
+            onClick={onClose}
+            className="py-2.5 rounded-xl font-semibold text-sm transition-colors"
+            style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
+          >
+            Done
+          </button>
+        </>
+      )}
     </Modal>
   );
 }

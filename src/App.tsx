@@ -13,6 +13,7 @@ import { SessionBar } from './components/SessionBar';
 import { RoutinesModal } from './components/RoutinesModal';
 import { RoutinePanel } from './components/RoutinePanel';
 import { CollapsibleSection } from './components/CollapsibleSection';
+import { CarriedOverModal } from './components/CarriedOverModal';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
 import { useTasks, usePendingRoutines } from './store/tasks';
@@ -36,16 +37,25 @@ const item: Variants = {
 export default function App() {
   const {
     timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer,
-    focusedItem, setFocusSegmentStart, pruneFocus,
+    focusedItem, setFocusSegmentStart, pruneFocus, maybeArchivePreviousDay,
   } = useSession();
   const { theme, mode, collapsedSections, toggleSection } = useSettings();
   const { rolloverPastTasks, tasks, spawnDueRoutines, routines } = useTasks();
   const pendingRoutines = usePendingRoutines();
 
-  // Roll unfinished tasks from past days into today, then add anything the
-  // routines owe today.
+  // Tasks that came over from a previous day on this open. Offered for triage
+  // once — they have already been moved, so dismissing is a valid answer.
+  const [carriedOver, setCarriedOver] = useState<string[]>([]);
+
+  // Close out a day that ended while the app was away, then roll unfinished
+  // tasks into today and add anything the routines owe.
   useEffect(() => {
-    rolloverPastTasks();
+    maybeArchivePreviousDay();
+    // Only ever widen the list. Under StrictMode this effect runs twice, and
+    // the second pass finds nothing left to move — assigning its empty result
+    // would drop the triage before it rendered.
+    const carried = rolloverPastTasks();
+    if (carried.length > 0) setCarriedOver(carried);
     spawnDueRoutines();
     pruneFocus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,8 +65,9 @@ export default function App() {
   const [showRoutines, setShowRoutines] = useState(false);
   const [bankToClear, setBankToClear] = useState(0);
 
-  // Sample the bank as the modal opens so it can warn about what ending the day
-  // will destroy. Includes the rest the running timer has earned but not banked.
+  // Sample the bank as the modal opens so the summary can report the rest this
+  // session leaves unspent. Includes what the running timer has earned but has
+  // not yet banked.
   const handleOpenEndModal = () => {
     const { daily, timerStart: start, timerState: state } = useSession.getState();
     const elapsed = start ? Date.now() - start : 0;
@@ -101,12 +112,16 @@ export default function App() {
     const next = new Date();
     next.setHours(24, 0, 0, 500);
     const id = setTimeout(() => {
-      rolloverPastTasks();
+      // Archives yesterday only if no timer is running — a session that runs
+      // across midnight keeps accruing to the day it started on.
+      maybeArchivePreviousDay();
+      const carried = rolloverPastTasks();
+      if (carried.length > 0) setCarriedOver(carried);
       spawnDueRoutines();
       setDayKey(todayKey());
     }, next.getTime() - Date.now());
     return () => clearTimeout(id);
-  }, [dayKey, rolloverPastTasks, spawnDueRoutines]);
+  }, [dayKey, rolloverPastTasks, spawnDueRoutines, maybeArchivePreviousDay]);
 
   // Restore handlers
   const [restoreModalDismissed, setRestoreModalDismissed] = useState(false);
@@ -257,7 +272,7 @@ export default function App() {
                     fontFamily: 'var(--font-display)',
                   }}
                 >
-                  End Day
+                  End Session
                 </motion.button>
               )}
             </AnimatePresence>
@@ -409,6 +424,12 @@ export default function App() {
       <SessionBar visible={sessionScrolledAway} />
 
       <RoutinesModal isOpen={showRoutines} onClose={() => setShowRoutines(false)} />
+
+      <AnimatePresence>
+        {carriedOver.length > 0 && (
+          <CarriedOverModal taskIds={carriedOver} onClose={() => setCarriedOver([])} />
+        )}
+      </AnimatePresence>
 
       {/* ── Overlays ─────────────────────────────────────────── */}
       <OptionsPanel isOpen={showOptions} onClose={() => setShowOptions(false)} />
