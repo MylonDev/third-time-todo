@@ -89,7 +89,9 @@ export const useSession = create<SessionStore>()(
           unusedRestMs: (daily.unusedRestMs ?? 0) + Math.max(0, daily.bankMs),
           sessions: daily.sessions,
         };
-        const updated = [entry, ...history.filter((h) => h.date !== entry.date)].slice(0, 30);
+        // Four months. The pace band needs 28 days behind the earliest day it
+        // plots, and entries are small.
+        const updated = [entry, ...history.filter((h) => h.date !== entry.date)].slice(0, 120);
         set({ history: updated });
       },
 
