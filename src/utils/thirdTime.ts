@@ -1,25 +1,28 @@
 import type { Mode } from '../types';
 
 /**
- * Difficulty is the label; the ratio is the mechanic. The `Mode` keys stay
- * 'quarter' | 'third' | 'half' so persisted settings and every archived
- * SessionLog.mode keep working — only what the user reads has changed.
+ * The label names the mode you are in; the ratio is the mechanic. Naming them
+ * by difficulty made the rest-generous end read as "Easy", which is a nudge
+ * against resting in an app whose whole point is that rest is earned.
+ *
+ * The `Mode` keys stay 'quarter' | 'third' | 'half' so persisted settings and
+ * every archived SessionLog.mode keep working — only what you read changes.
  */
 export const MODE_CONFIG: Record<Mode, { label: string; ratio: number; description: string; color: string }> = {
   quarter: {
-    label: 'Hard',
+    label: 'Locked in',
     ratio: 4,
     description: 'Lean rest — 1 min back for every 4 min active',
     color: 'orange',
   },
   third: {
-    label: 'Medium',
+    label: 'Serious',
     ratio: 3,
     description: 'Balanced — 1 min back for every 3 min active',
     color: 'purple',
   },
   half: {
-    label: 'Easy',
+    label: 'Relaxed',
     ratio: 2,
     description: 'Generous rest — 1 min back for every 2 min active',
     color: 'teal',
