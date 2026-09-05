@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -24,86 +24,11 @@ import {
   getProgressForPeriod,
   formatGoalProgress,
 } from '../utils/goalPeriod';
+import { ActionMenu } from './ActionMenu';
 import { useFocusable } from '../hooks/useFocusable';
 import type { Goal, GoalPeriod, GoalType } from '../types';
 
 // ── GoalMenu ──────────────────────────────────────────────────────────────────
-
-function GoalMenu({
-  onEdit,
-  onDelete,
-  onAdjustTime,
-}: {
-  onEdit: () => void;
-  onDelete: () => void;
-  onAdjustTime?: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative flex-shrink-0">
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        className="w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-all opacity-60 hover:opacity-100 hover:bg-[var(--color-surface-2)]"
-        style={{ color: 'var(--color-text-muted)' }}
-        title="Actions"
-        aria-label="Goal actions"
-      >
-        ⋯
-      </button>
-      {open && (
-        <div
-          className="absolute right-0 top-8 z-20 rounded-xl shadow-xl py-1 min-w-[140px] border"
-          style={{
-            background: 'var(--color-surface)',
-            borderColor: 'var(--color-border)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          }}
-        >
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(); setOpen(false); }}
-            className="w-full text-left px-3 py-1.5 text-sm transition-colors"
-            style={{ color: 'var(--color-text)' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-2)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
-            Edit
-          </button>
-          {onAdjustTime && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onAdjustTime(); setOpen(false); }}
-              className="w-full text-left px-3 py-1.5 text-sm transition-colors"
-              style={{ color: 'var(--color-text)' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-2)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-            >
-              Adjust time
-            </button>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); setOpen(false); }}
-            className="w-full text-left px-3 py-1.5 text-sm transition-colors"
-            style={{ color: 'var(--color-debt)' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-debt-dim)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
-            Delete
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── GoalCard ──────────────────────────────────────────────────────────────────
 
@@ -363,21 +288,34 @@ function GoalCard({ goal }: { goal: Goal }) {
         </div>
 
         {!editing && (
-          <GoalMenu
-            onEdit={() => {
-              setEditTitle(goal.title);
-              setEditTarget(
-                goal.type === 'time'
-                  ? String(Math.round(goal.target / 60_000))
-                  : goal.type === 'counter'
-                  ? String(goal.target)
-                  : ''
-              );
-              setEditDeadline(goal.deadline ?? '');
-              setEditing(true);
-            }}
-            onDelete={() => deleteGoal(goal.id)}
-            onAdjustTime={goal.type === 'time' ? () => { setShowTimeEdit(true); setTimeEditMin(''); } : undefined}
+          <ActionMenu
+            label="Goal actions"
+            widthClassName="min-w-[140px]"
+            actions={[
+              {
+                label: 'Edit',
+                onSelect: () => {
+                  setEditTitle(goal.title);
+                  setEditTarget(
+                    goal.type === 'time'
+                      ? String(Math.round(goal.target / 60_000))
+                      : goal.type === 'counter'
+                      ? String(goal.target)
+                      : ''
+                  );
+                  setEditDeadline(goal.deadline ?? '');
+                  setEditing(true);
+                },
+              },
+              // Only a time goal has tracked time to adjust.
+              ...(goal.type === 'time'
+                ? [{
+                    label: 'Adjust time',
+                    onSelect: () => { setShowTimeEdit(true); setTimeEditMin(''); },
+                  }]
+                : []),
+              { label: 'Delete', onSelect: () => deleteGoal(goal.id), danger: true },
+            ]}
           />
         )}
       </div>
