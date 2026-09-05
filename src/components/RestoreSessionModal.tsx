@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { Modal } from './Modal';
 import { formatTimeLong, formatDuration } from '../utils/thirdTime';
 
 interface Props {
@@ -26,17 +26,9 @@ export function RestoreSessionModal({
   const canResume = timeAway <= RESUME_LIMIT_MS;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <motion.div
-        className="rounded-2xl shadow-2xl w-full max-w-md flex flex-col gap-5 p-6 border"
-        style={{
-          background: 'var(--color-surface)',
-          borderColor: 'var(--color-border)',
-        }}
-        initial={{ opacity: 0, y: 40, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-      >
+    // No onClose: the session has to be resolved one way or another, so this
+    // one offers no Escape and no scrim click — only the three choices.
+    <Modal label="Pick up your session" size="md" className="gap-5 p-6">
         <div>
           <h2
             className="text-lg font-bold"
@@ -101,7 +93,6 @@ export function RestoreSessionModal({
             Reset — start a new session
           </button>
         </div>
-      </motion.div>
-    </div>
+    </Modal>
   );
 }

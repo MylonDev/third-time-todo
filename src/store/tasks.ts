@@ -36,12 +36,27 @@ interface TasksState {
 }
 
 /**
+ * A task row as some earlier version of the store persisted it. Every field is
+ * optional and `status` admits the two values that were dropped in v3, because
+ * which of them a given record carries is exactly what `migrate` decides.
+ */
+type PersistedTask = Partial<Omit<Task, 'status'>> & {
+  status?: TaskStatus | 'in-progress' | 'parked';
+};
+
+/** The persisted root, at whatever version it was last written. */
+interface PersistedTasksState {
+  tasks?: PersistedTask[];
+  routines?: Routine[];
+  routineHistory?: RoutineHistory;
+}
+
+/**
  * Checklists used to be their own store. They were the same idea as a recurring
  * task, so they become routines here. The old `tt-checklists` key is left in
  * place rather than deleted, so nothing is lost if this needs unpicking.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function migrateChecklists(existingTasks: any[]): Routine[] {
+function migrateChecklists(existingTasks: PersistedTask[]): Routine[] {
   try {
     const raw = localStorage.getItem('tt-checklists');
     if (!raw) return [];
@@ -448,12 +463,10 @@ export const useTasks = create<TasksState>()(
       name: 'tt-tasks',
       version: 6,
       migrate: (persisted: unknown, version: number) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let state = persisted as any;
+        let state = persisted as PersistedTasksState;
         if (version < 3) {
           return {
-            tasks: (state.tasks ?? []).map((t: any, i: number) => ({
+            tasks: (state.tasks ?? []).map((t, i) => ({
               id: t.id,
               title: t.title,
               estimateMin: t.estimateMin,
@@ -468,7 +481,7 @@ export const useTasks = create<TasksState>()(
         }
         if (version < 4) {
           state = {
-            tasks: (state.tasks ?? []).map((t: any) => ({
+            tasks: (state.tasks ?? []).map((t) => ({
               ...t,
               trackedMs: t.trackedMs ?? 0,
             })),

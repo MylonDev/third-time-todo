@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Modal } from './Modal';
 import { useSettings } from '../store/settings';
 import type { Theme } from '../store/settings';
 
@@ -47,22 +48,7 @@ export function OptionsPanel({ isOpen, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 backdrop-blur-sm"
-        style={{ background: 'rgba(0,0,0,0.4)' }}
-        onClick={onClose}
-      />
-
-      {/* Panel */}
-      <div
-        className="relative w-full max-w-sm h-full flex flex-col shadow-2xl overflow-y-auto border-l"
-        style={{
-          background: 'var(--color-surface)',
-          borderColor: 'var(--color-border)',
-        }}
-      >
+    <Modal onClose={onClose} label="Options" variant="sheet">
         <div
           className="flex items-center justify-between px-5 py-4 border-b"
           style={{ borderColor: 'var(--color-border)' }}
@@ -99,7 +85,7 @@ export function OptionsPanel({ isOpen, onClose }: Props) {
                   className="flex-1 py-2 text-sm font-semibold transition-colors"
                   style={
                     theme === t.value
-                      ? { background: 'var(--color-accent)', color: '#fff' }
+                      ? { background: 'var(--color-accent)', color: 'var(--color-on-accent)' }
                       : { background: 'var(--color-surface-2)', color: 'var(--color-text-muted)' }
                   }
                 >
@@ -184,7 +170,7 @@ export function OptionsPanel({ isOpen, onClose }: Props) {
                   style={{
                     background: 'var(--color-rest-dim)',
                     color: 'var(--color-rest)',
-                    border: '1px solid rgba(52,211,153,0.2)',
+                    border: '1px solid var(--color-rest-edge)',
                   }}
                 >
                   {m} min
@@ -224,8 +210,7 @@ export function OptionsPanel({ isOpen, onClose }: Props) {
             </div>
           </section>
 
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

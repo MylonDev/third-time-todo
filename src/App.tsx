@@ -36,7 +36,7 @@ const item: Variants = {
 export default function App() {
   const {
     timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer,
-    focusedItem, focusSegmentStart, setFocus, setFocusSegmentStart, pruneFocus,
+    focusedItem, setFocusSegmentStart, pruneFocus,
   } = useSession();
   const { theme, mode, collapsedSections, toggleSection } = useSettings();
   const { rolloverPastTasks, tasks, spawnDueRoutines, routines } = useTasks();
@@ -212,7 +212,7 @@ export default function App() {
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0"
               style={{
-                background: 'linear-gradient(135deg, var(--color-accent) 0%, #1e3a8a 100%)',
+                background: 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-deep) 100%)',
               }}
             >
               <span
@@ -290,64 +290,46 @@ export default function App() {
           {/* ── Working column ─────────────────────────────────── */}
           <main className="order-2 lg:order-1 min-w-0 flex flex-col gap-5">
 
+            {/* Tasks lead; Routines is a peer section below, never mixed into
+                the list you curate. It stays put when there are no routines,
+                the way Tasks and Goals do — a section that disappears takes its
+                own way back in with it. */}
             <motion.div variants={item}>
               <CollapsibleSection
                 label="Tasks"
                 collapsed={!!collapsedSections.tasks}
                 onToggle={() => toggleSection('tasks')}
                 summary={taskSummary}
-                action={
-                  routines.length === 0 ? (
-                    <button
-                      onClick={() => setShowRoutines(true)}
-                      className="text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
-                      style={{ color: 'var(--color-accent)' }}
-                    >
-                      Routines
-                    </button>
-                  ) : undefined
-                }
               >
-                <TaskList
-                  focusedItem={focusedItem}
-                  timerState={timerState}
-                  focusSegmentStart={focusSegmentStart}
-                  onSetFocus={setFocus}
-                />
+                <TaskList />
               </CollapsibleSection>
             </motion.div>
 
-            {/* Routines are their own section, never mixed into the list you curate. */}
-            {routines.length > 0 && (
-              <motion.div variants={item}>
-                <CollapsibleSection
-                  label="Routines"
-                  collapsed={!!collapsedSections.routines}
-                  onToggle={() => toggleSection('routines')}
-                  summary={
-                    pendingRoutines.length === 0
-                      ? 'all done for now'
-                      : `${pendingRoutines.length} outstanding`
-                  }
-                  action={
-                    <button
-                      onClick={() => setShowRoutines(true)}
-                      className="text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
-                      style={{ color: 'var(--color-accent)' }}
-                    >
-                      Manage
-                    </button>
-                  }
-                >
-                  <RoutinePanel
-                    focusedItem={focusedItem}
-                    timerState={timerState}
-                    focusSegmentStart={focusSegmentStart}
-                    onSetFocus={setFocus}
-                  />
-                </CollapsibleSection>
-              </motion.div>
-            )}
+            <motion.div variants={item}>
+              <CollapsibleSection
+                label="Routines"
+                collapsed={!!collapsedSections.routines}
+                onToggle={() => toggleSection('routines')}
+                summary={
+                  routines.length === 0
+                    ? 'none yet'
+                    : pendingRoutines.length === 0
+                    ? 'all done for now'
+                    : `${pendingRoutines.length} outstanding`
+                }
+                action={
+                  <button
+                    onClick={() => setShowRoutines(true)}
+                    className="text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
+                    style={{ color: 'var(--color-accent)' }}
+                  >
+                    Manage
+                  </button>
+                }
+              >
+                <RoutinePanel />
+              </CollapsibleSection>
+            </motion.div>
 
             {/* Goals */}
             <motion.div variants={item}>
@@ -356,12 +338,7 @@ export default function App() {
                 collapsed={!!collapsedSections.goals}
                 onToggle={() => toggleSection('goals')}
               >
-                <GoalList
-                  focusedItem={focusedItem}
-                  timerState={timerState}
-                  focusSegmentStart={focusSegmentStart}
-                  onSetFocus={setFocus}
-                />
+                <GoalList />
               </CollapsibleSection>
             </motion.div>
 

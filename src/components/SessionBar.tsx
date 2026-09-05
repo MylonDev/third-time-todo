@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
 import { formatTimeLong, isInDebt, earnBreak, MODE_CONFIG } from '../utils/thirdTime';
+import { useElapsed } from '../hooks/useNow';
 import type { Mode } from '../types';
 
 const MODE_COLOR: Record<Mode, string> = {
@@ -19,19 +19,7 @@ const MODE_COLOR: Record<Mode, string> = {
 export function SessionBar({ visible }: { visible: boolean }) {
   const { timerState, timerStart, daily, startBreak, stopBreak, startWork } = useSession();
   const { mode } = useSettings();
-  // Elapsed is held in state and advanced by the interval, rather than read from
-  // Date.now() during render.
-  const [elapsed, setElapsed] = useState(() => (timerStart ? Date.now() - timerStart : 0));
-
-  useEffect(() => {
-    if (timerState === 'idle') return;
-    const id = setInterval(
-      () => setElapsed(timerStart ? Date.now() - timerStart : 0),
-      1000
-    );
-    return () => clearInterval(id);
-  }, [timerState, timerStart]);
-
+  const elapsed = useElapsed(timerStart, timerState !== 'idle');
   const show = visible && timerState !== 'idle';
   const isWorking = timerState === 'working';
   const modeColor = MODE_COLOR[mode as Mode];
