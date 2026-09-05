@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useSession } from '../store/session';
 import { earnBreak, formatDuration, todayKey } from '../utils/thirdTime';
 import { RoutineAdherence } from './RoutineAdherence';
+import { PaceChart } from './PaceChart';
 import type { HistoryEntry, SessionLog } from '../types';
 
 const DAYS = 14;
@@ -118,7 +119,7 @@ export function Activity() {
   const { daily, history, timerState } = useSession();
   const today = todayKey();
   const [selected, setSelected] = useState<string | null>(null);
-  const [tab, setTab] = useState<'sessions' | 'routines'>('sessions');
+  const [tab, setTab] = useState<'sessions' | 'routines' | 'pace'>('sessions');
 
   const days: Day[] = useMemo(() => {
     const byDate = new Map<string, HistoryEntry>();
@@ -175,6 +176,7 @@ export function Activity() {
           {([
             ['sessions', 'Sessions'],
             ['routines', 'Routines'],
+            ['pace', 'Pace'],
           ] as const).map(([value, label]) => (
             <button
               key={value}
@@ -206,7 +208,9 @@ export function Activity() {
         ) : null}
       </div>
 
-      {tab === 'routines' ? (
+      {tab === 'pace' ? (
+        <PaceChart />
+      ) : tab === 'routines' ? (
         <RoutineAdherence />
       ) : !hasData ? (
         <p className="text-sm text-center py-8" style={{ color: 'var(--color-text-muted)' }}>
