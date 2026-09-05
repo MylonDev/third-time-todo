@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 
@@ -66,20 +66,35 @@ export function Modal({
     return () => previous?.focus?.();
   }, []);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape' && dismissible) {
-        e.stopPropagation();
-        onClose?.();
+  // On `document`, not on the panel: closing an inline editor inside the dialog
+  // drops focus back to <body>, and a handler bound to the panel would never
+  // see the keystroke again. Anything inside that wants to keep an Escape for
+  // itself stops the native event — see InlineInput.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (dismissible) {
+          e.preventDefault();
+          onClose?.();
+        }
         return;
       }
       if (e.key !== 'Tab') return;
 
-      // Keep Tab inside the dialog rather than letting it wander the page behind.
-      const items = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
+      const panel = panelRef.current;
+      if (!panel) return;
+      const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
       if (items.length === 0) return;
       const first = items[0];
       const last = items[items.length - 1];
+
+      // Focus fell out of the dialog entirely — put it back at the top.
+      if (!panel.contains(document.activeElement)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
+      // Keep Tab inside the dialog rather than letting it wander the page behind.
       if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();
         last.focus();
@@ -87,16 +102,16 @@ export function Modal({
         e.preventDefault();
         first.focus();
       }
-    },
-    [dismissible, onClose]
-  );
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [dismissible, onClose]);
 
   const isSheet = variant === 'sheet';
 
   return createPortal(
     <div
       className={`fixed inset-0 z-50 flex ${isSheet ? 'justify-end' : 'items-center justify-center p-4'}`}
-      onKeyDown={handleKeyDown}
     >
       <div
         className="absolute inset-0 backdrop-blur-sm bg-black/50"

@@ -20,6 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useTasks } from '../store/tasks';
 import { todayKey, isStale, daysSince, formatTimeLong } from '../utils/thirdTime';
 import { ActionMenu } from './ActionMenu';
+import { InlineInput } from './InlineInput';
 import { useFocusable } from '../hooks/useFocusable';
 import type { Task } from '../types';
 
@@ -206,39 +207,26 @@ function SortableTask({
         <div className="flex-1 min-w-0">
           {editing ? (
             <div className="flex flex-col gap-1.5">
-              <input
+              <InlineInput
                 autoFocus
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') saveEdit();
-                  if (e.key === 'Escape') setEditing(false);
-                }}
+                onCommit={saveEdit}
+                onCancel={() => setEditing(false)}
                 onBlur={saveEdit}
-                className="w-full text-sm rounded-lg px-2 py-1 outline-none border transition-colors"
-                style={{
-                  background: 'var(--color-surface-2)',
-                  color: 'var(--color-text)',
-                  borderColor: 'var(--color-accent)',
-                }}
+                className="w-full text-sm"
               />
               <div className="flex items-center gap-1.5">
-                <input
+                <InlineInput
                   type="number"
                   min="1"
                   value={editEstimate}
                   onChange={(e) => setEditEstimate(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveEdit();
-                    if (e.key === 'Escape') setEditing(false);
-                  }}
+                  onCommit={saveEdit}
+                  onCancel={() => setEditing(false)}
                   placeholder="Est. min"
-                  className="w-20 text-xs rounded-lg px-2 py-1 outline-none border transition-colors"
-                  style={{
-                    background: 'var(--color-surface-2)',
-                    color: 'var(--color-text)',
-                    borderColor: 'var(--color-border)',
-                  }}
+                  className="w-20 text-xs"
+                  style={{ borderColor: 'var(--color-border)' }}
                 />
                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>min</span>
               </div>
@@ -309,19 +297,16 @@ function SortableTask({
                   )}
                   {showTimeEdit && (
                     <div className="flex items-center gap-1">
-                      <input
+                      <InlineInput
                         autoFocus
                         type="number"
                         placeholder="±min"
                         value={timeEditMin}
                         onChange={(e) => setTimeEditMin(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleTimeAdjust();
-                          if (e.key === 'Escape') { setShowTimeEdit(false); setTimeEditMin(''); }
-                        }}
+                        onCommit={handleTimeAdjust}
+                        onCancel={() => { setShowTimeEdit(false); setTimeEditMin(''); }}
                         onBlur={handleTimeAdjust}
-                        className="w-20 text-xs rounded px-1.5 py-1 outline-none border"
-                        style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', borderColor: 'var(--color-accent)' }}
+                        className="w-20 text-xs"
                       />
                       <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>min (+ or −)</span>
                     </div>
@@ -391,21 +376,14 @@ function SortableTask({
                 {st.done ? '✓' : ''}
               </button>
               {editingSubtaskId === st.id ? (
-                <input
+                <InlineInput
                   autoFocus
                   value={editSubtaskTitle}
                   onChange={(e) => setEditSubtaskTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveSubtaskEdit();
-                    if (e.key === 'Escape') setEditingSubtaskId(null);
-                  }}
+                  onCommit={saveSubtaskEdit}
+                  onCancel={() => setEditingSubtaskId(null)}
                   onBlur={saveSubtaskEdit}
-                  className="flex-1 text-xs rounded px-1.5 py-0.5 outline-none border"
-                  style={{
-                    background: 'var(--color-surface-2)',
-                    color: 'var(--color-text)',
-                    borderColor: 'var(--color-accent)',
-                  }}
+                  className="flex-1 text-xs"
                 />
               ) : (
                 <span
