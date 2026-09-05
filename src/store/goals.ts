@@ -9,7 +9,6 @@ interface AddGoalParams {
   period: GoalPeriod;
   periodDays?: number;
   target: number;
-  deadline?: string;
 }
 
 interface GoalsState {
@@ -38,7 +37,6 @@ export const useGoals = create<GoalsState>()(
               period: params.period,
               periodDays: params.periodDays,
               target: params.target,
-              deadline: params.deadline,
               createdAt: Date.now(),
               order: s.goals.length,
               progress: {},
