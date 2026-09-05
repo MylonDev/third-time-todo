@@ -21,6 +21,9 @@
   --color-rest-dim: rgba(52, 211, 153, 0.12);
   /* One step up from the dim fill: the border that goes around it */
   --color-rest-edge: rgba(52, 211, 153, 0.3);
+  /* The sustainable-pace channel. A 0.12 wash disappears on this ground, and
+     the band is the one thing that chart exists to show. */
+  --color-pace-band: rgba(52, 211, 153, 0.17);
 
   /* Debt — red */
   --color-debt:     #f87171;
@@ -77,6 +80,7 @@
   --color-rest:      #059669;
   --color-rest-dim:  rgba(5, 150, 105, 0.1);
   --color-rest-edge: rgba(5, 150, 105, 0.32);
+  --color-pace-band: rgba(5, 150, 105, 0.11);
   --color-debt:      #dc2626;
   --color-debt-dim:  rgba(220, 38, 38, 0.1);
   --color-debt-edge: rgba(220, 38, 38, 0.32);
