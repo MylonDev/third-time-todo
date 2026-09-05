@@ -76,14 +76,16 @@ function Step({ task, onToggle }: { task: Task; onToggle: () => void }) {
  * moment it is finished — the next one then takes its place on its own.
  */
 export function RoutinePanel() {
-  const { updateTask, snoozeRoutine } = useTasks();
+  const { routines, updateTask, snoozeRoutine } = useTasks();
   const [index, setIndex] = useState(0);
   const pending = usePendingRoutines();
 
   if (pending.length === 0) {
     return (
       <p className="text-sm py-1" style={{ color: 'var(--color-text-muted)' }}>
-        Nothing outstanding — your routines come back next period.
+        {routines.length === 0
+          ? 'No routines yet — click Manage to add one'
+          : 'Nothing outstanding — your routines come back next period.'}
       </p>
     );
   }
