@@ -19,161 +19,9 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useTasks } from '../store/tasks';
 import { todayKey, isStale, daysSince, formatTimeLong } from '../utils/thirdTime';
+import { ActionMenu } from './ActionMenu';
 import { useFocusable } from '../hooks/useFocusable';
 import type { Task } from '../types';
-
-function TaskMenu({
-  onEdit,
-  onSubtasks,
-  onMoveToTomorrow,
-  onDelete,
-  onAdjustTime,
-}: {
-  onEdit: () => void;
-  onSubtasks: () => void;
-  onMoveToTomorrow: () => void;
-  onDelete: () => void;
-  onAdjustTime: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  const menuItemStyle: React.CSSProperties = {
-    color: 'var(--color-text)',
-    background: 'transparent',
-  };
-
-  return (
-    <div ref={ref} className="relative flex-shrink-0">
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        className="w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-all opacity-60 hover:opacity-100 hover:bg-[var(--color-surface-2)]"
-        style={{ color: 'var(--color-text-muted)' }}
-        title="Actions"
-        aria-label="Task actions"
-      >
-        ⋯
-      </button>
-      {open && (
-        <div
-          className="absolute right-0 top-8 z-20 rounded-xl shadow-xl py-1 min-w-[160px] border"
-          style={{
-            background: 'var(--color-surface)',
-            borderColor: 'var(--color-border)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          }}
-        >
-          {[
-            { label: 'Edit', action: onEdit },
-            { label: 'Subtasks', action: onSubtasks },
-            { label: 'Move to tomorrow', action: onMoveToTomorrow },
-            { label: 'Adjust tracked time', action: onAdjustTime },
-          ].map(({ label, action }) => (
-            <button
-              key={label}
-              onClick={(e) => { e.stopPropagation(); action(); setOpen(false); }}
-              className="w-full text-left px-3 py-1.5 text-sm transition-colors"
-              style={menuItemStyle}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-2)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = 'transparent';
-              }}
-            >
-              {label}
-            </button>
-          ))}
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); setOpen(false); }}
-            className="w-full text-left px-3 py-1.5 text-sm transition-colors"
-            style={{ color: 'var(--color-debt)' }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = 'var(--color-debt-dim)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = 'transparent';
-            }}
-          >
-            Delete
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SubtaskMenu({
-  onEdit,
-  onDelete,
-}: {
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-6 h-6 flex items-center justify-center rounded text-xs opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
-        style={{ color: 'var(--color-text-muted)' }}
-        title="Actions"
-        aria-label="Subtask actions"
-      >
-        ⋯
-      </button>
-      {open && (
-        <div
-          className="absolute right-0 top-7 z-20 rounded-xl shadow-xl py-1 min-w-[100px] border"
-          style={{
-            background: 'var(--color-surface)',
-            borderColor: 'var(--color-border)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          }}
-        >
-          <button
-            onClick={() => { onEdit(); setOpen(false); }}
-            className="w-full text-left px-3 py-1.5 text-sm transition-colors"
-            style={{ color: 'var(--color-text)' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-2)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
-            Edit
-          </button>
-          <button
-            onClick={() => { onDelete(); setOpen(false); }}
-            className="w-full text-left px-3 py-1.5 text-sm transition-colors"
-            style={{ color: 'var(--color-debt)' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-debt-dim)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
-            Delete
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function SortableTask({
   task,
@@ -486,16 +334,25 @@ function SortableTask({
 
         {/* 3-dot menu */}
         {!isDone && !editing && (
-          <TaskMenu
-            onEdit={() => {
-              setEditTitle(task.title);
-              setEditEstimate(task.estimateMin ? String(task.estimateMin) : '');
-              setEditing(true);
-            }}
-            onSubtasks={() => setSubtasksOpen((o) => !o)}
-            onMoveToTomorrow={() => onMoveToTomorrow(task.id)}
-            onDelete={() => onDelete(task.id)}
-            onAdjustTime={() => { setShowTimeEdit(true); setTimeEditMin(''); }}
+          <ActionMenu
+            label="Task actions"
+            actions={[
+              {
+                label: 'Edit',
+                onSelect: () => {
+                  setEditTitle(task.title);
+                  setEditEstimate(task.estimateMin ? String(task.estimateMin) : '');
+                  setEditing(true);
+                },
+              },
+              { label: 'Subtasks', onSelect: () => setSubtasksOpen((o) => !o) },
+              { label: 'Move to tomorrow', onSelect: () => onMoveToTomorrow(task.id) },
+              {
+                label: 'Adjust tracked time',
+                onSelect: () => { setShowTimeEdit(true); setTimeEditMin(''); },
+              },
+              { label: 'Delete', onSelect: () => onDelete(task.id), danger: true },
+            ]}
           />
         )}
         {isDone && (
@@ -561,9 +418,22 @@ function SortableTask({
                   {st.title}
                 </span>
               )}
-              <SubtaskMenu
-                onEdit={() => { setEditingSubtaskId(st.id); setEditSubtaskTitle(st.title); }}
-                onDelete={() => onDeleteSubtask(task.id, st.id)}
+              <ActionMenu
+                label="Subtask actions"
+                triggerClassName="w-6 h-6 opacity-0 group-hover:opacity-60 hover:!opacity-100"
+                offsetClassName="top-7"
+                widthClassName="min-w-[100px]"
+                actions={[
+                  {
+                    label: 'Edit',
+                    onSelect: () => { setEditingSubtaskId(st.id); setEditSubtaskTitle(st.title); },
+                  },
+                  {
+                    label: 'Delete',
+                    onSelect: () => onDeleteSubtask(task.id, st.id),
+                    danger: true,
+                  },
+                ]}
               />
             </div>
           ))}
