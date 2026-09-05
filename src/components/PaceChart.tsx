@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useSession } from '../store/session';
 import { todayKey } from '../utils/thirdTime';
 import {
+  currentRunStart,
   denseLoads,
   pacePoints,
   verdict,
@@ -56,7 +57,7 @@ const VERDICT_COPY = {
 export function PaceChart() {
   const { history, daily } = useSession();
 
-  const { points, ready, daysShort } = useMemo(() => {
+  const { points, ready, daysShort, resuming } = useMemo(() => {
     const today = todayKey();
 
     const byDate = new Map<string, number>();
@@ -65,12 +66,16 @@ export function PaceChart() {
     byDate.set(today, daily.sessions.reduce((a, s) => a + s.workMs, 0));
 
     const dates = [...byDate.keys()].sort();
-    if (dates.length === 0) return { points: [], ready: false, daysShort: MIN_DAYS };
+    if (dates.length === 0)
+      return { points: [], ready: false, daysShort: MIN_DAYS, resuming: false };
 
-    const first = dates[0];
+    // Start from the current run of use, not the first record ever. A long gap
+    // leaves a baseline that no longer describes you.
+    const first = currentRunStart(dates) as string;
+    const resuming = first !== dates[0];
     const span = daysBetween(first, today) + 1;
     if (span < MIN_DAYS) {
-      return { points: [], ready: false, daysShort: MIN_DAYS - span };
+      return { points: [], ready: false, daysShort: MIN_DAYS - span, resuming };
     }
 
     // Start the series at the first record, never before it. Days that
@@ -86,14 +91,16 @@ export function PaceChart() {
       points: series.slice(6).slice(-PLOT_DAYS),
       ready: true,
       daysShort: 0,
+      resuming,
     };
   }, [history, daily]);
 
   if (!ready) {
     return (
       <p className="text-sm text-center py-8" style={{ color: 'var(--color-text-muted)' }}>
-        Building your baseline — about <span className="num">{daysShort}</span> more{' '}
-        {daysShort === 1 ? 'day' : 'days'} of history and your pace band appears here.
+        {resuming ? 'Picking up after a break' : 'Building your baseline'} — about{' '}
+        <span className="num">{daysShort}</span> more {daysShort === 1 ? 'day' : 'days'} of
+        use and your pace band appears here.
       </p>
     );
   }

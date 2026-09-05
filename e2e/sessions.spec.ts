@@ -206,6 +206,40 @@ test.describe('tasks carried over', () => {
   });
 });
 
+test.describe('modes', () => {
+  const MODES = [
+    ['half', 'Relaxed', '1:2'],
+    ['third', 'Serious', '1:3'],
+    ['quarter', 'Locked in', '1:4'],
+  ] as const;
+
+  test('are named by intent and keep their ratios', async ({ app }) => {
+    for (const [, label, ratio] of MODES) {
+      await expect(
+        app.getByRole('button', { name: new RegExp(label) }),
+        `${label} is missing or no longer ${ratio}`
+      ).toContainText(ratio);
+    }
+  });
+
+  test('the stored keys are untouched by the renaming', async ({ app }) => {
+    // Every archived SessionLog.mode and the saved setting hold these keys.
+    // Renaming what you read must not rename what is written.
+    for (const [key, label] of MODES) {
+      await app.evaluate((k) => {
+        const raw = JSON.parse(localStorage.getItem('tt-settings') ?? '{"state":{},"version":7}');
+        raw.state.mode = k;
+        localStorage.setItem('tt-settings', JSON.stringify(raw));
+      }, key);
+      await app.reload();
+      await expect(
+        app.getByRole('button', { name: new RegExp(label) }),
+        `stored mode "${key}" no longer selects ${label}`
+      ).toHaveAttribute('aria-pressed', 'true');
+    }
+  });
+});
+
 test.describe('removals', () => {
   test('no estimate field on a task', async ({ app }) => {
     await expect(app.getByPlaceholder('min')).toBeHidden();
