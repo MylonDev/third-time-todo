@@ -23,6 +23,7 @@ interface SessionStore {
   stopBreak: () => void;
   endSession: (mode: Mode) => SessionReport;
   archiveDay: () => void;
+  maybeArchivePreviousDay: () => void;
   resetDay: () => void;
   clearTimer: () => void;
   setClosedAt: (t: number | null) => void;
@@ -83,24 +84,43 @@ export const useSession = create<SessionStore>()(
           date: daily.date,
           totalWorkMs: daily.sessions.reduce((a, s) => a + s.workMs, 0),
           totalBreakMs: daily.sessions.reduce((a, s) => a + s.breakMs, 0),
-          unusedRestMs: Math.max(0, daily.bankMs),
+          // The day's running total from ended sessions, plus anything still
+          // sitting unspent in a session that was never formally ended.
+          unusedRestMs: (daily.unusedRestMs ?? 0) + Math.max(0, daily.bankMs),
           sessions: daily.sessions,
         };
         const updated = [entry, ...history.filter((h) => h.date !== entry.date)].slice(0, 30);
         set({ history: updated });
       },
 
+      /**
+       * Close out a day that has already rolled over. The only place the day
+       * boundary is decided — the stop handlers used to decide it too, and
+       * discarded the previous day's sessions doing it.
+       *
+       * A session running across midnight is left alone: it keeps accruing to
+       * the day it started on, and that day is archived once it ends.
+       */
+      maybeArchivePreviousDay: () => {
+        const { daily, timerState } = get();
+        if (daily.date === todayKey()) return;
+        // "Ongoing" means a timer is actually running. A session left open
+        // without ending it must not pin the app to yesterday.
+        if (timerState !== 'idle') return;
+        if (daily.sessions.length > 0) get().archiveDay();
+        set({ daily: freshDay() });
+      },
+
       startWork: () => {
+        get().maybeArchivePreviousDay();
         const { daily, focusedItem } = get();
-        if (daily.date !== todayKey() && daily.sessions.length > 0) {
-          get().archiveDay();
-          set({ daily: freshDay() });
-        }
         const now = Date.now();
         set({
           timerState: 'working',
           timerStart: now,
           focusSegmentStart: focusedItem ? now : null,
+          // First stint after an idle bank opens a new session.
+          daily: { ...daily, sessionStartedAt: daily.sessionStartedAt ?? now },
         });
       },
 
@@ -114,8 +134,9 @@ export const useSession = create<SessionStore>()(
         }
 
         const workMs = Date.now() - timerStart;
-        const today = todayKey();
-        const base = daily.date === today ? daily : freshDay();
+        // Write to the day as it stands. Resetting it here dropped the previous
+        // day's sessions whenever a session ran across midnight.
+        const base = daily;
         const newBank = applyWork(base.bankMs, workMs, mode);
         const log: SessionLog = {
           id: crypto.randomUUID(),
@@ -142,8 +163,7 @@ export const useSession = create<SessionStore>()(
         const { timerStart, daily } = get();
         if (!timerStart) return;
         const breakMs = Date.now() - timerStart;
-        const today = todayKey();
-        const base = daily.date === today ? daily : freshDay();
+        const base = daily;
         const newBank = spendBreak(base.bankMs, breakMs);
         const sessions = [...base.sessions];
         if (sessions.length > 0) {
@@ -158,30 +178,44 @@ export const useSession = create<SessionStore>()(
         });
       },
 
+      /**
+       * Ends the session, not the day. The bank is cleared — rest is earned
+       * within a session — and whatever was left unspent is added to the day's
+       * running total. The day itself is archived when it rolls over.
+       */
       endSession: (mode: Mode): SessionReport => {
         const { timerState } = get();
         if (timerState === 'working') get().stopWork(mode);
         else if (timerState === 'on-break') get().stopBreak();
 
         const { daily } = get();
-        const totalWorkMs = daily.sessions.reduce((a, s) => a + s.workMs, 0);
-        const totalBreakMs = daily.sessions.reduce((a, s) => a + s.breakMs, 0);
-        const unusedRestMs = Math.max(0, daily.bankMs);
+        const since = daily.sessionStartedAt ?? 0;
+        const thisSession = daily.sessions.filter((s) => s.startedAt >= since);
 
-        get().archiveDay();
+        const unusedRestMs = Math.max(0, daily.bankMs);
 
         set({
           timerState: 'idle',
           timerStart: null,
           focusedItem: null,
           focusSegmentStart: null,
-          daily: { ...daily, bankMs: 0, unusedRestMs },
+          daily: {
+            ...daily,
+            bankMs: 0,
+            unusedRestMs: (daily.unusedRestMs ?? 0) + unusedRestMs,
+            sessionStartedAt: undefined,
+          },
         });
 
+        // The day may have rolled over while the session was running.
+        get().maybeArchivePreviousDay();
+
         return {
-          totalWorkMs,
-          totalBreakMs,
+          totalWorkMs: thisSession.reduce((a, s) => a + s.workMs, 0),
+          totalBreakMs: thisSession.reduce((a, s) => a + s.breakMs, 0),
           unusedRestMs,
+          dayWorkMs: daily.sessions.reduce((a, s) => a + s.workMs, 0),
+          dayBreakMs: daily.sessions.reduce((a, s) => a + s.breakMs, 0),
           mode,
           completedTasks: 0,
           totalTasks: 0,
@@ -198,13 +232,17 @@ export const useSession = create<SessionStore>()(
           focusSegmentStart: null,
         }),
 
+      // "Reset — start a new session" from the restore prompt. Abandoning the
+      // session has to close it, or the next one reports the stints from this
+      // one alongside its own.
       clearTimer: () =>
-        set({
+        set((s) => ({
           timerState: 'idle',
           timerStart: null,
           sessionClosedAt: null,
           focusSegmentStart: null,
-        }),
+          daily: { ...s.daily, sessionStartedAt: undefined },
+        })),
 
       setClosedAt: (t) => set({ sessionClosedAt: t }),
 

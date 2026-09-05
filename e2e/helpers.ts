@@ -36,7 +36,7 @@ export async function addTask(page: Page, title: string) {
 
 export async function startSession(page: Page) {
   await page.getByRole('button', { name: 'Start →' }).click();
-  await expect(page.getByRole('button', { name: 'End Day' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'End Session' })).toBeVisible();
 }
 
 export async function openTaskMenu(page: Page) {
