@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { Modal } from './Modal';
 import { useTasks } from '../store/tasks';
 import type { GoalPeriod, Routine } from '../types';
 
@@ -168,14 +168,7 @@ export function RoutinesModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <motion.div
-        className="rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col border"
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-        initial={{ opacity: 0, y: 30, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-      >
+    <Modal onClose={handleClose} label="Routines" size="lg" className="max-h-[85vh]">
         <div
           className="flex items-start justify-between gap-3 px-5 py-4 border-b"
           style={{ borderColor: 'var(--color-border)' }}
@@ -241,7 +234,6 @@ export function RoutinesModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
             Add
           </button>
         </form>
-      </motion.div>
-    </div>
+    </Modal>
   );
 }
