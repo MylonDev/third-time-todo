@@ -291,32 +291,35 @@ export default function App() {
           <main className="order-2 lg:order-1 min-w-0 flex flex-col gap-5">
 
             {/* Routines and Tasks are parallel sections, each collapsible, so a
-                recurring block is never mixed into the list you curate. */}
-            {routines.length > 0 && (
-              <motion.div variants={item}>
-                <CollapsibleSection
-                  label="Routines"
-                  collapsed={!!collapsedSections.routines}
-                  onToggle={() => toggleSection('routines')}
-                  summary={
-                    pendingRoutines.length === 0
-                      ? 'all done for now'
-                      : `${pendingRoutines.length} outstanding`
-                  }
-                  action={
-                    <button
-                      onClick={() => setShowRoutines(true)}
-                      className="text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
-                      style={{ color: 'var(--color-accent)' }}
-                    >
-                      Manage
-                    </button>
-                  }
-                >
-                  <RoutinePanel />
-                </CollapsibleSection>
-              </motion.div>
-            )}
+                recurring block is never mixed into the list you curate. The
+                section stays put when there are no routines, the way Tasks and
+                Goals do — a section that disappears takes its own way back in
+                with it. */}
+            <motion.div variants={item}>
+              <CollapsibleSection
+                label="Routines"
+                collapsed={!!collapsedSections.routines}
+                onToggle={() => toggleSection('routines')}
+                summary={
+                  routines.length === 0
+                    ? 'none yet'
+                    : pendingRoutines.length === 0
+                    ? 'all done for now'
+                    : `${pendingRoutines.length} outstanding`
+                }
+                action={
+                  <button
+                    onClick={() => setShowRoutines(true)}
+                    className="text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
+                    style={{ color: 'var(--color-accent)' }}
+                  >
+                    Manage
+                  </button>
+                }
+              >
+                <RoutinePanel />
+              </CollapsibleSection>
+            </motion.div>
 
             <motion.div variants={item}>
               <CollapsibleSection
@@ -325,17 +328,6 @@ export default function App() {
                 collapsed={!!collapsedSections.tasks}
                 onToggle={() => toggleSection('tasks')}
                 summary={taskSummary}
-                action={
-                  routines.length === 0 ? (
-                    <button
-                      onClick={() => setShowRoutines(true)}
-                      className="text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
-                      style={{ color: 'var(--color-accent)' }}
-                    >
-                      Routines
-                    </button>
-                  ) : undefined
-                }
               >
                 <TaskList />
               </CollapsibleSection>
