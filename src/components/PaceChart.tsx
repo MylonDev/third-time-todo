@@ -13,10 +13,12 @@ import {
 
 const PLOT_DAYS = 56; // eight weeks
 const LOOKBACK = 28; // what chronic needs behind the first plotted point
-const H = 132;
+const H = 208;
 const W = 720;
-const PAD_T = 10;
+const PAD_T = 14;
 const PAD_B = 18;
+// Room for today's marker, which would otherwise be halved by the right edge.
+const PAD_R = 10;
 
 const hours = (ms: number) => ms / 3_600_000;
 
@@ -100,14 +102,28 @@ export function PaceChart() {
   const state = verdict(latest);
   const copy = VERDICT_COPY[state];
 
-  const top = Math.max(...points.map((p) => Math.max(p.acuteMs, p.upperMs))) * 1.1 || 1;
-  const x = (i: number) => (i / Math.max(1, points.length - 1)) * W;
-  const y = (ms: number) => PAD_T + (1 - ms / top) * (H - PAD_T - PAD_B);
+  // Scaled to the data, not to zero. The question this chart answers is where
+  // you sit against your own band; anchoring at zero spends more than half the
+  // frame on empty space below it. The axis label states the real range.
+  const lo = Math.min(...points.map((p) => Math.min(p.acuteMs, p.lowerMs)));
+  const hi = Math.max(...points.map((p) => Math.max(p.acuteMs, p.upperMs)));
+  const pad = (hi - lo) * 0.12 || hi * 0.1 || 1;
+  const bottom = Math.max(0, lo - pad);
+  const top = hi + pad;
+
+  const x = (i: number) => (i / Math.max(1, points.length - 1)) * (W - PAD_R);
+  const y = (ms: number) =>
+    PAD_T + (1 - (ms - bottom) / (top - bottom)) * (H - PAD_T - PAD_B);
 
   const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.acuteMs)}`).join(' ');
+  const edge = (pick: (p: PacePoint) => number) =>
+    points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(pick(p))}`).join(' ');
+
+  const upperEdge = edge((p) => p.upperMs);
+  const lowerEdge = edge((p) => p.lowerMs);
   // Along the top on the upper bound, back along the bottom on the lower one.
   const band = [
-    ...points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.upperMs)}`),
+    upperEdge,
     ...points
       .slice()
       .reverse()
@@ -115,7 +131,7 @@ export function PaceChart() {
     'Z',
   ].join(' ');
 
-  const gridHours = [0, top / 2, top].map(hours);
+  const gridLines = [bottom, (bottom + top) / 2, top];
 
   return (
     <div className="flex flex-col gap-3">
@@ -142,25 +158,35 @@ export function PaceChart() {
         role="img"
         aria-label={`${copy.text}. ${hours(latest.acuteMs).toFixed(1)} hours active over the last seven days, against a usual week of ${hours(latest.chronicMs).toFixed(1)} hours.`}
       >
-        {gridHours.map((h) => (
+        {gridLines.map((ms) => (
           <line
-            key={h}
+            key={ms}
             x1={0}
             x2={W}
-            y1={y(h * 3_600_000)}
-            y2={y(h * 3_600_000)}
+            y1={y(ms)}
+            y2={y(ms)}
             stroke="var(--color-border)"
             strokeWidth={1}
             vectorEffect="non-scaling-stroke"
           />
         ))}
-        <path d={band} fill="var(--color-rest-dim)" stroke="none" />
+        <path d={band} fill="var(--color-pace-band)" stroke="none" />
+        {[upperEdge, lowerEdge].map((d) => (
+          <path
+            key={d.slice(0, 24)}
+            d={d}
+            fill="none"
+            stroke="var(--color-rest-edge)"
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
         <path
-          d={points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.chronicMs)}`).join(' ')}
+          d={edge((p) => p.chronicMs)}
           fill="none"
           stroke="var(--color-rest-edge)"
           strokeWidth={1}
-          strokeDasharray="3 3"
+          strokeDasharray="2 5"
           vectorEffect="non-scaling-stroke"
         />
         <path
@@ -170,7 +196,14 @@ export function PaceChart() {
           strokeWidth={2}
           vectorEffect="non-scaling-stroke"
         />
-        <circle cx={x(points.length - 1)} cy={y(latest.acuteMs)} r={4} fill="var(--color-accent)" />
+        <circle
+          cx={x(points.length - 1)}
+          cy={y(latest.acuteMs)}
+          r={7}
+          fill={copy.color}
+          opacity={0.22}
+        />
+        <circle cx={x(points.length - 1)} cy={y(latest.acuteMs)} r={3.5} fill={copy.color} />
       </svg>
 
       {/* Axis labels live in HTML, not the SVG: the viewBox is stretched to
@@ -180,7 +213,7 @@ export function PaceChart() {
           {edgeLabel(points[0].date)}
         </span>
         <span className="text-[11px] num" style={{ color: 'var(--color-text-muted)' }}>
-          0–{hours(top).toFixed(0)}h per week
+          {hours(bottom).toFixed(0)}–{hours(top).toFixed(0)}h per week
         </span>
         <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
           Today
