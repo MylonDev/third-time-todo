@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { formatTimeLong, isInDebt, earnBreak } from '../utils/thirdTime';
 import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
+import { useElapsed } from '../hooks/useNow';
 import { playSound } from '../utils/sounds';
 import { sendNotification } from '../utils/notifications';
 
@@ -11,7 +12,6 @@ type BreakMode = null | 'picker' | 'open' | 'timed';
 export function BreakBank() {
   const { timerState, timerStart, daily, startBreak } = useSession();
   const { mode, soundsEnabled, breakIncrements, lastBreakMs, setLastBreakMs } = useSettings();
-  const [, tick] = useState(0);
   const [breakMode, setBreakMode] = useState<BreakMode>(null);
   const [timedBreakMs, setTimedBreakMs] = useState<number | null>(null);
   const [showDebtPrompt, setShowDebtPrompt] = useState(false);
@@ -20,25 +20,29 @@ export function BreakBank() {
   const firedBankEmpty = useRef(false);
   const firedBreakEnd = useRef(false);
 
+  // Arm the one-shot sound guards for each new break. Refs can only be written
+  // outside render, so this stays an effect.
   useEffect(() => {
-    if (timerState === 'idle') return;
-    const id = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(id);
+    if (timerState !== 'on-break') return;
+    firedOneMin.current = false;
+    firedBankEmpty.current = false;
+    firedBreakEnd.current = false;
   }, [timerState]);
 
-  useEffect(() => {
-    if (timerState === 'on-break') {
-      firedOneMin.current = false;
-      firedBankEmpty.current = false;
-      firedBreakEnd.current = false;
-    }
+  // Leaving a break clears the picker. Adjusted during render rather than in an
+  // effect, which would paint one frame of the finished break's controls first.
+  // It can't simply be derived from `timerState`, because the picker is opened
+  // while still working.
+  const [prevTimerState, setPrevTimerState] = useState(timerState);
+  if (prevTimerState !== timerState) {
+    setPrevTimerState(timerState);
     if (timerState !== 'on-break') {
       setBreakMode(null);
       setTimedBreakMs(null);
     }
-  }, [timerState]);
+  }
 
-  const elapsed = timerStart ? Date.now() - timerStart : 0;
+  const elapsed = useElapsed(timerStart, timerState !== 'idle');
 
   const liveBank =
     timerState === 'working'
@@ -98,9 +102,9 @@ export function BreakBank() {
     .filter((ms) => ms <= bankForPicker);
 
   const cardStyle: React.CSSProperties = debt
-    ? { background: 'var(--color-debt-dim)', borderColor: 'rgba(248,113,113,0.3)' }
+    ? { background: 'var(--color-debt-dim)', borderColor: 'var(--color-debt-edge)' }
     : isOnBreak
-    ? { background: 'var(--color-rest-dim)', borderColor: 'rgba(52,211,153,0.25)' }
+    ? { background: 'var(--color-rest-dim)', borderColor: 'var(--color-rest-edge)' }
     : { background: 'var(--color-surface)', borderColor: 'var(--color-border)' };
 
   return (
@@ -186,7 +190,7 @@ export function BreakBank() {
           className="rounded-xl p-3 flex flex-col gap-2 border"
           style={{
             background: 'var(--color-debt-dim)',
-            borderColor: 'rgba(248,113,113,0.3)',
+            borderColor: 'var(--color-debt-edge)',
           }}
         >
           <p className="text-sm font-medium" style={{ color: 'var(--color-debt)' }}>
@@ -200,7 +204,7 @@ export function BreakBank() {
                 startBreak(mode);
               }}
               className="flex-1 py-1.5 text-sm font-semibold rounded-lg transition-colors"
-              style={{ background: 'var(--color-debt)', color: '#fff' }}
+              style={{ background: 'var(--color-debt)', color: 'var(--color-on-accent)' }}
             >
               Rest Anyway
             </button>
@@ -237,7 +241,7 @@ export function BreakBank() {
                 style={{
                   background: ms === lastBreakMs ? 'var(--color-rest)' : 'var(--color-rest-dim)',
                   color: ms === lastBreakMs ? 'var(--color-bg)' : 'var(--color-rest)',
-                  border: `1px solid ${ms === lastBreakMs ? 'var(--color-rest)' : 'rgba(52,211,153,0.3)'}`,
+                  border: `1px solid ${ms === lastBreakMs ? 'var(--color-rest)' : 'var(--color-rest-edge)'}`,
                 }}
               >
                 {ms / 60_000} min
@@ -249,7 +253,7 @@ export function BreakBank() {
               style={{
                 background: 'var(--color-rest-dim)',
                 color: 'var(--color-rest)',
-                border: '1px solid rgba(52,211,153,0.3)',
+                border: '1px solid var(--color-rest-edge)',
               }}
             >
               All ({formatTimeLong(bankForPicker)})

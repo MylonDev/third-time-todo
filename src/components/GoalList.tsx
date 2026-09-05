@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -24,108 +24,29 @@ import {
   getProgressForPeriod,
   formatGoalProgress,
 } from '../utils/goalPeriod';
-import type { FocusTarget, Goal, GoalPeriod, GoalType } from '../types';
+import { ActionMenu } from './ActionMenu';
+import { InlineInput } from './InlineInput';
+import { useFocusable } from '../hooks/useFocusable';
+import type { Goal, GoalPeriod, GoalType } from '../types';
 
 // ── GoalMenu ──────────────────────────────────────────────────────────────────
 
-function GoalMenu({
-  onEdit,
-  onDelete,
-  onAdjustTime,
-}: {
-  onEdit: () => void;
-  onDelete: () => void;
-  onAdjustTime?: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative flex-shrink-0">
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        className="w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-all opacity-60 hover:opacity-100 hover:bg-[var(--color-surface-2)]"
-        style={{ color: 'var(--color-text-muted)' }}
-        title="Actions"
-        aria-label="Goal actions"
-      >
-        ⋯
-      </button>
-      {open && (
-        <div
-          className="absolute right-0 top-8 z-20 rounded-xl shadow-xl py-1 min-w-[140px] border"
-          style={{
-            background: 'var(--color-surface)',
-            borderColor: 'var(--color-border)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          }}
-        >
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(); setOpen(false); }}
-            className="w-full text-left px-3 py-1.5 text-sm transition-colors"
-            style={{ color: 'var(--color-text)' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-2)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
-            Edit
-          </button>
-          {onAdjustTime && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onAdjustTime(); setOpen(false); }}
-              className="w-full text-left px-3 py-1.5 text-sm transition-colors"
-              style={{ color: 'var(--color-text)' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-2)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-            >
-              Adjust time
-            </button>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); setOpen(false); }}
-            className="w-full text-left px-3 py-1.5 text-sm transition-colors"
-            style={{ color: 'var(--color-debt)' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-debt-dim)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
-            Delete
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── GoalCard ──────────────────────────────────────────────────────────────────
 
-function GoalCard({
-  goal,
-  isFocused,
-  timerState,
-  focusSegmentStart,
-  onSetFocus,
-}: {
-  goal: Goal;
-  isFocused: boolean;
-  timerState: 'idle' | 'working' | 'on-break';
-  focusSegmentStart: number | null;
-  onSetFocus: (target: FocusTarget | null) => void;
-}) {
+function GoalCard({ goal }: { goal: Goal }) {
+  // Only time goals accrue focused time, so only they are focusable — focusing any
+  // other type would end the running segment and then record nothing.
+  const canFocus = goal.type === 'time';
+  const { isFocused, tracking, segmentMs, toggleFocus } = useFocusable(
+    { kind: 'goal', id: goal.id },
+    canFocus
+  );
   const { adjustProgress, updateGoal, deleteGoal } = useGoals();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: goal.id });
   const sortableStyle = {
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? undefined : transition ? transition.replace('250ms', '120ms') : undefined,
   };
-  const [, tick] = useState(0);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(goal.title);
   const [editTarget, setEditTarget] = useState('');
@@ -133,34 +54,20 @@ function GoalCard({
   const [showTimeEdit, setShowTimeEdit] = useState(false);
   const [timeEditMin, setTimeEditMin] = useState('');
 
-  // Live tick when focused and working
-  useEffect(() => {
-    if (!isFocused || timerState !== 'working') return;
-    const id = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [isFocused, timerState]);
-
   const periodKey = getCurrentPeriodKey(goal);
   const committedMs = getProgressForPeriod(goal, periodKey);
-  const liveValue =
-    goal.type === 'time' && isFocused && timerState === 'working' && focusSegmentStart
-      ? committedMs + (Date.now() - focusSegmentStart)
-      : committedMs;
+  const liveValue = canFocus ? committedMs + segmentMs : committedMs;
 
   const complete = liveValue >= goal.target;
   const progressPct = goal.type !== 'boolean'
     ? Math.min(100, (liveValue / goal.target) * 100)
     : liveValue >= 1 ? 100 : 0;
 
-  // Only time goals accrue focused time, so only they are focusable — focusing any
-  // other type would end the running segment and then record nothing.
-  const canFocus = goal.type === 'time';
-
   // Click anywhere on the card (not on a button/input) to toggle focus
   const handleCardClick = (e: React.MouseEvent) => {
     if (!canFocus) return;
     if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
-    onSetFocus(isFocused ? null : { kind: 'goal', id: goal.id });
+    toggleFocus();
   };
 
   const saveEdit = () => {
@@ -192,7 +99,7 @@ function GoalCard({
         background: 'var(--color-surface)',
         borderColor: 'var(--color-accent)',
         borderLeftWidth: '3px',
-        boxShadow: 'inset 0 0 0 1px rgba(167,139,250,0.08)',
+        boxShadow: 'inset 0 0 0 1px var(--color-accent-dim)',
         cursor: 'pointer',
       }
     : complete
@@ -230,17 +137,14 @@ function GoalCard({
         <div className="flex-1 min-w-0">
           {editing ? (
             <div className="flex flex-col gap-1.5">
-              <input
+              <InlineInput
                 autoFocus
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') saveEdit();
-                  if (e.key === 'Escape') setEditing(false);
-                }}
+                onCommit={saveEdit}
+                onCancel={() => setEditing(false)}
                 onBlur={saveEdit}
-                className="w-full text-sm rounded-lg px-2 py-1 outline-none border"
-                style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', borderColor: 'var(--color-accent)' }}
+                className="w-full text-sm"
               />
               {goal.type !== 'boolean' && (
                 <div className="flex items-center gap-1.5">
@@ -335,24 +239,21 @@ function GoalCard({
                 ) : (
                   // time goal
                   <div className="flex flex-col gap-1">
-                    <span className="num text-sm font-semibold" style={{ color: complete ? 'var(--color-rest)' : isFocused && timerState === 'working' ? 'var(--color-accent)' : 'var(--color-text)' }}>
+                    <span className="num text-sm font-semibold" style={{ color: complete ? 'var(--color-rest)' : tracking ? 'var(--color-accent)' : 'var(--color-text)' }}>
                       {formatGoalProgress(goal, liveValue)}
                     </span>
                     {showTimeEdit && (
                       <div className="flex items-center gap-1 mt-1">
-                        <input
+                        <InlineInput
                           autoFocus
                           type="number"
                           placeholder="±min"
                           value={timeEditMin}
                           onChange={(e) => setTimeEditMin(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleTimeAdjust();
-                            if (e.key === 'Escape') { setShowTimeEdit(false); setTimeEditMin(''); }
-                          }}
+                          onCommit={handleTimeAdjust}
+                          onCancel={() => { setShowTimeEdit(false); setTimeEditMin(''); }}
                           onBlur={handleTimeAdjust}
-                          className="w-20 text-xs rounded px-1.5 py-1 outline-none border"
-                          style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', borderColor: 'var(--color-accent)' }}
+                          className="w-20 text-xs"
                         />
                         <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>min (+ or −)</span>
                       </div>
@@ -370,7 +271,7 @@ function GoalCard({
                       className="h-full rounded-full transition-all"
                       style={{
                         width: `${progressPct}%`,
-                        background: complete ? 'var(--color-rest)' : isFocused && timerState === 'working' ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                        background: complete ? 'var(--color-rest)' : tracking ? 'var(--color-accent)' : 'var(--color-text-muted)',
                       }}
                     />
                   </div>
@@ -382,21 +283,34 @@ function GoalCard({
         </div>
 
         {!editing && (
-          <GoalMenu
-            onEdit={() => {
-              setEditTitle(goal.title);
-              setEditTarget(
-                goal.type === 'time'
-                  ? String(Math.round(goal.target / 60_000))
-                  : goal.type === 'counter'
-                  ? String(goal.target)
-                  : ''
-              );
-              setEditDeadline(goal.deadline ?? '');
-              setEditing(true);
-            }}
-            onDelete={() => deleteGoal(goal.id)}
-            onAdjustTime={goal.type === 'time' ? () => { setShowTimeEdit(true); setTimeEditMin(''); } : undefined}
+          <ActionMenu
+            label="Goal actions"
+            widthClassName="min-w-[140px]"
+            actions={[
+              {
+                label: 'Edit',
+                onSelect: () => {
+                  setEditTitle(goal.title);
+                  setEditTarget(
+                    goal.type === 'time'
+                      ? String(Math.round(goal.target / 60_000))
+                      : goal.type === 'counter'
+                      ? String(goal.target)
+                      : ''
+                  );
+                  setEditDeadline(goal.deadline ?? '');
+                  setEditing(true);
+                },
+              },
+              // Only a time goal has tracked time to adjust.
+              ...(goal.type === 'time'
+                ? [{
+                    label: 'Adjust time',
+                    onSelect: () => { setShowTimeEdit(true); setTimeEditMin(''); },
+                  }]
+                : []),
+              { label: 'Delete', onSelect: () => deleteGoal(goal.id), danger: true },
+            ]}
           />
         )}
       </div>
@@ -448,7 +362,7 @@ function AddGoalForm({ onDone }: { onDone: () => void }) {
 
   const segBtn = (active: boolean): React.CSSProperties => ({
     background: active ? 'var(--color-accent)' : 'var(--color-surface-2)',
-    color: active ? '#fff' : 'var(--color-text-muted)',
+    color: active ? 'var(--color-on-accent)' : 'var(--color-text-muted)',
     border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
   });
 
@@ -554,7 +468,7 @@ function AddGoalForm({ onDone }: { onDone: () => void }) {
         <button
           type="submit"
           className="px-4 py-2 rounded-xl text-sm font-semibold"
-          style={{ background: 'var(--color-accent)', color: '#fff', fontFamily: 'var(--font-display)' }}
+          style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)', fontFamily: 'var(--font-display)' }}
         >
           Add Goal
         </button>
@@ -573,14 +487,7 @@ function AddGoalForm({ onDone }: { onDone: () => void }) {
 
 // ── GoalList (exported) ───────────────────────────────────────────────────────
 
-interface GoalListProps {
-  focusedItem: FocusTarget | null;
-  timerState: 'idle' | 'working' | 'on-break';
-  focusSegmentStart: number | null;
-  onSetFocus: (target: FocusTarget | null) => void;
-}
-
-export function GoalList({ focusedItem, timerState, focusSegmentStart, onSetFocus }: GoalListProps) {
+export function GoalList() {
   const { goals, reorderGoals } = useGoals();
   const [showForm, setShowForm] = useState(false);
 
@@ -634,14 +541,7 @@ export function GoalList({ focusedItem, timerState, focusSegmentStart, onSetFocu
         <SortableContext items={sorted.map((g) => g.id)} strategy={verticalListSortingStrategy}>
           <ul className="flex flex-col gap-1.5">
             {sorted.map((goal) => (
-              <GoalCard
-                key={goal.id}
-                goal={goal}
-                isFocused={focusedItem?.kind === 'goal' && focusedItem.id === goal.id}
-                timerState={timerState}
-                focusSegmentStart={focusSegmentStart}
-                onSetFocus={onSetFocus}
-              />
+              <GoalCard key={goal.id} goal={goal} />
             ))}
           </ul>
         </SortableContext>

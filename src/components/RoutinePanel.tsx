@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTasks, usePendingRoutines } from '../store/tasks';
 import { formatTimeLong } from '../utils/thirdTime';
-import type { FocusTarget, Routine, Task } from '../types';
+import { useFocusable } from '../hooks/useFocusable';
+import type { Routine, Task } from '../types';
 
 function periodLabel(routine: Routine): string {
   if (routine.period === 'daily') return 'Daily';
@@ -10,35 +11,13 @@ function periodLabel(routine: Routine): string {
   return `Every ${routine.periodDays ?? 1}d`;
 }
 
-function Step({
-  task,
-  isFocused,
-  timerState,
-  focusSegmentStart,
-  onToggle,
-  onFocus,
-}: {
-  task: Task;
-  isFocused: boolean;
-  timerState: 'idle' | 'working' | 'on-break';
-  focusSegmentStart: number | null;
-  onToggle: () => void;
-  onFocus: () => void;
-}) {
-  // Ticked from the interval rather than read from Date.now() during render.
-  const [liveExtra, setLiveExtra] = useState(0);
-  useEffect(() => {
-    if (!isFocused || timerState !== 'working' || !focusSegmentStart) {
-      return;
-    }
-    const id = setInterval(() => setLiveExtra(Date.now() - focusSegmentStart), 1000);
-    return () => clearInterval(id);
-  }, [isFocused, timerState, focusSegmentStart]);
-
-  const tracking = isFocused && timerState === 'working' && !!focusSegmentStart;
-  const live = (task.trackedMs ?? 0) + (tracking ? liveExtra : 0);
-
+function Step({ task, onToggle }: { task: Task; onToggle: () => void }) {
   const done = task.status === 'done';
+  const { isFocused, tracking, segmentMs, toggleFocus } = useFocusable(
+    { kind: 'task', id: task.id },
+    !done
+  );
+  const live = (task.trackedMs ?? 0) + segmentMs;
 
   return (
     <li
@@ -46,7 +25,7 @@ function Step({
       style={{ background: isFocused ? 'var(--color-accent-dim)' : 'transparent' }}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('button')) return;
-        if (!done) onFocus();
+        toggleFocus();
       }}
     >
       <button
@@ -82,7 +61,7 @@ function Step({
       {live > 0 && (
         <span
           className="num text-[11px] flex-shrink-0"
-          style={{ color: isFocused && timerState === 'working' ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
+          style={{ color: tracking ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
         >
           {formatTimeLong(live)}
         </span>
@@ -91,27 +70,22 @@ function Step({
   );
 }
 
-interface Props {
-  focusedItem: FocusTarget | null;
-  timerState: 'idle' | 'working' | 'on-break';
-  focusSegmentStart: number | null;
-  onSetFocus: (target: FocusTarget | null) => void;
-}
-
 /**
  * One routine at a time. Which one you care about depends on the hour, so the
  * panel shows the first that still has something outstanding and drops it the
  * moment it is finished — the next one then takes its place on its own.
  */
-export function RoutinePanel({ focusedItem, timerState, focusSegmentStart, onSetFocus }: Props) {
-  const { updateTask, snoozeRoutine } = useTasks();
+export function RoutinePanel() {
+  const { routines, updateTask, snoozeRoutine } = useTasks();
   const [index, setIndex] = useState(0);
   const pending = usePendingRoutines();
 
   if (pending.length === 0) {
     return (
       <p className="text-sm py-1" style={{ color: 'var(--color-text-muted)' }}>
-        Nothing outstanding — your routines come back next period.
+        {routines.length === 0
+          ? 'No routines yet — click Manage to add one'
+          : 'Nothing outstanding — your routines come back next period.'}
       </p>
     );
   }
@@ -170,18 +144,8 @@ export function RoutinePanel({ focusedItem, timerState, focusSegmentStart, onSet
             <Step
               key={task.id}
               task={task}
-              isFocused={focusedItem?.kind === 'task' && focusedItem.id === task.id}
-              timerState={timerState}
-              focusSegmentStart={focusSegmentStart}
               onToggle={() =>
                 updateTask(task.id, { status: task.status === 'done' ? 'todo' : 'done' })
-              }
-              onFocus={() =>
-                onSetFocus(
-                  focusedItem?.kind === 'task' && focusedItem.id === task.id
-                    ? null
-                    : { kind: 'task', id: task.id }
-                )
               }
             />
           ))}
