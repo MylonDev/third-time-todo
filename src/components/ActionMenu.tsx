@@ -77,7 +77,7 @@ export function ActionMenu({
           style={{
             background: 'var(--color-surface)',
             borderColor: 'var(--color-border)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+            boxShadow: 'var(--shadow-overlay)',
           }}
         >
           {actions.map(({ label: itemLabel, onSelect, danger }) => (

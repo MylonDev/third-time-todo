@@ -98,7 +98,7 @@ function GoalCard({ goal }: { goal: Goal }) {
         background: 'var(--color-surface)',
         borderColor: 'var(--color-accent)',
         borderLeftWidth: '3px',
-        boxShadow: 'inset 0 0 0 1px rgba(167,139,250,0.08)',
+        boxShadow: 'inset 0 0 0 1px var(--color-accent-dim)',
         cursor: 'pointer',
       }
     : complete
@@ -367,7 +367,7 @@ function AddGoalForm({ onDone }: { onDone: () => void }) {
 
   const segBtn = (active: boolean): React.CSSProperties => ({
     background: active ? 'var(--color-accent)' : 'var(--color-surface-2)',
-    color: active ? '#fff' : 'var(--color-text-muted)',
+    color: active ? 'var(--color-on-accent)' : 'var(--color-text-muted)',
     border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
   });
 
@@ -473,7 +473,7 @@ function AddGoalForm({ onDone }: { onDone: () => void }) {
         <button
           type="submit"
           className="px-4 py-2 rounded-xl text-sm font-semibold"
-          style={{ background: 'var(--color-accent)', color: '#fff', fontFamily: 'var(--font-display)' }}
+          style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)', fontFamily: 'var(--font-display)' }}
         >
           Add Goal
         </button>
