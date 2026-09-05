@@ -22,7 +22,9 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
   const [step, setStep] = useState<Step>('confirm');
   const [report, setReport] = useState<SessionReport | null>(null);
 
-  const restLeft = Math.max(0, bankToClear);
+  // Below a second it formats as 0:00, and a line announcing nothing is
+  // noise. Say it only when there is something to say.
+  const restLeft = bankToClear >= 1000 ? bankToClear : 0;
 
   useEffect(() => {
     if (!isOpen) {
