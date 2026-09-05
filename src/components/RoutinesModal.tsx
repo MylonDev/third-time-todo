@@ -13,7 +13,7 @@ function periodLabel(period: GoalPeriod, periodDays?: number): string {
 
 const segBtn = (active: boolean): React.CSSProperties => ({
   background: active ? 'var(--color-accent)' : 'var(--color-surface-2)',
-  color: active ? '#fff' : 'var(--color-text-muted)',
+  color: active ? 'var(--color-on-accent)' : 'var(--color-text-muted)',
   border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
 });
 

@@ -114,7 +114,7 @@ function SortableTask({
         background: 'var(--color-surface-2)',
         borderColor: 'var(--color-accent)',
         opacity: 0.85,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+        boxShadow: 'var(--shadow-raised)',
       }
     : isDone
     ? {
@@ -127,7 +127,7 @@ function SortableTask({
         background: 'var(--color-surface)',
         borderColor: 'var(--color-accent)',
         borderLeftWidth: '3px',
-        boxShadow: `inset 0 0 0 1px rgba(167,139,250,0.08)`,
+        boxShadow: `inset 0 0 0 1px var(--color-accent-dim)`,
         cursor: 'pointer',
       }
     : {

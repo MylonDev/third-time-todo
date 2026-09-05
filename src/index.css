@@ -19,10 +19,20 @@
   /* Rest — mint green */
   --color-rest:     #34d399;
   --color-rest-dim: rgba(52, 211, 153, 0.12);
+  /* One step up from the dim fill: the border that goes around it */
+  --color-rest-edge: rgba(52, 211, 153, 0.3);
 
   /* Debt — red */
   --color-debt:     #f87171;
   --color-debt-dim: rgba(248, 113, 113, 0.12);
+  --color-debt-edge: rgba(248, 113, 113, 0.3);
+
+  /* The far end of the logo gradient */
+  --color-accent-deep: #1e3a8a;
+
+  /* Anything set on a filled accent, rest or debt surface. White in both
+     themes — every filled colour here is dark enough to carry it. */
+  --color-on-accent: #ffffff;
 
   /* Text */
   --color-text:       #e8e8e8;
@@ -37,6 +47,11 @@
   --color-mode-third-dim:   rgba(34, 197, 94, 0.12);
   --color-mode-quarter:     #fb923c; /* Hard   */
   --color-mode-quarter-dim: rgba(251, 146, 60, 0.12);
+
+  /* Lift for a card that is dragging, or otherwise off the page */
+  --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.3);
+  /* More again, for something floating clear of the page: a dropdown */
+  --shadow-overlay: 0 8px 32px rgba(0, 0, 0, 0.4);
 
   /* Danger */
   --color-danger:     #e05555;
@@ -61,8 +76,15 @@
   --color-accent-dim: rgba(37, 99, 235, 0.12);
   --color-rest:      #059669;
   --color-rest-dim:  rgba(5, 150, 105, 0.1);
+  --color-rest-edge: rgba(5, 150, 105, 0.32);
   --color-debt:      #dc2626;
   --color-debt-dim:  rgba(220, 38, 38, 0.1);
+  --color-debt-edge: rgba(220, 38, 38, 0.32);
+  --color-accent-deep: #1e40af;
+  --color-on-accent: #ffffff;
+  /* A black lift this heavy reads as dirt on a light ground */
+  --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-overlay: 0 8px 32px rgba(0, 0, 0, 0.16);
   --color-text:       #111111;
   --color-text-muted: rgba(17, 17, 17, 0.62); /* 4.9:1+ on every surface */
   --color-mode-half:        #0369a1;

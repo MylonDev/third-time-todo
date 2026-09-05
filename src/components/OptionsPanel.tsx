@@ -85,7 +85,7 @@ export function OptionsPanel({ isOpen, onClose }: Props) {
                   className="flex-1 py-2 text-sm font-semibold transition-colors"
                   style={
                     theme === t.value
-                      ? { background: 'var(--color-accent)', color: '#fff' }
+                      ? { background: 'var(--color-accent)', color: 'var(--color-on-accent)' }
                       : { background: 'var(--color-surface-2)', color: 'var(--color-text-muted)' }
                   }
                 >
@@ -170,7 +170,7 @@ export function OptionsPanel({ isOpen, onClose }: Props) {
                   style={{
                     background: 'var(--color-rest-dim)',
                     color: 'var(--color-rest)',
-                    border: '1px solid rgba(52,211,153,0.2)',
+                    border: '1px solid var(--color-rest-edge)',
                   }}
                 >
                   {m} min
