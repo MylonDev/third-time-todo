@@ -35,6 +35,18 @@ export const BAND_HIGH = 1.3;
 /** Below this many days of history the band is too noisy to draw at all. */
 export const MIN_DAYS = 14;
 
+/**
+ * A gap this long means the baseline before it is stale, and the run of use
+ * after it starts over. Long enough that a week away does not reset anything;
+ * short enough that a real lapse does.
+ *
+ * Without this, weeks of not opening the app are averaged in as zero-load days
+ * and a normal week on your return reads as a spike of 3–4×. Those days are
+ * absent, not idle — the same distinction the series already makes for days
+ * before the very first record.
+ */
+export const LAPSE_DAYS = 10;
+
 export interface DayLoad {
   date: string; // YYYY-MM-DD
   workMs: number;
@@ -95,6 +107,26 @@ export function verdict(point: PacePoint): PaceVerdict {
   if (point.ratio > BAND_HIGH) return 'above';
   if (point.ratio < BAND_LOW) return 'below';
   return 'within';
+}
+
+function daysApart(a: string, b: string): number {
+  return Math.round(
+    (new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86_400_000
+  );
+}
+
+/**
+ * The first day of the current run of use: the earliest record with no lapse
+ * between it and today. Returns null when there is nothing recorded.
+ *
+ * `dates` must be ascending, one entry per day that has a record.
+ */
+export function currentRunStart(dates: string[]): string | null {
+  if (dates.length === 0) return null;
+  for (let i = dates.length - 1; i > 0; i--) {
+    if (daysApart(dates[i - 1], dates[i]) >= LAPSE_DAYS) return dates[i];
+  }
+  return dates[0];
 }
 
 /** A dense, ascending series ending today, zero-filled for days with no record. */
