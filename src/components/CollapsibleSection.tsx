@@ -6,8 +6,6 @@ interface Props {
   summary?: ReactNode;
   /** Optional control pinned to the right of the header. */
   action?: ReactNode;
-  /** Renders the label larger and in full contrast, for the page's primary section. */
-  prominent?: boolean;
   collapsed: boolean;
   onToggle: () => void;
   children: ReactNode;
@@ -17,21 +15,22 @@ export function CollapsibleSection({
   label,
   summary,
   action,
-  prominent = false,
   collapsed,
   onToggle,
   children,
 }: Props) {
   return (
     <section>
-      <div className="flex items-baseline gap-2.5 flex-wrap mb-2.5">
+      <div className="flex items-baseline gap-2.5 flex-wrap mb-3">
         <button
           onClick={onToggle}
           aria-expanded={!collapsed}
-          className="flex items-baseline gap-1.5 text-left"
+          className="flex items-baseline gap-2 text-left"
         >
+          {/* Fixed width so every section label starts on the same x, whichever
+              way the caret is pointing. */}
           <span
-            className="text-[10px] transition-transform"
+            className="text-[9px] w-3 text-center transition-transform flex-shrink-0"
             style={{
               color: 'var(--color-text-muted)',
               display: 'inline-block',
@@ -41,16 +40,12 @@ export function CollapsibleSection({
           >
             ▼
           </span>
-          {prominent ? (
-            <h2
-              className="text-[15px] font-semibold"
-              style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}
-            >
-              {label}
-            </h2>
-          ) : (
-            <h2 className="section-label">{label}</h2>
-          )}
+          <h2
+            className="text-[15px] font-semibold leading-none"
+            style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}
+          >
+            {label}
+          </h2>
         </button>
         {summary && (
           <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>

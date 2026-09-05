@@ -290,11 +290,21 @@ export default function App() {
           {/* ── Working column ─────────────────────────────────── */}
           <main className="order-2 lg:order-1 min-w-0 flex flex-col gap-5">
 
-            {/* Routines and Tasks are parallel sections, each collapsible, so a
-                recurring block is never mixed into the list you curate. The
-                section stays put when there are no routines, the way Tasks and
-                Goals do — a section that disappears takes its own way back in
-                with it. */}
+            {/* Tasks lead; Routines is a peer section below, never mixed into
+                the list you curate. It stays put when there are no routines,
+                the way Tasks and Goals do — a section that disappears takes its
+                own way back in with it. */}
+            <motion.div variants={item}>
+              <CollapsibleSection
+                label="Tasks"
+                collapsed={!!collapsedSections.tasks}
+                onToggle={() => toggleSection('tasks')}
+                summary={taskSummary}
+              >
+                <TaskList />
+              </CollapsibleSection>
+            </motion.div>
+
             <motion.div variants={item}>
               <CollapsibleSection
                 label="Routines"
@@ -321,18 +331,6 @@ export default function App() {
               </CollapsibleSection>
             </motion.div>
 
-            <motion.div variants={item}>
-              <CollapsibleSection
-                label="Tasks"
-                prominent
-                collapsed={!!collapsedSections.tasks}
-                onToggle={() => toggleSection('tasks')}
-                summary={taskSummary}
-              >
-                <TaskList />
-              </CollapsibleSection>
-            </motion.div>
-
             {/* Goals */}
             <motion.div variants={item}>
               <CollapsibleSection
@@ -341,6 +339,17 @@ export default function App() {
                 onToggle={() => toggleSection('goals')}
               >
                 <GoalList />
+              </CollapsibleSection>
+            </motion.div>
+
+            {/* Activity */}
+            <motion.div variants={item}>
+              <CollapsibleSection
+                label="Activity"
+                collapsed={!!collapsedSections.activity}
+                onToggle={() => toggleSection('activity')}
+              >
+                <Activity />
               </CollapsibleSection>
             </motion.div>
           </main>
@@ -394,12 +403,6 @@ export default function App() {
             <div ref={sessionSentinelRef} aria-hidden="true" className="h-px -mt-4" />
           </aside>
         </div>
-
-        {/* Activity spans the full width — it is a chart, not a sidebar widget,
-            and it belongs at the end of the page on every breakpoint. */}
-        <motion.div variants={item}>
-          <Activity />
-        </motion.div>
 
       </motion.div>
 
