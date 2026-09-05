@@ -36,7 +36,7 @@ const item: Variants = {
 export default function App() {
   const {
     timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer,
-    focusedItem, focusSegmentStart, setFocus, setFocusSegmentStart, pruneFocus,
+    focusedItem, setFocusSegmentStart, pruneFocus,
   } = useSession();
   const { theme, mode, collapsedSections, toggleSection } = useSettings();
   const { rolloverPastTasks, tasks, spawnDueRoutines, routines } = useTasks();
@@ -313,12 +313,7 @@ export default function App() {
                     </button>
                   }
                 >
-                  <RoutinePanel
-                    focusedItem={focusedItem}
-                    timerState={timerState}
-                    focusSegmentStart={focusSegmentStart}
-                    onSetFocus={setFocus}
-                  />
+                  <RoutinePanel />
                 </CollapsibleSection>
               </motion.div>
             )}
@@ -342,12 +337,7 @@ export default function App() {
                   ) : undefined
                 }
               >
-                <TaskList
-                  focusedItem={focusedItem}
-                  timerState={timerState}
-                  focusSegmentStart={focusSegmentStart}
-                  onSetFocus={setFocus}
-                />
+                <TaskList />
               </CollapsibleSection>
             </motion.div>
 
@@ -358,12 +348,7 @@ export default function App() {
                 collapsed={!!collapsedSections.goals}
                 onToggle={() => toggleSection('goals')}
               >
-                <GoalList
-                  focusedItem={focusedItem}
-                  timerState={timerState}
-                  focusSegmentStart={focusSegmentStart}
-                  onSetFocus={setFocus}
-                />
+                <GoalList />
               </CollapsibleSection>
             </motion.div>
           </main>
