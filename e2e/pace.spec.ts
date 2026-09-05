@@ -156,6 +156,21 @@ test.describe('the pace chart', () => {
     await e(activity).toContainText('Holding a steady pace');
   });
 
+  test("today's marker is painted in the same verdict as the headline", async ({ app }) => {
+    const markerFill = async () =>
+      app.locator('svg circle').last().getAttribute('fill');
+
+    await seed(app, 60, (i) => (i < 7 ? 11 : 5));
+    let activity = await paceTab(app);
+    await e(activity).toContainText('Above your usual pace');
+    e(await markerFill(), 'marker did not follow the verdict').toBe('var(--color-mode-quarter)');
+
+    await seed(app, 60, () => 5);
+    activity = await paceTab(app);
+    await e(activity).toContainText('Holding a steady pace');
+    e(await markerFill()).toBe('var(--color-rest)');
+  });
+
   test('a heavy-weekday, light-weekend history reads as steady', async ({ app }) => {
     await seed(app, 70, (_i, weekend) => (weekend ? 1 : 5));
     const activity = await paceTab(app);
