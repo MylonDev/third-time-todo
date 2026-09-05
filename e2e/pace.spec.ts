@@ -1,6 +1,14 @@
 import { test as base, expect } from '@playwright/test';
 import { test, expect as e } from './helpers';
-import { denseLoads, pacePoints, verdict, BAND_HIGH, BAND_LOW } from '../src/utils/pace';
+import {
+  currentRunStart,
+  denseLoads,
+  pacePoints,
+  verdict,
+  BAND_HIGH,
+  BAND_LOW,
+  LAPSE_DAYS,
+} from '../src/utils/pace';
 
 const H = 3_600_000;
 
@@ -22,6 +30,10 @@ function series(days: number, hoursFor: (daysAgo: number, date: Date) => number)
 }
 
 const last = <T,>(a: T[]) => a[a.length - 1];
+
+/** Keys for every day from `from` days ago through `to` days ago, inclusive. */
+const run = (from: number, to: number) =>
+  Array.from({ length: from - to + 1 }, (_, i) => key(from - i));
 
 // ── the maths, with no browser involved ─────────────────────────────────────
 base.describe('pace maths', () => {
@@ -67,6 +79,25 @@ base.describe('pace maths', () => {
     }
   });
 
+  base('a run of use begins after the most recent long gap', () => {
+    // Three days sixty days back, a long absence, then an unbroken fortnight.
+    const dates = [...run(60, 58), ...run(13, 0)];
+    expect(currentRunStart(dates)).toBe(key(13));
+  });
+
+  base('a gap shorter than a lapse does not restart the run', () => {
+    // A week away is normal and the baseline should survive it.
+    const dates = [...run(30, 25), ...run(18, 0)];
+    expect(30 - 25 + (25 - 18), 'fixture gap is not shorter than a lapse')
+      .toBeGreaterThan(0);
+    expect(25 - 18).toBeLessThan(LAPSE_DAYS);
+    expect(currentRunStart(dates)).toBe(key(30));
+  });
+
+  base('nothing recorded has no run', () => {
+    expect(currentRunStart([])).toBeNull();
+  });
+
   base('chronic averages over the days there are, not a fixed 28', () => {
     // Ten days of steady load and nothing before it. Chronic must be the mean
     // of those ten, not a 28-day mean with eighteen zeros dragging it down.
@@ -88,9 +119,13 @@ async function seed(page: import('@playwright/test').Page, days: number, hoursFo
         d.setDate(d.getDate() - i);
         const weekend = d.getDay() === 0 || d.getDay() === 6;
         const workMs = Math.round(fn(i, weekend) * 3600000);
-        history.push({ date: k(d), totalWorkMs: workMs, totalBreakMs: 0, unusedRestMs: 0, sessions: [] });
+        // A day with no work leaves no archive entry, so a lapse is an absence
+        // of records rather than a run of zeroes.
+        if (workMs > 0) {
+          history.push({ date: k(d), totalWorkMs: workMs, totalBreakMs: 0, unusedRestMs: 0, sessions: [] });
+        }
       }
-      const todayMs = history[0].totalWorkMs;
+      const todayMs = history.length && history[0].date === k(new Date()) ? history[0].totalWorkMs : 0;
       localStorage.setItem('tt-session', JSON.stringify({
         state: {
           daily: {
@@ -154,6 +189,33 @@ test.describe('the pace chart', () => {
     await seed(app, 15, () => 5);
     const activity = await paceTab(app);
     await e(activity).toContainText('Holding a steady pace');
+  });
+
+  /**
+   * The reported failure: weeks of not opening the app were averaged in as
+   * zero-load days, so a normal fortnight on return read as 3.67x.
+   */
+  test('a long gap does not make the return read as a spike', async ({ app }) => {
+    // Three weeks of use, five weeks away, then a fortnight back at the same
+    // rate. The fortnight is normal — it is the same load as before the break.
+    await seed(app, 70, (i, weekend) => {
+      if (i >= 14 && i < 49) return 0; // the lapse
+      return weekend ? 1 : 5;
+    });
+    const activity = await paceTab(app);
+    await e(activity).not.toContainText('Above your usual pace');
+    await e(activity).toContainText(/Holding a steady pace|Picking up after a break/);
+  });
+
+  test('the message names a break rather than a first run', async ({ app }) => {
+    // Back for only a few days after a long absence: there is no baseline to
+    // compare against yet, and saying so beats inventing one.
+    await seed(app, 70, (i, weekend) => {
+      if (i >= 4 && i < 60) return 0;
+      return weekend ? 1 : 5;
+    });
+    const activity = await paceTab(app);
+    await e(activity).toContainText('Picking up after a break');
   });
 
   test("today's marker is painted in the same verdict as the headline", async ({ app }) => {
