@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { InlineInput } from './InlineInput';
 import { Modal } from './Modal';
 import { useTasks } from '../store/tasks';
 import type { GoalPeriod, Routine } from '../types';
@@ -39,17 +40,15 @@ function RoutineEditor({ routine }: { routine: Routine }) {
     >
       <div className="flex items-start gap-2">
         {editingTitle ? (
-          <input
+          <InlineInput
             autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={saveTitle}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') saveTitle();
-              if (e.key === 'Escape') { setTitle(routine.title); setEditingTitle(false); }
-            }}
-            className="flex-1 text-[15px] font-semibold rounded-lg px-2 py-1 outline-none border"
-            style={{ background: 'var(--color-surface)', color: 'var(--color-text)', borderColor: 'var(--color-accent)' }}
+            onCommit={saveTitle}
+            onCancel={() => { setTitle(routine.title); setEditingTitle(false); }}
+            className="flex-1 text-[15px] font-semibold"
+            style={{ background: 'var(--color-surface)' }}
           />
         ) : (
           <button
