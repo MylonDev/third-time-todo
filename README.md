@@ -25,13 +25,26 @@ Live at **https://mylondev.github.io/third-time-todo/**
 
 ```bash
 npm install
+npx playwright install chromium   # once, for the test suite
+
 npm run dev      # vite dev server on http://localhost:5173
 npm run build    # typecheck (tsc -b) + production build to dist/
 npm run lint     # eslint
+npm test         # playwright end-to-end suite (~12s)
 npm run preview  # serve the production build locally
 ```
 
-Requires Node 20+.
+Requires Node 20+. `npm test` starts its own dev server, so nothing needs to
+be running first. Lint, build and tests all run on every PR via
+`.github/workflows/ci.yml`.
+
+### Tests
+
+`e2e/` covers the behaviours that only exist in a browser: the shared
+one-second clock and that every panel advances off it, focused time accruing
+and surviving a reload, dialogs trapping focus and closing on Escape, inline
+editors committing and cancelling, empty states, and both colour themes. Each
+test starts from an empty `localStorage` and fails on any console error.
 
 ## Stack
 

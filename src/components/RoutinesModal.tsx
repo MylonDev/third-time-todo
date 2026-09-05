@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { InlineInput } from './InlineInput';
+import { Modal } from './Modal';
 import { useTasks } from '../store/tasks';
 import type { GoalPeriod, Routine } from '../types';
 
@@ -13,7 +14,7 @@ function periodLabel(period: GoalPeriod, periodDays?: number): string {
 
 const segBtn = (active: boolean): React.CSSProperties => ({
   background: active ? 'var(--color-accent)' : 'var(--color-surface-2)',
-  color: active ? '#fff' : 'var(--color-text-muted)',
+  color: active ? 'var(--color-on-accent)' : 'var(--color-text-muted)',
   border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
 });
 
@@ -39,17 +40,15 @@ function RoutineEditor({ routine }: { routine: Routine }) {
     >
       <div className="flex items-start gap-2">
         {editingTitle ? (
-          <input
+          <InlineInput
             autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={saveTitle}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') saveTitle();
-              if (e.key === 'Escape') { setTitle(routine.title); setEditingTitle(false); }
-            }}
-            className="flex-1 text-[15px] font-semibold rounded-lg px-2 py-1 outline-none border"
-            style={{ background: 'var(--color-surface)', color: 'var(--color-text)', borderColor: 'var(--color-accent)' }}
+            onCommit={saveTitle}
+            onCancel={() => { setTitle(routine.title); setEditingTitle(false); }}
+            className="flex-1 text-[15px] font-semibold"
+            style={{ background: 'var(--color-surface)' }}
           />
         ) : (
           <button
@@ -168,14 +167,7 @@ export function RoutinesModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <motion.div
-        className="rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col border"
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-        initial={{ opacity: 0, y: 30, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-      >
+    <Modal onClose={handleClose} label="Routines" size="lg" className="max-h-[85vh]">
         <div
           className="flex items-start justify-between gap-3 px-5 py-4 border-b"
           style={{ borderColor: 'var(--color-border)' }}
@@ -241,7 +233,6 @@ export function RoutinesModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
             Add
           </button>
         </form>
-      </motion.div>
-    </div>
+    </Modal>
   );
 }
