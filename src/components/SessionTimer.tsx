@@ -7,6 +7,7 @@ import { useGoals } from '../store/goals';
 import { formatTimeLong, MODE_CONFIG, MODE_BADGE_CLASSES } from '../utils/thirdTime';
 import { playSound } from '../utils/sounds';
 import { sendNotification } from '../utils/notifications';
+import { useElapsed } from '../hooks/useNow';
 import type { Mode } from '../types';
 
 const MODE_COLOR: Record<Mode, string> = {
@@ -31,17 +32,10 @@ export function SessionTimer() {
       ? tasks.find((t) => t.id === focusedItem.id)?.title
       : goals.find((g) => g.id === focusedItem.id)?.title
     : null;
-  const [, tick] = useState(0);
   const [reminderDismissedAt, setReminderDismissedAt] = useState<number | null>(null);
   const firedReminder = useRef(false);
 
-  useEffect(() => {
-    if (timerState === 'idle') return;
-    const id = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [timerState]);
-
-  const elapsed = timerState === 'working' && timerStart ? Date.now() - timerStart : 0;
+  const elapsed = useElapsed(timerStart, timerState === 'working');
   const modeCfg = MODE_CONFIG[mode as Mode];
 
   const showWorkReminder =

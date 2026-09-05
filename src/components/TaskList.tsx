@@ -19,7 +19,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useTasks } from '../store/tasks';
 import { todayKey, isStale, daysSince, formatTimeLong } from '../utils/thirdTime';
-import type { FocusTarget, Task } from '../types';
+import { useFocusable } from '../hooks/useFocusable';
+import type { Task } from '../types';
 
 function TaskMenu({
   onEdit,
@@ -176,9 +177,6 @@ function SubtaskMenu({
 
 function SortableTask({
   task,
-  isFocused,
-  timerState,
-  focusSegmentStart,
   onUpdate,
   onDelete,
   onMoveToTomorrow,
@@ -186,13 +184,9 @@ function SortableTask({
   onToggleSubtask,
   onDeleteSubtask,
   onEditSubtask,
-  onFocus,
   onAdjustTrackedMs,
 }: {
   task: Task;
-  isFocused: boolean;
-  timerState: 'idle' | 'working' | 'on-break';
-  focusSegmentStart: number | null;
   onUpdate: (id: string, patch: Partial<Task>) => void;
   onDelete: (id: string) => void;
   onMoveToTomorrow: (id: string) => void;
@@ -200,9 +194,12 @@ function SortableTask({
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
   onDeleteSubtask: (taskId: string, subtaskId: string) => void;
   onEditSubtask: (taskId: string, subtaskId: string, title: string) => void;
-  onFocus: () => void; // still used for card-level click delegation
   onAdjustTrackedMs: (id: string, deltaMs: number) => void;
 }) {
+  const { isFocused, tracking, segmentMs, toggleFocus } = useFocusable(
+    { kind: 'task', id: task.id },
+    task.status !== 'done'
+  );
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     disabled: task.status === 'done',
@@ -221,19 +218,8 @@ function SortableTask({
   const [editSubtaskTitle, setEditSubtaskTitle] = useState('');
   const [showTimeEdit, setShowTimeEdit] = useState(false);
   const [timeEditMin, setTimeEditMin] = useState('');
-  const [, tick] = useState(0);
 
-  // Live tick when focused and working
-  useEffect(() => {
-    if (!isFocused || timerState !== 'working') return;
-    const id = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [isFocused, timerState]);
-
-  const liveTrackedMs =
-    isFocused && timerState === 'working' && focusSegmentStart
-      ? (task.trackedMs ?? 0) + (Date.now() - focusSegmentStart)
-      : (task.trackedMs ?? 0);
+  const liveTrackedMs = (task.trackedMs ?? 0) + segmentMs;
 
   const showTracked = liveTrackedMs > 0;
 
@@ -305,7 +291,7 @@ function SortableTask({
   const handleCardClick = (e: React.MouseEvent) => {
     if (isDone) return;
     if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
-    onFocus();
+    toggleFocus();
   };
 
   return (
@@ -467,7 +453,7 @@ function SortableTask({
                   {showTracked && (
                     <span
                       className="text-xs"
-                      style={{ color: isFocused && timerState === 'working' ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
+                      style={{ color: tracking ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
                     >
                       Tracked{' '}
                       <span className="num font-semibold">{formatTimeLong(liveTrackedMs)}</span>
@@ -598,14 +584,7 @@ function SortableTask({
   );
 }
 
-interface TaskListProps {
-  focusedItem: FocusTarget | null;
-  timerState: 'idle' | 'working' | 'on-break';
-  focusSegmentStart: number | null;
-  onSetFocus: (target: FocusTarget | null) => void;
-}
-
-export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocus }: TaskListProps) {
+export function TaskList() {
   const {
     tasks, addTask, updateTask, deleteTask, moveToTomorrow,
     reorderTasks, addSubtask, toggleSubtask, deleteSubtask, editSubtask,
@@ -694,11 +673,6 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
     }
   };
 
-  const handleFocus = (taskId: string) => {
-    const isAlreadyFocused = focusedItem?.kind === 'task' && focusedItem.id === taskId;
-    onSetFocus(isAlreadyFocused ? null : { kind: 'task', id: taskId });
-  };
-
   const inputStyle: React.CSSProperties = {
     background: 'var(--color-surface-2)',
     color: 'var(--color-text)',
@@ -755,9 +729,6 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
               <SortableTask
                 key={task.id}
                 task={task}
-                isFocused={focusedItem?.kind === 'task' && focusedItem.id === task.id}
-                timerState={timerState}
-                focusSegmentStart={focusSegmentStart}
                 onUpdate={updateTask}
                 onDelete={handleDelete}
                 onMoveToTomorrow={moveToTomorrow}
@@ -765,7 +736,6 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
                 onToggleSubtask={toggleSubtask}
                 onDeleteSubtask={deleteSubtask}
                 onEditSubtask={editSubtask}
-                onFocus={() => handleFocus(task.id)}
                 onAdjustTrackedMs={adjustTrackedMs}
               />
             ))}
@@ -790,9 +760,6 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
                 <SortableTask
                   key={task.id}
                   task={task}
-                  isFocused={false}
-                  timerState={timerState}
-                  focusSegmentStart={null}
                   onUpdate={updateTask}
                   onDelete={handleDelete}
                   onMoveToTomorrow={moveToTomorrow}
@@ -800,7 +767,6 @@ export function TaskList({ focusedItem, timerState, focusSegmentStart, onSetFocu
                   onToggleSubtask={toggleSubtask}
                   onDeleteSubtask={deleteSubtask}
                   onEditSubtask={editSubtask}
-                  onFocus={() => {}}
                   onAdjustTrackedMs={adjustTrackedMs}
                 />
               ))}

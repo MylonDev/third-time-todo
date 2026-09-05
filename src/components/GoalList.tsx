@@ -24,7 +24,8 @@ import {
   getProgressForPeriod,
   formatGoalProgress,
 } from '../utils/goalPeriod';
-import type { FocusTarget, Goal, GoalPeriod, GoalType } from '../types';
+import { useFocusable } from '../hooks/useFocusable';
+import type { Goal, GoalPeriod, GoalType } from '../types';
 
 // ── GoalMenu ──────────────────────────────────────────────────────────────────
 
@@ -106,26 +107,20 @@ function GoalMenu({
 
 // ── GoalCard ──────────────────────────────────────────────────────────────────
 
-function GoalCard({
-  goal,
-  isFocused,
-  timerState,
-  focusSegmentStart,
-  onSetFocus,
-}: {
-  goal: Goal;
-  isFocused: boolean;
-  timerState: 'idle' | 'working' | 'on-break';
-  focusSegmentStart: number | null;
-  onSetFocus: (target: FocusTarget | null) => void;
-}) {
+function GoalCard({ goal }: { goal: Goal }) {
+  // Only time goals accrue focused time, so only they are focusable — focusing any
+  // other type would end the running segment and then record nothing.
+  const canFocus = goal.type === 'time';
+  const { isFocused, tracking, segmentMs, toggleFocus } = useFocusable(
+    { kind: 'goal', id: goal.id },
+    canFocus
+  );
   const { adjustProgress, updateGoal, deleteGoal } = useGoals();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: goal.id });
   const sortableStyle = {
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? undefined : transition ? transition.replace('250ms', '120ms') : undefined,
   };
-  const [, tick] = useState(0);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(goal.title);
   const [editTarget, setEditTarget] = useState('');
@@ -133,34 +128,20 @@ function GoalCard({
   const [showTimeEdit, setShowTimeEdit] = useState(false);
   const [timeEditMin, setTimeEditMin] = useState('');
 
-  // Live tick when focused and working
-  useEffect(() => {
-    if (!isFocused || timerState !== 'working') return;
-    const id = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [isFocused, timerState]);
-
   const periodKey = getCurrentPeriodKey(goal);
   const committedMs = getProgressForPeriod(goal, periodKey);
-  const liveValue =
-    goal.type === 'time' && isFocused && timerState === 'working' && focusSegmentStart
-      ? committedMs + (Date.now() - focusSegmentStart)
-      : committedMs;
+  const liveValue = canFocus ? committedMs + segmentMs : committedMs;
 
   const complete = liveValue >= goal.target;
   const progressPct = goal.type !== 'boolean'
     ? Math.min(100, (liveValue / goal.target) * 100)
     : liveValue >= 1 ? 100 : 0;
 
-  // Only time goals accrue focused time, so only they are focusable — focusing any
-  // other type would end the running segment and then record nothing.
-  const canFocus = goal.type === 'time';
-
   // Click anywhere on the card (not on a button/input) to toggle focus
   const handleCardClick = (e: React.MouseEvent) => {
     if (!canFocus) return;
     if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
-    onSetFocus(isFocused ? null : { kind: 'goal', id: goal.id });
+    toggleFocus();
   };
 
   const saveEdit = () => {
@@ -335,7 +316,7 @@ function GoalCard({
                 ) : (
                   // time goal
                   <div className="flex flex-col gap-1">
-                    <span className="num text-sm font-semibold" style={{ color: complete ? 'var(--color-rest)' : isFocused && timerState === 'working' ? 'var(--color-accent)' : 'var(--color-text)' }}>
+                    <span className="num text-sm font-semibold" style={{ color: complete ? 'var(--color-rest)' : tracking ? 'var(--color-accent)' : 'var(--color-text)' }}>
                       {formatGoalProgress(goal, liveValue)}
                     </span>
                     {showTimeEdit && (
@@ -370,7 +351,7 @@ function GoalCard({
                       className="h-full rounded-full transition-all"
                       style={{
                         width: `${progressPct}%`,
-                        background: complete ? 'var(--color-rest)' : isFocused && timerState === 'working' ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                        background: complete ? 'var(--color-rest)' : tracking ? 'var(--color-accent)' : 'var(--color-text-muted)',
                       }}
                     />
                   </div>
@@ -573,14 +554,7 @@ function AddGoalForm({ onDone }: { onDone: () => void }) {
 
 // ── GoalList (exported) ───────────────────────────────────────────────────────
 
-interface GoalListProps {
-  focusedItem: FocusTarget | null;
-  timerState: 'idle' | 'working' | 'on-break';
-  focusSegmentStart: number | null;
-  onSetFocus: (target: FocusTarget | null) => void;
-}
-
-export function GoalList({ focusedItem, timerState, focusSegmentStart, onSetFocus }: GoalListProps) {
+export function GoalList() {
   const { goals, reorderGoals } = useGoals();
   const [showForm, setShowForm] = useState(false);
 
@@ -634,14 +608,7 @@ export function GoalList({ focusedItem, timerState, focusSegmentStart, onSetFocu
         <SortableContext items={sorted.map((g) => g.id)} strategy={verticalListSortingStrategy}>
           <ul className="flex flex-col gap-1.5">
             {sorted.map((goal) => (
-              <GoalCard
-                key={goal.id}
-                goal={goal}
-                isFocused={focusedItem?.kind === 'goal' && focusedItem.id === goal.id}
-                timerState={timerState}
-                focusSegmentStart={focusSegmentStart}
-                onSetFocus={onSetFocus}
-              />
+              <GoalCard key={goal.id} goal={goal} />
             ))}
           </ul>
         </SortableContext>
