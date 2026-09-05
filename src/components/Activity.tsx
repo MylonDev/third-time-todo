@@ -166,12 +166,11 @@ export function Activity() {
     { color: 'var(--color-rest)', label: 'Rest taken' },
   ];
 
+  // No outer card: the section header above it is the frame, and the content
+  // lines up with every other section's left edge.
   return (
-    <div
-      className="rounded-2xl border p-5 flex flex-col gap-4"
-      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-    >
-      <div className="flex items-baseline justify-between gap-3 flex-wrap">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-1" role="tablist" aria-label="Activity views">
           {([
             ['sessions', 'Sessions'],
