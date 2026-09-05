@@ -33,10 +33,10 @@ export function InlineInput({
           onCommit();
         } else if (e.key === 'Escape') {
           e.preventDefault();
-          // Both layers: React's, and the native event, which is what an
-          // enclosing Modal listens for on `document`.
+          // React's stopPropagation also stops the native event, which is what
+          // an enclosing Modal listens for on `document`. Without this, Escape
+          // cancels the edit *and* closes the dialog around it.
           e.stopPropagation();
-          e.nativeEvent.stopPropagation();
           onCancel();
         }
       }}
