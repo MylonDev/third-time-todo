@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Mode, SessionLog, DailyState, SessionReport, HistoryEntry, FocusTarget } from '../types';
 import { applyWork, spendBreak, todayKey } from '../utils/thirdTime';
-import { getCurrentPeriodKey } from '../utils/goalPeriod';
 import { useTasks } from './tasks';
 import { useGoals } from './goals';
 
@@ -38,13 +37,17 @@ function freshDay(): DailyState {
   return { date: todayKey(), bankMs: 0, sessions: [] };
 }
 
-/** Only time goals accumulate focused time, so only they can be focused. */
+/** A focus target must be a live task or a live (unarchived, incomplete) goal. */
 function isFocusable(target: FocusTarget): boolean {
   if (target.kind === 'task') {
     const task = useTasks.getState().tasks.find((t) => t.id === target.id);
     return !!task && task.status !== 'done';
   }
-  return useGoals.getState().goals.find((g) => g.id === target.id)?.type === 'time';
+  const goal = useGoals.getState().goals.find((g) => g.id === target.id);
+  if (!goal || goal.archivedAt || goal.completedAt) return false;
+  // Count-flavoured goals log into the same period bucket as focus time would,
+  // so pouring milliseconds in would corrupt the count. They are not focusable.
+  return goal.outcome.kind !== 'count' && goal.effort?.metric !== 'count';
 }
 
 // Cross-store time attribution — called inside stopWork / setFocus
@@ -53,11 +56,7 @@ function commitFocusSegment(target: FocusTarget, ms: number) {
   if (target.kind === 'task') {
     useTasks.getState().adjustTrackedMs(target.id, ms);
   } else {
-    const { goals, commitTime } = useGoals.getState();
-    const goal = goals.find((g) => g.id === target.id);
-    if (goal?.type === 'time') {
-      commitTime(goal.id, getCurrentPeriodKey(goal), ms);
-    }
+    useGoals.getState().commitTime(target.id, ms);
   }
 }
 

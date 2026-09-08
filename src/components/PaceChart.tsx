@@ -14,12 +14,17 @@ import {
 
 const PLOT_DAYS = 56; // eight weeks
 const LOOKBACK = 28; // what chronic needs behind the first plotted point
-const H = 208;
+const H = 184;
 const W = 720;
-const PAD_T = 14;
-const PAD_B = 18;
-// Room for today's marker, which would otherwise be halved by the right edge.
+const PAD_T = 12;
+const PAD_B = 12;
 const PAD_R = 10;
+
+// The vertical axis is the acute:chronic ratio, not an absolute duration. A
+// fixed range keeps the 0.8–1.3 band a readable slab and stops a single
+// post-lapse spike from squashing everything flat. Values are clamped into it.
+const R_LO = 0.5;
+const R_HI = 1.6;
 
 const hours = (ms: number) => ms / 3_600_000;
 
@@ -54,6 +59,11 @@ const VERDICT_COPY = {
   unknown: { text: '', detail: '', color: 'var(--color-text-muted)' },
 } as const;
 
+const yFor = (ratio: number) => {
+  const clamped = Math.max(R_LO, Math.min(R_HI, ratio));
+  return PAD_T + (1 - (clamped - R_LO) / (R_HI - R_LO)) * (H - PAD_T - PAD_B);
+};
+
 export function PaceChart() {
   const { history, daily } = useSession();
 
@@ -78,15 +88,10 @@ export function PaceChart() {
       return { points: [], ready: false, daysShort: MIN_DAYS - span, resuming };
     }
 
-    // Start the series at the first record, never before it. Days that
-    // pre-date any history are absent, not idle: padding them with zeros drags
-    // the chronic average down and draws a band that collapses toward nothing
-    // on the left.
     const window = Math.min(span, PLOT_DAYS + LOOKBACK);
     const series = pacePoints(denseLoads(byDate, today, window));
 
     // The first six points have a partial 7-day window, so they understate.
-    // Chronic is an average and stays honest over a short history.
     return {
       points: series.slice(6).slice(-PLOT_DAYS),
       ready: true,
@@ -109,36 +114,33 @@ export function PaceChart() {
   const state = verdict(latest);
   const copy = VERDICT_COPY[state];
 
-  // Scaled to the data, not to zero. The question this chart answers is where
-  // you sit against your own band; anchoring at zero spends more than half the
-  // frame on empty space below it. The axis label states the real range.
-  const lo = Math.min(...points.map((p) => Math.min(p.acuteMs, p.lowerMs)));
-  const hi = Math.max(...points.map((p) => Math.max(p.acuteMs, p.upperMs)));
-  const pad = (hi - lo) * 0.12 || hi * 0.1 || 1;
-  const bottom = Math.max(0, lo - pad);
-  const top = hi + pad;
+  // Only the points that have something to compare against get a ratio; a null
+  // ratio in the path would render NaN and trip the console-error guard.
+  const rated = points
+    .map((p, i) => ({ p, i, ratio: p.ratio }))
+    .filter((d): d is { p: PacePoint; i: number; ratio: number } => d.ratio !== null);
 
   const x = (i: number) => (i / Math.max(1, points.length - 1)) * (W - PAD_R);
-  const y = (ms: number) =>
-    PAD_T + (1 - (ms - bottom) / (top - bottom)) * (H - PAD_T - PAD_B);
 
-  const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.acuteMs)}`).join(' ');
-  const edge = (pick: (p: PacePoint) => number) =>
-    points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(pick(p))}`).join(' ');
+  const line = rated
+    .map((d, k) => `${k === 0 ? 'M' : 'L'}${x(d.i)},${yFor(d.ratio)}`)
+    .join(' ');
+  const area =
+    rated.length > 1
+      ? `${line} L${x(rated[rated.length - 1].i)},${yFor(R_LO)} L${x(rated[0].i)},${yFor(R_LO)} Z`
+      : '';
 
-  const upperEdge = edge((p) => p.upperMs);
-  const lowerEdge = edge((p) => p.lowerMs);
-  // Along the top on the upper bound, back along the bottom on the lower one.
-  const band = [
-    upperEdge,
-    ...points
-      .slice()
-      .reverse()
-      .map((p, i) => `L${x(points.length - 1 - i)},${y(p.lowerMs)}`),
-    'Z',
-  ].join(' ');
+  const last = rated[rated.length - 1];
+  const bandTop = yFor(BAND_HIGH);
+  const bandBottom = yFor(BAND_LOW);
 
-  const gridLines = [bottom, (bottom + top) / 2, top];
+  // Axis labels live in HTML: the viewBox is stretched to the container width
+  // (preserveAspectRatio="none") and would distort any <text> inside it.
+  const axisMarks = [
+    { ratio: BAND_HIGH, label: `${BAND_HIGH}×` },
+    { ratio: 1, label: '1.0×' },
+    { ratio: BAND_LOW, label: `${BAND_LOW}×` },
+  ];
 
   return (
     <div className="flex flex-col gap-3">
@@ -157,70 +159,78 @@ export function PaceChart() {
         </span>
       </div>
 
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        className="w-full"
-        style={{ height: H }}
-        role="img"
-        aria-label={`${copy.text}. ${hours(latest.acuteMs).toFixed(1)} hours active over the last seven days, against a usual week of ${hours(latest.chronicMs).toFixed(1)} hours.`}
-      >
-        {gridLines.map((ms) => (
-          <line
-            key={ms}
-            x1={0}
-            x2={W}
-            y1={y(ms)}
-            y2={y(ms)}
-            stroke="var(--color-border)"
-            strokeWidth={1}
-            vectorEffect="non-scaling-stroke"
+      <div className="relative pl-7" style={{ height: H }}>
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          className="w-full"
+          style={{ height: H }}
+          role="img"
+          aria-label={`${copy.text}. ${hours(latest.acuteMs).toFixed(1)} hours active over the last seven days, against a usual week of ${hours(latest.chronicMs).toFixed(1)} hours — a ratio of ${latest.ratio?.toFixed(2) ?? 'not enough history'}.`}
+        >
+          {/* The sustainable band, a fixed slab because the axis is the ratio. */}
+          <rect
+            x={0}
+            y={bandTop}
+            width={W}
+            height={bandBottom - bandTop}
+            fill="var(--color-pace-band)"
+            stroke="none"
           />
-        ))}
-        <path d={band} fill="var(--color-pace-band)" stroke="none" />
-        {[upperEdge, lowerEdge].map((d) => (
+          {axisMarks.map((m) => (
+            <line
+              key={m.label}
+              x1={0}
+              x2={W}
+              y1={yFor(m.ratio)}
+              y2={yFor(m.ratio)}
+              stroke={m.ratio === 1 ? 'var(--color-text-muted)' : 'var(--color-rest-edge)'}
+              strokeWidth={1}
+              strokeDasharray={m.ratio === 1 ? '2 5' : undefined}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {area && <path d={area} fill="var(--color-accent-dim)" stroke="none" />}
           <path
-            key={d.slice(0, 24)}
-            d={d}
+            d={line}
             fill="none"
-            stroke="var(--color-rest-edge)"
-            strokeWidth={1}
+            stroke="var(--color-accent)"
+            strokeWidth={2}
+            strokeLinejoin="round"
+            strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
           />
-        ))}
-        <path
-          d={edge((p) => p.chronicMs)}
-          fill="none"
-          stroke="var(--color-rest-edge)"
-          strokeWidth={1}
-          strokeDasharray="2 5"
-          vectorEffect="non-scaling-stroke"
-        />
-        <path
-          d={line}
-          fill="none"
-          stroke="var(--color-accent)"
-          strokeWidth={2}
-          vectorEffect="non-scaling-stroke"
-        />
-        <circle
-          cx={x(points.length - 1)}
-          cy={y(latest.acuteMs)}
-          r={7}
-          fill={copy.color}
-          opacity={0.22}
-        />
-        <circle cx={x(points.length - 1)} cy={y(latest.acuteMs)} r={3.5} fill={copy.color} />
-      </svg>
+          {last && (
+            <>
+              <circle cx={x(last.i)} cy={yFor(last.ratio)} r={7} fill={copy.color} opacity={0.22} />
+              <circle
+                data-testid="pace-marker"
+                cx={x(last.i)}
+                cy={yFor(last.ratio)}
+                r={3.5}
+                fill={copy.color}
+              />
+            </>
+          )}
+        </svg>
 
-      {/* Axis labels live in HTML, not the SVG: the viewBox is stretched to
-          the container width and would distort any text inside it. */}
-      <div className="flex items-baseline justify-between -mt-2">
+        {axisMarks.map((m) => (
+          <span
+            key={m.label}
+            className="num absolute left-0 text-[10px] -translate-y-1/2 pointer-events-none"
+            style={{
+              top: yFor(m.ratio),
+              color: 'var(--color-text-muted)',
+            }}
+          >
+            {m.label}
+          </span>
+        ))}
+      </div>
+
+      <div className="flex items-baseline justify-between -mt-2 pl-7">
         <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
           {edgeLabel(points[0].date)}
-        </span>
-        <span className="text-[11px] num" style={{ color: 'var(--color-text-muted)' }}>
-          {hours(bottom).toFixed(0)}–{hours(top).toFixed(0)}h per week
         </span>
         <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
           Today

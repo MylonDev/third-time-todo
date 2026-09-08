@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1160" height="618" viewBox="0 0 1160 618">
+  <defs>
+    <clipPath id="clip0">
+      <rect width="1160" height="618"/>
+    </clipPath>
+  </defs>
+  <g>
+    <rect width="1160" height="618" rx="14" ry="14" fill="#080808" stroke="#242424" stroke-width="1"/>
+    <g clip-path="url(#clip0)">
+      <g>
+        <rect width="1160" height="72" fill="#080808"/>
+        <g transform="translate(28, 15.5)">
+          <g transform="translate(0, 2.5)">
+            <rect width="36" height="36" rx="11" ry="11" fill="#4F8EF7"/>
+            <g transform="translate(11, 8.5)">
+              <text x="0" y="16" font-family="JetBrains Mono" font-size="16" font-weight="700" fill="#FFFFFF">⅓</text>
+            </g>
+          </g>
+          <g transform="translate(48, 0)">
+            <g>
+              <text x="0" y="17" font-family="IBM Plex Sans" font-size="17" font-weight="700" fill="#E8E8E8">Third Time</text>
+            </g>
+            <g transform="translate(0, 25)">
+              <text x="0" y="12" font-family="IBM Plex Sans" font-size="12" fill="#8A8A8A">Work freely. Earn your breaks.</text>
+            </g>
+          </g>
+        </g>
+        <g transform="translate(1100, 20)">
+          <rect width="32" height="32" rx="10" ry="10" fill="#111111" stroke="#242424" stroke-width="1"/>
+          <g transform="translate(11, 6.5)">
+            <text x="0" y="15" font-family="Inter" font-size="15" fill="#8A8A8A">⚙</text>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(0, 72)">
+        <rect width="1160" height="160" fill="#0D0D0D" stroke="#1C1C1C" stroke-width="1"/>
+        <g transform="translate(28, 16)">
+          <text x="0" y="11" font-family="IBM Plex Sans" font-size="11" fill="#6F6F6F">START A SESSION</text>
+        </g>
+        <g transform="translate(28, 42)">
+          <g>
+            <rect width="276" height="52" rx="12" ry="12" fill="#0D1A24" stroke="#38BDF8" stroke-width="1"/>
+            <g transform="translate(114.5, 9)">
+              <text x="0" y="13" font-family="IBM Plex Sans" font-size="13" fill="#38BDF8">Relaxed</text>
+            </g>
+            <g transform="translate(128, 28)">
+              <text x="0" y="11" font-family="JetBrains Mono" font-size="11" fill="#38BDF8">1:2</text>
+            </g>
+          </g>
+          <g transform="translate(286, 0)">
+            <rect width="276" height="52" rx="12" ry="12" fill="#1C1C1C" stroke="#242424" stroke-width="1"/>
+            <g transform="translate(116, 9)">
+              <text x="0" y="13" font-family="IBM Plex Sans" font-size="13" fill="#9A9A9A">Serious</text>
+            </g>
+            <g transform="translate(128, 28)">
+              <text x="0" y="11" font-family="JetBrains Mono" font-size="11" fill="#9A9A9A">1:3</text>
+            </g>
+          </g>
+          <g transform="translate(572, 0)">
+            <rect width="276" height="52" rx="12" ry="12" fill="#1C1C1C" stroke="#242424" stroke-width="1"/>
+            <g transform="translate(110, 9)">
+              <text x="0" y="13" font-family="IBM Plex Sans" font-size="13" fill="#9A9A9A">Locked in</text>
+            </g>
+            <g transform="translate(128, 28)">
+              <text x="0" y="11" font-family="JetBrains Mono" font-size="11" fill="#9A9A9A">1:4</text>
+            </g>
+          </g>
+          <g transform="translate(858, 0)">
+            <rect width="216" height="52" rx="12" ry="12" fill="#38BDF8"/>
+            <g transform="translate(81, 17)">
+              <text x="0" y="14" font-family="IBM Plex Sans" font-size="14" font-weight="700" fill="#080808">Start  →</text>
+            </g>
+          </g>
+        </g>
+        <g transform="translate(28, 106)">
+          <rect width="1104" height="38" rx="10" ry="10" fill="#111111"/>
+          <g transform="translate(12, 11)">
+            <text x="0" y="12" font-family="IBM Plex Sans" font-size="12" fill="#8A8A8A">“It does not matter how slowly you go as long as you do not stop.”  — Confucius</text>
+          </g>
+          <g transform="translate(447, -31)"/>
+          <g transform="translate(1084, 11.5)">
+            <text x="0" y="12" font-family="Inter" font-size="12" fill="#5F5F5F">✕</text>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(0, 232)">
+        <rect width="1160" height="46" fill="#080808" stroke="#1C1C1C" stroke-width="1"/>
+        <g transform="translate(28, 14.5)">
+          <text x="0" y="13" font-family="IBM Plex Sans" font-size="13" fill="#8A8A8A">Habits</text>
+        </g>
+        <g transform="translate(90, 14.5)">
+          <text x="0" y="13" font-family="IBM Plex Sans" font-size="13" fill="#E8E8E8">Tasks</text>
+        </g>
+        <g transform="translate(147, 14.5)">
+          <text x="0" y="13" font-family="IBM Plex Sans" font-size="13" fill="#8A8A8A">Goals</text>
+        </g>
+        <g transform="translate(205, 14.5)">
+          <text x="0" y="13" font-family="IBM Plex Sans" font-size="13" fill="#8A8A8A">Activity</text>
+        </g>
+      </g>
+      <g transform="translate(0, 278)">
+        <rect width="1160" height="340" fill="#080808"/>
+        <g transform="translate(220, 28)">
+          <g>
+            <g>
+              <rect width="638" height="44" rx="12" ry="12" fill="#1C1C1C" stroke="#242424" stroke-width="1"/>
+              <g transform="translate(14, 13.5)">
+                <text x="0" y="13" font-family="IBM Plex Sans" font-size="13" fill="#6F6F6F">Add a task…</text>
+              </g>
+            </g>
+            <g transform="translate(648, 0)">
+              <rect width="72" height="44" rx="12" ry="12" fill="#12233D" stroke="#4F8EF7" stroke-width="1"/>
+              <g transform="translate(24, 13.5)">
+                <text x="0" y="13" font-family="IBM Plex Sans" font-size="13" fill="#4F8EF7">Add</text>
+              </g>
+            </g>
+          </g>
+          <g transform="translate(0, 56)">
+            <rect width="720" height="52" rx="12" ry="12" fill="#111111" stroke="#242424" stroke-width="1"/>
+            <g transform="translate(14, 16)">
+              <rect width="20" height="20" rx="4" ry="4" fill="none" stroke="#3A3A3A" stroke-width="1"/>
+            </g>
+            <g transform="translate(46, 17)">
+              <text x="0" y="14" font-family="IBM Plex Sans" font-size="14" fill="#E8E8E8">Draft the redesign spec</text>
+            </g>
+            <g transform="translate(204, -24)"/>
+            <g transform="translate(620, 18.5)">
+              <text x="0" y="11" font-family="JetBrains Mono" font-size="11" fill="#8A8A8A">Tracked 42:10</text>
+            </g>
+          </g>
+          <g transform="translate(0, 120)">
+            <rect width="720" height="52" rx="12" ry="12" fill="#0F1420" stroke="#4F8EF7" stroke-width="1"/>
+            <g transform="translate(14, 16)">
+              <rect width="20" height="20" rx="4" ry="4" fill="none" stroke="#4F8EF7" stroke-width="1"/>
+            </g>
+            <g transform="translate(46, 17)">
+              <text x="0" y="14" font-family="IBM Plex Sans" font-size="14" fill="#E8E8E8">Review pull requests</text>
+            </g>
+            <g transform="translate(189, -24)"/>
+            <g transform="translate(646, 16)">
+              <rect width="60" height="20" rx="999" ry="999" fill="#12233D"/>
+              <g transform="translate(8, 3.5)">
+                <text x="0" y="10" font-family="IBM Plex Sans" font-size="10" fill="#4F8EF7">FOCUSED</text>
+              </g>
+            </g>
+          </g>
+          <g transform="translate(0, 184)">
+            <rect width="720" height="52" rx="12" ry="12" fill="#111111" stroke="#242424" stroke-width="1"/>
+            <g transform="translate(14, 16)">
+              <rect width="20" height="20" rx="4" ry="4" fill="#34D399"/>
+              <g transform="translate(4.5, 2.5)">
+                <text x="0" y="12" font-family="Inter" font-size="12" fill="#080808">✓</text>
+              </g>
+            </g>
+            <g transform="translate(46, 17)">
+              <text x="0" y="14" font-family="IBM Plex Sans" font-size="14" fill="#7A7A7A">Clear inbox</text>
+            </g>
+          </g>
+          <g transform="translate(0, 248)">
+            <g transform="translate(0, 10)">
+              <text x="0" y="12" font-family="IBM Plex Sans" font-size="12" fill="#6F6F6F">▸  2 completed</text>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
