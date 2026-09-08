@@ -180,6 +180,36 @@ test.describe('goals', () => {
     await expect(card).toContainText('1 times / 1 times this week');
   });
 
+  test('a v2 goal keeps its cumulative total when it upgrades', async ({ app }) => {
+    await app.evaluate(() => {
+      localStorage.setItem(
+        'tt-goals',
+        JSON.stringify({
+          state: {
+            goals: [
+              {
+                id: 'v2-1',
+                title: 'Cycle far',
+                outcome: { kind: 'count', unit: 'km', target: 1000 },
+                milestones: [],
+                effort: { metric: 'count', amount: 25, period: 'weekly' },
+                createdAt: Date.now() - 30 * 86_400_000,
+                order: 0,
+                // Older per-period buckets the v3 `total` must be seeded from.
+                progress: { 'wk-a': 120, 'wk-b': 200, 'wk-c': 322 },
+              },
+            ],
+          },
+          version: 2,
+        })
+      );
+    });
+    await app.reload();
+    await switchTab(app, 'Goals');
+    // 120 + 200 + 322 = 642
+    await expect(app.getByRole('listitem').filter({ hasText: 'Cycle far' })).toContainText('642 / 1000');
+  });
+
   test('evolving a met goal links the two and shows the chain', async ({ app }) => {
     await goToGoals(app);
     await addGoal(app, { name: 'Run a 5k', measure: 'Open', milestones: ['Finish it'] });

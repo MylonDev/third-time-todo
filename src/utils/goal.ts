@@ -2,9 +2,13 @@ import type { Goal, GoalOutcome, GoalPeriod, EffortTarget } from '../types';
 import { formatDuration } from './thirdTime';
 import { effortPeriodKey } from './goalPeriod';
 
-/** Everything logged against a goal, across every period. */
+/**
+ * Everything logged against a goal, across every period. Reads the maintained
+ * `total` (which survives `prunePeriods`), falling back to summing `progress`
+ * for a record written before that field existed.
+ */
 export function cumulativeTotal(goal: Goal): number {
-  return Object.values(goal.progress).reduce((a, b) => a + b, 0);
+  return goal.total ?? Object.values(goal.progress).reduce((a, b) => a + b, 0);
 }
 
 /**

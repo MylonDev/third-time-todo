@@ -146,8 +146,14 @@ export interface Goal {
   evolvesFromId?: string;
   createdAt: number;
   order: number;
-  /** periodKey → amount logged that period. Sum across keys = cumulative total. */
+  /** periodKey → amount logged that period. Used for the current-period effort reading. */
   progress: Record<string, number>;
+  /**
+   * Running cumulative total, in the same unit as `progress` values. Mirrors the
+   * sum of `progress` but is maintained on every write, so it stays correct even
+   * after `prunePeriods` drops old buckets on a years-long goal.
+   */
+  total: number;
   archivedAt?: number;
   completedAt?: number;
 }
