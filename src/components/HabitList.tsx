@@ -1,103 +1,114 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useHabits } from '../store/habits';
-import { dateKey, isHabitOutstanding } from '../utils/goalPeriod';
+import { dateKey, weekdayIndex, isHabitOutstanding } from '../utils/goalPeriod';
+import { isDoneOn } from '../utils/habit';
+import { HabitRow } from './HabitRow';
+import { HabitAddForm } from './HabitAddForm';
 
-/**
- * FOUNDATION STUB — the Habits thread owns this file and rebuilds it against
- * `design/redesign-mockups.html` (#habits): due-today filter + "show all",
- * last-7-days dots, weekday-picker add form, per-occurrence targets, adherence.
- * This version just lists habits with a checkbox so the tab is usable.
- */
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
 export function HabitList() {
   const habits = useHabits((s) => s.habits);
   const addHabit = useHabits((s) => s.addHabit);
-  const toggleCompletion = useHabits((s) => s.toggleCompletion);
-  const [title, setTitle] = useState('');
+
   const [showAll, setShowAll] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
-  const today = dateKey(new Date());
-  const active = habits.filter((h) => !h.archivedAt).sort((a, b) => a.order - b.order);
-  const shown = showAll ? active : active.filter((h) => isHabitOutstanding(h) || h.completions[today]);
+  const now = new Date();
+  const today = dateKey(now);
 
-  return (
-    <div className="flex flex-col gap-3">
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const name = title.trim();
-          if (!name) return;
-          addHabit({ name, freq: { kind: 'daily' } });
-          setTitle('');
-        }}
-      >
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Add a habit…"
-          className="flex-1 rounded-xl px-3 py-2 text-sm border outline-none"
-          style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)' }}
-        />
-        <button
-          type="submit"
-          className="px-4 rounded-xl text-sm font-semibold border"
-          style={{
-            background: 'var(--color-habit-dim)',
-            color: 'var(--color-habit)',
-            borderColor: 'var(--color-habit)',
-          }}
-        >
-          Add
-        </button>
-      </form>
+  const active = useMemo(
+    () => habits.filter((h) => !h.archivedAt).sort((a, b) => a.order - b.order),
+    [habits]
+  );
+  const archived = useMemo(
+    () =>
+      habits
+        .filter((h) => h.archivedAt)
+        .sort((a, b) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0)),
+    [habits]
+  );
 
-      {active.length === 0 ? (
-        <p className="text-sm py-6 text-center" style={{ color: 'var(--color-text-muted)' }}>
+  // Due-today set: still outstanding, or touched today at all (a ticked habit
+  // stays visible for the rest of the day; a partially-logged target too).
+  const isDue = (h: (typeof active)[number]) =>
+    isHabitOutstanding(h) || h.completions[today] != null;
+  const due = active.filter(isDue);
+  const rest = active.filter((h) => !isDue(h));
+  const doneCount = due.filter((h) => isDoneOn(h, today)).length;
+
+  const dayLabel = `${WEEKDAYS[weekdayIndex(now)]} ${now.getDate()}`;
+
+  if (active.length === 0 && archived.length === 0) {
+    return (
+      <div className="flex flex-col gap-4">
+        <HabitAddForm onAdd={addHabit} />
+        <p className="text-sm py-8 text-center" style={{ color: 'var(--color-text-muted)' }}>
           No habits yet — add one above.
         </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {shown.map((h) => {
-            const done = !!h.completions[today];
-            return (
-              <li key={h.id}>
-                <button
-                  onClick={() => toggleCompletion(h.id)}
-                  className="w-full flex items-center gap-3 rounded-xl border px-3.5 py-3 text-left"
-                  style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-                >
-                  <span
-                    className="w-5 h-5 rounded flex items-center justify-center text-xs"
-                    style={{
-                      background: done ? 'var(--color-habit)' : 'transparent',
-                      border: `1.5px solid ${done ? 'var(--color-habit)' : 'var(--color-border-strong)'}`,
-                      color: 'var(--color-bg)',
-                    }}
-                  >
-                    {done ? '✓' : ''}
-                  </span>
-                  <span
-                    className="text-sm"
-                    style={{ color: done ? 'var(--color-text-muted)' : 'var(--color-text)' }}
-                  >
-                    {h.name}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      </div>
+    );
+  }
 
-      {active.length > shown.length || showAll ? (
+  return (
+    <div className="flex flex-col gap-4">
+      <HabitAddForm onAdd={addHabit} />
+
+      <div className="flex items-center justify-between px-1">
+        <span
+          className="text-xs font-semibold uppercase tracking-wide"
+          style={{ color: 'var(--color-text-muted)' }}
+        >
+          Due today · {dayLabel}
+        </span>
+        <span className="num text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          {doneCount} / {due.length} done
+        </span>
+      </div>
+
+      <ul className="flex flex-col gap-2">
+        {due.length === 0 && (
+          <li className="text-sm py-6 text-center" style={{ color: 'var(--color-text-muted)' }}>
+            Nothing due today.
+          </li>
+        )}
+        {due.map((h) => (
+          <HabitRow key={h.id} habit={h} />
+        ))}
+        {showAll && rest.map((h) => <HabitRow key={h.id} habit={h} dimmed />)}
+      </ul>
+
+      {rest.length > 0 && (
         <button
+          type="button"
           onClick={() => setShowAll((v) => !v)}
           className="self-start text-xs font-semibold"
           style={{ color: 'var(--color-text-muted)' }}
         >
-          {showAll ? 'Show only what’s due' : `Show all ${active.length} habits`}
+          {showAll ? "Show only what's due" : `Show all ${active.length} habits`}
         </button>
-      ) : null}
+      )}
+
+      {archived.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setShowArchived((v) => !v)}
+            className="self-start text-xs font-semibold"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
+            {showArchived ? '▾' : '▸'} {archived.length} archived{' '}
+            {archived.length === 1 ? 'habit' : 'habits'}
+          </button>
+          {showArchived && (
+            <ul className="flex flex-col gap-2">
+              {archived.map((h) => (
+                <HabitRow key={h.id} habit={h} />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
