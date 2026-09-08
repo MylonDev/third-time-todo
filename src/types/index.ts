@@ -116,9 +116,14 @@ export type GoalOutcome =
   | { kind: 'time'; targetHours: number }
   | { kind: 'open' };
 
-/** A recurring commitment that resets each period, e.g. "10 hours / week". */
+/**
+ * A recurring commitment that resets each period, e.g. "10 hours / week".
+ * For `metric: 'time'`, `amount` and the matching `progress` values are in
+ * milliseconds (what the session store commits). For `metric: 'count'`, they
+ * are in the outcome's unit.
+ */
 export interface EffortTarget {
-  metric: 'time' | 'count'; // time = focus-tracked minutes; count = the outcome's unit
+  metric: 'time' | 'count';
   amount: number;
   period: GoalPeriod;
   periodDays?: number; // custom only
