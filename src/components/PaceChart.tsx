@@ -14,17 +14,17 @@ import {
 
 const PLOT_DAYS = 56; // eight weeks
 const LOOKBACK = 28; // what chronic needs behind the first plotted point
-const H = 208;
+const H = 184;
 const W = 720;
-const PAD_T = 16;
-const PAD_B = 16;
+const PAD_T = 12;
+const PAD_B = 12;
 const PAD_R = 10;
 
 // The vertical axis is the acute:chronic ratio, not an absolute duration. A
 // fixed range keeps the 0.8–1.3 band a readable slab and stops a single
 // post-lapse spike from squashing everything flat. Values are clamped into it.
-const R_LO = 0.4;
-const R_HI = 1.8;
+const R_LO = 0.5;
+const R_HI = 1.6;
 
 const hours = (ms: number) => ms / 3_600_000;
 
@@ -159,7 +159,7 @@ export function PaceChart() {
         </span>
       </div>
 
-      <div className="relative" style={{ height: H }}>
+      <div className="relative pl-7" style={{ height: H }}>
         <svg
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
@@ -217,11 +217,10 @@ export function PaceChart() {
         {axisMarks.map((m) => (
           <span
             key={m.label}
-            className="num absolute left-0 text-[10px] px-1 -translate-y-1/2 pointer-events-none"
+            className="num absolute left-0 text-[10px] -translate-y-1/2 pointer-events-none"
             style={{
               top: yFor(m.ratio),
               color: 'var(--color-text-muted)',
-              background: 'var(--color-surface)',
             }}
           >
             {m.label}
@@ -229,7 +228,7 @@ export function PaceChart() {
         ))}
       </div>
 
-      <div className="flex items-baseline justify-between -mt-2">
+      <div className="flex items-baseline justify-between -mt-2 pl-7">
         <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
           {edgeLabel(points[0].date)}
         </span>
