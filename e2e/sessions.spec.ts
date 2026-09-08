@@ -227,7 +227,7 @@ test.describe('modes', () => {
     // Renaming what you read must not rename what is written.
     for (const [key, label] of MODES) {
       await app.evaluate((k) => {
-        const raw = JSON.parse(localStorage.getItem('tt-settings') ?? '{"state":{},"version":7}');
+        const raw = JSON.parse(localStorage.getItem('tt-settings') ?? '{"state":{},"version":8}');
         raw.state.mode = k;
         localStorage.setItem('tt-settings', JSON.stringify(raw));
       }, key);
@@ -249,32 +249,4 @@ test.describe('removals', () => {
     await expect(app.getByPlaceholder('Est. min')).toBeHidden();
   });
 
-  test('no deadline field on a goal', async ({ app }) => {
-    await app.getByRole('button', { name: '+ Add Goal' }).click();
-    await expect(app.getByText('Deadline')).toBeHidden();
-    await expect(app.locator('input[type="date"]')).toHaveCount(0);
-  });
-
-  test('no streak on routine adherence', async ({ app }) => {
-    // Needs a routine with a step, or the adherence view renders nothing and
-    // the assertion holds for the wrong reason.
-    await app.getByRole('button', { name: 'Manage' }).click();
-    const newRoutine = app.getByPlaceholder('New routine name…');
-    await newRoutine.fill('Morning');
-    await newRoutine.press('Enter');
-    const step = app.getByPlaceholder(/Add a step/);
-    await step.fill('Take medication');
-    await step.press('Enter');
-    await app.keyboard.press('Escape');
-    await expect(app.getByRole('dialog')).toBeHidden();
-
-    // It is a tab, not a button, and it renders uppercase via CSS — so its
-    // accessible name is "Routines".
-    const adherence = app.locator('section').filter({
-      has: app.getByRole('heading', { name: 'Activity', exact: true }),
-    });
-    await adherence.getByRole('tab', { name: 'Routines' }).click();
-    await expect(adherence).toContainText('Morning');
-    await expect(adherence, 'streak is back').not.toContainText('in a row');
-  });
 });

@@ -1,73 +1,60 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion, type Variants } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { BreakBank } from './components/BreakBank';
 import { SessionTimer } from './components/SessionTimer';
 import { TaskList } from './components/TaskList';
+import { HabitList } from './components/HabitList';
 import { GoalList } from './components/GoalList';
 import { Activity } from './components/Activity';
 import { ModeSelector } from './components/ModeSelector';
 import { OptionsPanel } from './components/OptionsPanel';
 import { EndSessionModal } from './components/EndSessionModal';
 import { RestoreSessionModal } from './components/RestoreSessionModal';
-import { SessionBar } from './components/SessionBar';
-import { RoutinesModal } from './components/RoutinesModal';
-import { RoutinePanel } from './components/RoutinePanel';
-import { CollapsibleSection } from './components/CollapsibleSection';
 import { CarriedOverModal } from './components/CarriedOverModal';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
-import { useTasks, usePendingRoutines } from './store/tasks';
+import { useTasks } from './store/tasks';
 import { requestNotificationPermission } from './utils/notifications';
-import { earnBreak, formatDuration, todayKey } from './utils/thirdTime';
+import { earnBreak, todayKey } from './utils/thirdTime';
+import type { TabId } from './types';
 
-
-// Animation variants for staggered section entrance
-const container: Variants = {
-  hidden: {},
-  show: {
-    transition: { staggerChildren: 0.07 },
-  },
-};
-
-const item: Variants = {
-  hidden: { opacity: 0, y: 14 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' as const } },
-};
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'habits', label: 'Habits' },
+  { id: 'tasks', label: 'Tasks' },
+  { id: 'goals', label: 'Goals' },
+  { id: 'activity', label: 'Activity' },
+];
 
 export default function App() {
   const {
     timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer,
     focusedItem, setFocusSegmentStart, pruneFocus, maybeArchivePreviousDay,
   } = useSession();
-  const { theme, mode, collapsedSections, toggleSection } = useSettings();
-  const { rolloverPastTasks, tasks, spawnDueRoutines, routines } = useTasks();
-  const pendingRoutines = usePendingRoutines();
+  const { theme, mode, activeTab, setActiveTab, quotes, showQuote, setShowQuote } = useSettings();
+  const { rolloverPastTasks } = useTasks();
 
   // Tasks that came over from a previous day on this open. Offered for triage
   // once — they have already been moved, so dismissing is a valid answer.
   const [carriedOver, setCarriedOver] = useState<string[]>([]);
 
   // Close out a day that ended while the app was away, then roll unfinished
-  // tasks into today and add anything the routines owe.
+  // tasks into today.
   useEffect(() => {
     maybeArchivePreviousDay();
-    // Only ever widen the list. Under StrictMode this effect runs twice, and
-    // the second pass finds nothing left to move — assigning its empty result
-    // would drop the triage before it rendered.
+    // Only ever widen the list — under StrictMode this runs twice, and the
+    // second pass finds nothing left to move.
     const carried = rolloverPastTasks();
     if (carried.length > 0) setCarriedOver(carried);
-    spawnDueRoutines();
     pruneFocus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   const [showOptions, setShowOptions] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
-  const [showRoutines, setShowRoutines] = useState(false);
   const [bankToClear, setBankToClear] = useState(0);
 
   // Sample the bank as the modal opens so the summary can report the rest this
-  // session leaves unspent. Includes what the running timer has earned but has
-  // not yet banked.
+  // session leaves unspent. Includes what the running timer has earned but not banked.
   const handleOpenEndModal = () => {
     const { daily, timerStart: start, timerState: state } = useSession.getState();
     const elapsed = start ? Date.now() - start : 0;
@@ -82,14 +69,10 @@ export default function App() {
   };
 
   // Show restore modal if a session was active when the page last closed
-  const [showRestoreModal] = useState(() => {
-    const state = useSession.getState();
-    return state.timerState !== 'idle';
-  });
+  const [showRestoreModal] = useState(() => useSession.getState().timerState !== 'idle');
 
   // Record when the page went away so the session can be restored. `pagehide`
-  // and `visibilitychange` fire reliably on mobile, where `beforeunload` does
-  // not — and neither of them raises a "Leave site?" dialog on every close.
+  // and `visibilitychange` fire reliably on mobile, where `beforeunload` does not.
   useEffect(() => {
     const record = () => {
       if (useSession.getState().timerState !== 'idle') {
@@ -105,23 +88,20 @@ export default function App() {
     };
   }, []);
 
-  // A tab left open across midnight keeps yesterday's task list and checklist
-  // ticks, because rollover only runs on mount. Re-run it as the day turns.
+  // A tab left open across midnight keeps yesterday's task list; re-run rollover
+  // as the day turns.
   const [dayKey, setDayKey] = useState(() => todayKey());
   useEffect(() => {
     const next = new Date();
     next.setHours(24, 0, 0, 500);
     const id = setTimeout(() => {
-      // Archives yesterday only if no timer is running — a session that runs
-      // across midnight keeps accruing to the day it started on.
       maybeArchivePreviousDay();
       const carried = rolloverPastTasks();
       if (carried.length > 0) setCarriedOver(carried);
-      spawnDueRoutines();
       setDayKey(todayKey());
     }, next.getTime() - Date.now());
     return () => clearTimeout(id);
-  }, [dayKey, rolloverPastTasks, spawnDueRoutines, maybeArchivePreviousDay]);
+  }, [dayKey, rolloverPastTasks, maybeArchivePreviousDay]);
 
   // Restore handlers
   const [restoreModalDismissed, setRestoreModalDismissed] = useState(false);
@@ -136,21 +116,16 @@ export default function App() {
     const elapsedAtClose = timerStart ? closedAt - timerStart : 0;
     const resumedStart = Date.now() - elapsedAtClose;
     useSession.setState({ timerStart: resumedStart, sessionClosedAt: null });
-    // Time away is discarded, so the focus segment restarts from the same point
-    // the session timer does.
     if (focusedItem) setFocusSegmentStart(resumedStart);
     setRestoreModalDismissed(true);
   };
 
   const handleRestoreResume = () => {
     setClosedAt(null);
-    // Time away counts as active, so the whole session — including the part that
-    // ran before the tab closed — belongs to the focused item.
     if (focusedItem && timerStart) setFocusSegmentStart(timerStart);
     setRestoreModalDismissed(true);
   };
 
-  // Compute restore modal props
   const closedAt = sessionClosedAt ?? Date.now();
   const elapsedAtClose = timerStart ? closedAt - timerStart : 0;
   const timeAway = sessionClosedAt ? Date.now() - sessionClosedAt : 0;
@@ -162,7 +137,6 @@ export default function App() {
     };
     if (theme === 'dark') { apply(true); return; }
     if (theme === 'light') { apply(false); return; }
-    // system
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     apply(mq.matches);
     const handler = (e: MediaQueryListEvent) => apply(e.matches);
@@ -172,88 +146,41 @@ export default function App() {
 
   const handleStart = () => {
     requestNotificationPermission();
-    const { startWork } = useSession.getState();
-    startWork();
+    useSession.getState().startWork();
   };
 
   const sessionActive = timerState !== 'idle';
-  const isLocked = sessionActive;
-
-  // Status line under the Tasks heading — what the section is worth at a glance.
-  const taskSummary = useMemo(() => {
-    const today = todayKey();
-    // Routine steps have their own panel, so they are not counted here.
-    const todays = tasks.filter((t) => t.scheduledDate === today && !t.routineId);
-    if (todays.length === 0) return '';
-    const done = todays.filter((t) => t.status === 'done').length;
-    const trackedMs = todays.reduce((a, t) => a + (t.trackedMs ?? 0), 0);
-    const parts = [`${done} of ${todays.length} done`];
-    if (trackedMs > 0) parts.push(`${formatDuration(trackedMs)} tracked`);
-    return parts.join(' · ');
-  // dayKey re-derives the summary when the date rolls over under an open tab
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, dayKey]);
-
-  // Watch a sentinel below the session panels: once it scrolls out of view the
-  // compact bar takes over, so the clock is never more than a glance away.
-  const sessionSentinelRef = useRef<HTMLDivElement>(null);
-  const [sessionScrolledAway, setSessionScrolledAway] = useState(false);
-  useEffect(() => {
-    const el = sessionSentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      ([entry]) => setSessionScrolledAway(!entry.isIntersecting && entry.boundingClientRect.top < 0),
-      { threshold: 0 }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
+  const quote = showQuote && quotes.length > 0 ? quotes[0] : null;
 
   return (
-    <div
-      className="min-h-screen py-8 px-4"
-      style={{ background: 'transparent' /* body handles bg */ }}
-    >
+    <div className="min-h-screen py-8 px-4" style={{ background: 'transparent' }}>
       <motion.div
-        className="mx-auto w-full max-w-[760px] lg:max-w-[1160px] flex flex-col gap-5"
-        variants={container}
-        initial="hidden"
-        animate="show"
+        className="mx-auto w-full max-w-[980px] flex flex-col gap-5"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
       >
         {/* ── Header ──────────────────────────────────────────── */}
-        <motion.header variants={item} className="flex items-center justify-between">
+        <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Logo mark */}
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0"
-              style={{
-                background: 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-deep) 100%)',
-              }}
+              style={{ background: 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-deep) 100%)' }}
             >
-              <span
-                className="text-white text-sm font-bold select-none"
-                style={{ fontFamily: 'var(--font-mono)' }}
-              >
+              <span className="text-white text-sm font-bold select-none" style={{ fontFamily: 'var(--font-mono)' }}>
                 ⅓
               </span>
             </div>
             <div>
-              <h1
-                className="text-lg font-bold tracking-tight leading-none"
-                style={{ color: 'var(--color-text)' }}
-              >
+              <h1 className="text-lg font-bold tracking-tight leading-none" style={{ color: 'var(--color-text)' }}>
                 Third Time
               </h1>
-              <p
-                className="text-[13px] mt-0.5"
-                style={{ color: 'var(--color-text-muted)' }}
-              >
+              <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
                 Work freely. Earn your breaks.
               </p>
             </div>
           </div>
 
-          {/* Header controls */}
           <div className="flex items-center gap-2">
             <AnimatePresence>
               {sessionActive && (
@@ -295,141 +222,94 @@ export default function App() {
               </svg>
             </button>
           </div>
-        </motion.header>
+        </header>
 
-        {/* Everything below the header splits into a working column and a
-            session rail on wide screens. On narrow screens the rail comes
-            first, so the clock and the mode picker stay above the lists. */}
-        <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start gap-5">
-
-          {/* ── Working column ─────────────────────────────────── */}
-          <main className="order-2 lg:order-1 min-w-0 flex flex-col gap-5">
-
-            {/* Tasks lead; Routines is a peer section below, never mixed into
-                the list you curate. It stays put when there are no routines,
-                the way Tasks and Goals do — a section that disappears takes its
-                own way back in with it. */}
-            <motion.div variants={item}>
-              <CollapsibleSection
-                label="Tasks"
-                collapsed={!!collapsedSections.tasks}
-                onToggle={() => toggleSection('tasks')}
-                summary={taskSummary}
-              >
-                <TaskList />
-              </CollapsibleSection>
-            </motion.div>
-
-            <motion.div variants={item}>
-              <CollapsibleSection
-                label="Routines"
-                collapsed={!!collapsedSections.routines}
-                onToggle={() => toggleSection('routines')}
-                summary={
-                  routines.length === 0
-                    ? 'none yet'
-                    : pendingRoutines.length === 0
-                    ? 'all done for now'
-                    : `${pendingRoutines.length} outstanding`
-                }
-                action={
-                  <button
-                    onClick={() => setShowRoutines(true)}
-                    className="text-xs font-semibold transition-opacity opacity-70 hover:opacity-100"
-                    style={{ color: 'var(--color-accent)' }}
-                  >
-                    Manage
-                  </button>
-                }
-              >
-                <RoutinePanel />
-              </CollapsibleSection>
-            </motion.div>
-
-            {/* Goals */}
-            <motion.div variants={item}>
-              <CollapsibleSection
-                label="Goals"
-                collapsed={!!collapsedSections.goals}
-                onToggle={() => toggleSection('goals')}
-              >
-                <GoalList />
-              </CollapsibleSection>
-            </motion.div>
-
-            {/* Activity */}
-            <motion.div variants={item}>
-              <CollapsibleSection
-                label="Activity"
-                collapsed={!!collapsedSections.activity}
-                onToggle={() => toggleSection('activity')}
-              >
-                <Activity />
-              </CollapsibleSection>
-            </motion.div>
-          </main>
-
-          {/* ── Session rail ───────────────────────────────────── */}
-          <aside className="order-1 lg:order-2 min-w-0 flex flex-col gap-4 lg:sticky lg:top-6">
-            <motion.div variants={item} className="flex flex-col gap-3">
-              <ModeSelector locked={isLocked} />
-              <AnimatePresence>
-                {!sessionActive && (
-                  <motion.button
-                    key="start"
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.98 }}
-                    transition={{ duration: 0.15 }}
-                    onClick={handleStart}
-                    className="w-full px-5 py-2.5 rounded-xl font-bold text-sm transition-all"
-                    style={{
-                      background: `var(--color-mode-${mode})`,
-                      color: 'var(--color-bg)',
-                      fontFamily: 'var(--font-display)',
-                      letterSpacing: '0.02em',
-                    }}
-                  >
-                    Start →
-                  </motion.button>
-                )}
-              </AnimatePresence>
-            </motion.div>
-
-            <AnimatePresence>
-              {sessionActive && (
-                <motion.div
-                  key="timer-panels"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3, ease: 'easeInOut' }}
-                  className="overflow-hidden"
+        {/* ── Pinned session zone ─────────────────────────────── */}
+        <section className="flex flex-col gap-3">
+          {!sessionActive ? (
+            <>
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-stretch">
+                <div className="flex-1">
+                  <ModeSelector locked={false} />
+                </div>
+                <button
+                  onClick={handleStart}
+                  className="px-6 py-2.5 rounded-xl font-bold text-sm transition-all sm:w-auto"
+                  style={{
+                    background: `var(--color-mode-${mode})`,
+                    color: 'var(--color-bg)',
+                    fontFamily: 'var(--font-display)',
+                    letterSpacing: '0.02em',
+                  }}
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
-                    <SessionTimer />
-                    <BreakBank />
-                  </div>
-                </motion.div>
+                  Start →
+                </button>
+              </div>
+              {quote && (
+                <div
+                  className="flex items-center gap-3 rounded-xl px-3 py-2 text-[13px]"
+                  style={{ background: 'var(--color-surface)', color: 'var(--color-text-muted)' }}
+                >
+                  <span className="flex-1">“{quote}”</span>
+                  <button
+                    onClick={() => setShowQuote(false)}
+                    aria-label="Hide the quote"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    ✕
+                  </button>
+                </div>
               )}
-            </AnimatePresence>
+            </>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <SessionTimer />
+              <BreakBank />
+            </div>
+          )}
+        </section>
 
-            {/* Sentinel: once this scrolls past, the compact bar takes over */}
-            <div ref={sessionSentinelRef} aria-hidden="true" className="h-px -mt-4" />
-          </aside>
+        {/* ── Tabs ────────────────────────────────────────────── */}
+        <div
+          className="flex gap-6 border-b"
+          style={{ borderColor: 'var(--color-border)' }}
+          role="tablist"
+          aria-label="Sections"
+        >
+          {TABS.map((t) => {
+            const active = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveTab(t.id)}
+                className="pb-2.5 -mb-px border-b-2 text-sm font-semibold transition-colors"
+                style={{
+                  color: active ? 'var(--color-text)' : 'var(--color-text-muted)',
+                  borderColor: active ? 'var(--color-accent)' : 'transparent',
+                  fontFamily: 'var(--font-display)',
+                }}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
 
+        {/* ── Active panel ────────────────────────────────────── */}
+        <motion.main
+          key={activeTab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+        >
+          {activeTab === 'habits' && <HabitList />}
+          {activeTab === 'tasks' && <TaskList />}
+          {activeTab === 'goals' && <GoalList />}
+          {activeTab === 'activity' && <Activity />}
+        </motion.main>
       </motion.div>
-
-      <SessionBar visible={sessionScrolledAway} />
-
-      <RoutinesModal isOpen={showRoutines} onClose={() => setShowRoutines(false)} />
-
-      <AnimatePresence>
-        {carriedOver.length > 0 && (
-          <CarriedOverModal taskIds={carriedOver} onClose={() => setCarriedOver([])} />
-        )}
-      </AnimatePresence>
 
       {/* ── Overlays ─────────────────────────────────────────── */}
       <OptionsPanel isOpen={showOptions} onClose={() => setShowOptions(false)} />
@@ -444,6 +324,12 @@ export default function App() {
           onResume={handleRestoreResume}
         />
       )}
+
+      <AnimatePresence>
+        {carriedOver.length > 0 && (
+          <CarriedOverModal taskIds={carriedOver} onClose={() => setCarriedOver([])} />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showEndModal && (

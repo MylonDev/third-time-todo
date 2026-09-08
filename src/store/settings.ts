@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Mode } from '../types';
+import type { Mode, TabId } from '../types';
 
 export type Theme = 'dark' | 'light' | 'system';
 
@@ -10,8 +10,12 @@ interface SettingsState {
   soundsEnabled: boolean;
   theme: Theme;
   breakIncrements: number[]; // in minutes
+  /** Legacy — the accordion sections are gone. Left here so the key survives. */
   collapsedSections: Record<string, boolean>;
   lastBreakMs: number | null; // in ms
+  activeTab: TabId;
+  quotes: string[]; // user-entered, shown once on the first session of the day
+  showQuote: boolean;
   setMode: (mode: Mode) => void;
   setLongWorkReminderMin: (min: number) => void;
   setSoundsEnabled: (enabled: boolean) => void;
@@ -19,6 +23,9 @@ interface SettingsState {
   setBreakIncrements: (increments: number[]) => void;
   toggleSection: (key: string) => void;
   setLastBreakMs: (ms: number | null) => void;
+  setActiveTab: (tab: TabId) => void;
+  setQuotes: (quotes: string[]) => void;
+  setShowQuote: (show: boolean) => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -31,7 +38,13 @@ export const useSettings = create<SettingsState>()(
       breakIncrements: [5, 10],
       collapsedSections: {},
       lastBreakMs: null,
+      activeTab: 'tasks',
+      quotes: [],
+      showQuote: true,
       setMode: (mode) => set({ mode }),
+      setActiveTab: (activeTab) => set({ activeTab }),
+      setQuotes: (quotes) => set({ quotes }),
+      setShowQuote: (showQuote) => set({ showQuote }),
       setLongWorkReminderMin: (min) => set({ longWorkReminderMin: Math.max(15, min) }),
       setSoundsEnabled: (enabled) => set({ soundsEnabled: enabled }),
       setTheme: (theme) => set({ theme }),
@@ -44,7 +57,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'tt-settings',
-      version: 7,
+      version: 8,
       migrate: (persisted: unknown, version: number) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const state = persisted as any;
@@ -65,7 +78,15 @@ export const useSettings = create<SettingsState>()(
           delete state.staleAlertDismissedOn;
         }
         if (version < 7) {
-          return { ...state, collapsedSections: {} };
+          state.collapsedSections = {};
+        }
+        if (version < 8) {
+          return {
+            ...state,
+            activeTab: 'tasks',
+            quotes: state.quotes ?? [],
+            showQuote: state.showQuote ?? true,
+          };
         }
         return state;
       },
