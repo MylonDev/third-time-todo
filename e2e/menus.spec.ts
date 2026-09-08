@@ -61,25 +61,5 @@ test('the subtask menu offers Edit and Delete', async ({ app }) => {
   expect(await items(app)).toEqual(['Edit', 'Delete']);
 });
 
-test.describe('the goal menu follows the goal type', () => {
-  const addGoal = async (page: Page, type: 'Time' | 'Counter') => {
-    await page.getByRole('button', { name: '+ Add Goal' }).click();
-    const form = page.locator('form').last();
-    await form.getByPlaceholder('Goal name…').fill('A goal');
-    await form.getByRole('button', { name: type, exact: true }).click();
-    await form.getByRole('spinbutton').first().fill('5');
-    await form.getByRole('button', { name: 'Add Goal', exact: true }).click();
-    await page.getByRole('button', { name: 'Goal actions' }).first().click();
-    await expect(menu(page)).toBeVisible();
-  };
-
-  test('a time goal can have its tracked time adjusted', async ({ app }) => {
-    await addGoal(app, 'Time');
-    expect(await items(app)).toEqual(['Edit', 'Adjust time', 'Delete']);
-  });
-
-  test('a counter goal has no tracked time to adjust', async ({ app }) => {
-    await addGoal(app, 'Counter');
-    expect(await items(app)).toEqual(['Edit', 'Delete']);
-  });
-});
+// The goal action menu is covered by the Goals thread's own spec against the
+// cumulative Time / Count / Open model.

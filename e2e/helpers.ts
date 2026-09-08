@@ -53,11 +53,8 @@ export function readTimers(page: Page) {
   );
 }
 
-/** The header row of a top-level collapsible section. */
-export function sectionHeader(page: Page, name: string) {
-  return page
-    .locator('section')
-    .filter({ has: page.getByRole('heading', { name, exact: true }) })
-    .locator('> div')
-    .first();
+/** Switch to a top-level tab (Habits / Tasks / Goals / Activity). */
+export async function switchTab(page: Page, name: string) {
+  await page.getByRole('tab', { name, exact: true }).click();
+  await expect(page.getByRole('tab', { name, exact: true })).toHaveAttribute('aria-selected', 'true');
 }

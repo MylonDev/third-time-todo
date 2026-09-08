@@ -146,11 +146,9 @@ async function seed(page: import('@playwright/test').Page, days: number, hoursFo
 }
 
 const paceTab = async (page: import('@playwright/test').Page) => {
-  const activity = page.locator('section').filter({
-    has: page.getByRole('heading', { name: 'Activity', exact: true }),
-  });
-  await activity.getByRole('tab', { name: 'Pace' }).click();
-  return activity;
+  await page.getByRole('tab', { name: 'Activity', exact: true }).click();
+  await page.getByRole('tab', { name: 'Pace', exact: true }).click();
+  return page.locator('main');
 };
 
 test.describe('the pace chart', () => {

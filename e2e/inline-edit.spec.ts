@@ -47,26 +47,3 @@ test.describe('adjusting tracked time', () => {
     await expect(app.locator('li').filter({ hasText: 'Alpha' }).first()).not.toContainText('99:00');
   });
 });
-
-test.describe('an editor inside a dialog keeps its own Escape', () => {
-  const openRoutineTitleEditor = async (page: Page) => {
-    await page.getByRole('button', { name: 'Manage' }).click();
-    await expect(page.getByRole('dialog')).toBeVisible();
-    const add = page.getByPlaceholder(/routine/i).first();
-    await add.fill('Morning');
-    await add.press('Enter');
-    await page.getByRole('button', { name: 'Morning', exact: true }).first().click();
-  };
-
-  // Regression: Escape used to bubble past the editor and close the whole dialog.
-  test('the first Escape cancels the edit, the second closes the dialog', async ({ app }) => {
-    await openRoutineTitleEditor(app);
-
-    await app.keyboard.press('Escape');
-    await expect(app.getByRole('dialog'), 'the whole dialog closed').toBeVisible();
-    await expect(app.getByText('Morning').first()).toBeVisible();
-
-    await app.keyboard.press('Escape');
-    await expect(app.getByRole('dialog')).toBeHidden();
-  });
-});

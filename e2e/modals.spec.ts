@@ -31,8 +31,9 @@ test.describe('every overlay is a real dialog', () => {
     expect(await app.evaluate(() => document.body.style.overflow), 'scroll lock stuck').toBe('');
   });
 
-  test('a scrim click closes the Routines dialog', async ({ app }) => {
-    await app.getByRole('button', { name: 'Manage' }).click();
+  test('a scrim click closes a dismissible dialog', async ({ app }) => {
+    await startSession(app);
+    await app.getByRole('button', { name: 'End Session' }).click();
     await expect(dialog(app)).toBeVisible();
     await app.mouse.click(8, 8);
     await expect(dialog(app)).toBeHidden();

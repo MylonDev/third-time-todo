@@ -1,523 +1,167 @@
 import { useState } from 'react';
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  TouchSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { useGoals } from '../store/goals';
-import {
-  getCurrentPeriodKey,
-  getPeriodLabel,
-  getProgressForPeriod,
-  formatGoalProgress,
-} from '../utils/goalPeriod';
-import { ActionMenu } from './ActionMenu';
-import { InlineInput } from './InlineInput';
 import { useFocusable } from '../hooks/useFocusable';
-import type { Goal, GoalPeriod, GoalType } from '../types';
+import { cumulativeTotal, formatGoalTotal, isGoalMet, outcomeProgress } from '../utils/goal';
+import type { Goal } from '../types';
 
-// ── GoalMenu ──────────────────────────────────────────────────────────────────
+/**
+ * FOUNDATION STUB — the Goals thread owns this file and rebuilds it against
+ * `design/redesign-mockups.html` (#goals-list, #goals-new, #goals-evolve):
+ * measure-aware cards (Time / Count / Open), milestone dots, effort-target vs
+ * per-period progress, deadline pace, the add form, evolve dialog, archive view.
+ * This version lists goals with a progress bar, click-to-focus and +/- logging.
+ */
 
-// ── GoalCard ──────────────────────────────────────────────────────────────────
-
-function GoalCard({ goal }: { goal: Goal }) {
-  // Only time goals accrue focused time, so only they are focusable — focusing any
-  // other type would end the running segment and then record nothing.
-  const canFocus = goal.type === 'time';
-  const { isFocused, tracking, segmentMs, toggleFocus } = useFocusable(
-    { kind: 'goal', id: goal.id },
-    canFocus
-  );
-  const { adjustProgress, updateGoal, deleteGoal } = useGoals();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: goal.id });
-  const sortableStyle = {
-    transform: CSS.Transform.toString(transform),
-    transition: isDragging ? undefined : transition ? transition.replace('250ms', '120ms') : undefined,
-  };
-  const [editing, setEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(goal.title);
-  const [editTarget, setEditTarget] = useState('');
-  const [showTimeEdit, setShowTimeEdit] = useState(false);
-  const [timeEditMin, setTimeEditMin] = useState('');
-
-  const periodKey = getCurrentPeriodKey(goal);
-  const committedMs = getProgressForPeriod(goal, periodKey);
-  const liveValue = canFocus ? committedMs + segmentMs : committedMs;
-
-  const complete = liveValue >= goal.target;
-  const progressPct = goal.type !== 'boolean'
-    ? Math.min(100, (liveValue / goal.target) * 100)
-    : liveValue >= 1 ? 100 : 0;
-
-  // Click anywhere on the card (not on a button/input) to toggle focus
-  const handleCardClick = (e: React.MouseEvent) => {
-    if (!canFocus) return;
-    if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
-    toggleFocus();
-  };
-
-  const saveEdit = () => {
-    const trimmed = editTitle.trim();
-    if (trimmed) {
-      const targetNum = Number(editTarget);
-      updateGoal(goal.id, {
-        title: trimmed,
-        ...(editTarget && !isNaN(targetNum) && targetNum > 0
-          ? { target: goal.type === 'time' ? targetNum * 60_000 : targetNum }
-          : {}),
-      });
-    }
-    setEditing(false);
-  };
-
-  const handleTimeAdjust = () => {
-    const min = parseFloat(timeEditMin);
-    if (!isNaN(min)) {
-      adjustProgress(goal.id, periodKey, Math.round(min * 60_000));
-    }
-    setShowTimeEdit(false);
-    setTimeEditMin('');
-  };
-
-  const cardStyle: React.CSSProperties = isFocused
-    ? {
-        background: 'var(--color-surface)',
-        borderColor: 'var(--color-accent)',
-        borderLeftWidth: '3px',
-        boxShadow: 'inset 0 0 0 1px var(--color-accent-dim)',
-        cursor: 'pointer',
-      }
-    : complete
-    ? {
-        background: 'var(--color-surface-2)',
-        borderColor: 'var(--color-rest)',
-        opacity: 0.8,
-        cursor: canFocus ? 'pointer' : 'default',
-      }
-    : {
-        background: 'var(--color-surface)',
-        borderColor: 'var(--color-border)',
-        cursor: canFocus ? 'pointer' : 'default',
-      };
+function GoalRow({ goal }: { goal: Goal }) {
+  const { isFocused, toggleFocus } = useFocusable({ kind: 'goal', id: goal.id });
+  const logCount = useGoals((s) => s.logCount);
+  const met = isGoalMet(goal);
+  const frac = outcomeProgress(goal);
 
   return (
     <li
-      ref={setNodeRef}
-      style={{ ...sortableStyle, ...cardStyle }}
-      className="flex flex-col rounded-xl border transition-[border-color,background-color,opacity]"
-      onClick={handleCardClick}
+      className="rounded-2xl border p-4 flex flex-col gap-2.5 cursor-pointer"
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('button')) return;
+        toggleFocus();
+      }}
+      style={{
+        background: isFocused ? 'var(--color-accent-dim)' : 'var(--color-surface)',
+        borderColor: isFocused ? 'var(--color-accent)' : 'var(--color-border)',
+      }}
     >
-      <div className="flex items-start gap-3 p-3">
-        {/* Drag handle */}
-        <button
-          {...attributes}
-          {...listeners}
-          className="mt-1 flex-shrink-0 touch-none cursor-grab active:cursor-grabbing opacity-20 hover:opacity-60 transition-opacity"
-          style={{ color: 'var(--color-text-muted)' }}
-          title="Drag to reorder"
-          aria-label={`Reorder ${goal.title}`}
-        >
-          ⠿
-        </button>
-        <div className="flex-1 min-w-0">
-          {editing ? (
-            <div className="flex flex-col gap-1.5">
-              <InlineInput
-                autoFocus
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                onCommit={saveEdit}
-                onCancel={() => setEditing(false)}
-                onBlur={saveEdit}
-                className="w-full text-sm"
-              />
-              {goal.type !== 'boolean' && (
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder={goal.type === 'time' ? 'Target min' : 'Target times'}
-                    value={editTarget}
-                    onChange={(e) => setEditTarget(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); }}
-                    className="w-28 text-xs rounded-lg px-2 py-1 outline-none border"
-                    style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', borderColor: 'var(--color-border)' }}
-                  />
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    {goal.type === 'time' ? 'min' : '×'}
-                  </span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
-              {/* Title row */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[15px] font-medium leading-snug" style={{ color: complete ? 'var(--color-text-muted)' : 'var(--color-text)' }}>
-                  {goal.title}
-                </span>
-                {isFocused && (
-                  <span
-                    className="text-xs px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide"
-                    style={{ background: 'var(--color-accent-dim)', color: 'var(--color-accent)' }}
-                  >
-                    Focused
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {getPeriodLabel(goal)}
-                </span>
-              </div>
-
-              {/* Progress controls */}
-              <div className="mt-2">
-                {goal.type === 'boolean' ? (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); adjustProgress(goal.id, periodKey, liveValue >= 1 ? -1 : 1); }}
-                    className="text-xs px-3 py-1 rounded-lg font-semibold transition-all"
-                    style={{
-                      background: complete ? 'var(--color-rest)' : 'var(--color-surface-2)',
-                      color: complete ? 'var(--color-bg)' : 'var(--color-text-muted)',
-                      border: `1px solid ${complete ? 'var(--color-rest)' : 'var(--color-border)'}`,
-                    }}
-                  >
-                    {complete ? '✓ Done' : 'Mark done'}
-                  </button>
-                ) : goal.type === 'counter' ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); adjustProgress(goal.id, periodKey, -1); }}
-                      className="w-6 h-6 rounded flex items-center justify-center text-sm font-bold transition-opacity hover:opacity-80"
-                      style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
-                    aria-label={`Decrease ${goal.title}`}
-                    >
-                      −
-                    </button>
-                    <span className="num text-sm font-semibold min-w-[60px] text-center" style={{ color: complete ? 'var(--color-rest)' : 'var(--color-text)' }}>
-                      {liveValue} / {goal.target}
-                    </span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); adjustProgress(goal.id, periodKey, 1); }}
-                      className="w-6 h-6 rounded flex items-center justify-center text-sm font-bold transition-opacity hover:opacity-80"
-                      style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
-                    aria-label={`Increase ${goal.title}`}
-                    >
-                      +
-                    </button>
-                  </div>
-                ) : (
-                  // time goal
-                  <div className="flex flex-col gap-1">
-                    <span className="num text-sm font-semibold" style={{ color: complete ? 'var(--color-rest)' : tracking ? 'var(--color-accent)' : 'var(--color-text)' }}>
-                      {formatGoalProgress(goal, liveValue)}
-                    </span>
-                    {showTimeEdit && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <InlineInput
-                          autoFocus
-                          type="number"
-                          placeholder="±min"
-                          value={timeEditMin}
-                          onChange={(e) => setTimeEditMin(e.target.value)}
-                          onCommit={handleTimeAdjust}
-                          onCancel={() => { setShowTimeEdit(false); setTimeEditMin(''); }}
-                          onBlur={handleTimeAdjust}
-                          className="w-20 text-xs"
-                        />
-                        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>min (+ or −)</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Progress bar */}
-                {goal.type !== 'boolean' && (
-                  <div
-                    className="mt-1.5 h-1 rounded-full overflow-hidden"
-                    style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}
-                  >
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${progressPct}%`,
-                        background: complete ? 'var(--color-rest)' : tracking ? 'var(--color-accent)' : 'var(--color-text-muted)',
-                      }}
-                    />
-                  </div>
-                )}
-
-              </div>
-            </>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="text-[15px] font-semibold" style={{ color: 'var(--color-text)' }}>
+            {goal.title}
+          </span>
+          {goal.doneWhen && (
+            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              Done when · {goal.doneWhen}
+            </span>
           )}
         </div>
-
-        {!editing && (
-          <ActionMenu
-            label="Goal actions"
-            widthClassName="min-w-[140px]"
-            actions={[
-              {
-                label: 'Edit',
-                onSelect: () => {
-                  setEditTitle(goal.title);
-                  setEditTarget(
-                    goal.type === 'time'
-                      ? String(Math.round(goal.target / 60_000))
-                      : goal.type === 'counter'
-                      ? String(goal.target)
-                      : ''
-                  );
-                  setEditing(true);
-                },
-              },
-              // Only a time goal has tracked time to adjust.
-              ...(goal.type === 'time'
-                ? [{
-                    label: 'Adjust time',
-                    onSelect: () => { setShowTimeEdit(true); setTimeEditMin(''); },
-                  }]
-                : []),
-              { label: 'Delete', onSelect: () => deleteGoal(goal.id), danger: true },
-            ]}
-          />
-        )}
-      </div>
-    </li>
-  );
-}
-
-// ── Add Goal Form ─────────────────────────────────────────────────────────────
-
-function AddGoalForm({ onDone }: { onDone: () => void }) {
-  const { addGoal } = useGoals();
-  const [title, setTitle] = useState('');
-  const [type, setType] = useState<GoalType>('time');
-  const [period, setPeriod] = useState<GoalPeriod>('daily');
-  const [periodDays, setPeriodDays] = useState('7');
-  const [targetMin, setTargetMin] = useState('');
-  const [targetTimes, setTargetTimes] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-
-    let target = 1;
-    if (type === 'time') {
-      const min = Number(targetMin);
-      target = isNaN(min) || min <= 0 ? 30 * 60_000 : min * 60_000;
-    } else if (type === 'counter') {
-      const times = Number(targetTimes);
-      target = isNaN(times) || times <= 0 ? 1 : times;
-    }
-
-    addGoal({
-      title: title.trim(),
-      type,
-      period,
-      periodDays: period === 'custom' ? Math.max(1, Number(periodDays) || 7) : undefined,
-      target,
-    });
-    onDone();
-  };
-
-  const inputStyle: React.CSSProperties = {
-    background: 'var(--color-surface-2)',
-    color: 'var(--color-text)',
-    borderColor: 'var(--color-border)',
-  };
-
-  const segBtn = (active: boolean): React.CSSProperties => ({
-    background: active ? 'var(--color-accent)' : 'var(--color-surface-2)',
-    color: active ? 'var(--color-on-accent)' : 'var(--color-text-muted)',
-    border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
-  });
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 p-3 rounded-xl border" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
-      <input
-        autoFocus
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Goal name…"
-        className="rounded-lg px-3 py-2 text-sm outline-none border"
-        style={inputStyle}
-      />
-
-      <div className="flex flex-col gap-1">
-        <span className="text-xs font-semibold" style={{ color: 'var(--color-text-muted)' }}>Type</span>
-        <div className="flex gap-1.5 flex-wrap">
-          {(['boolean', 'counter', 'time'] as GoalType[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setType(t)}
-              className="px-3 py-1 rounded-lg text-xs font-semibold"
-              style={segBtn(type === t)}
-            >
-              {t === 'boolean' ? 'Done/Not done' : t === 'counter' ? 'Counter' : 'Time'}
-            </button>
-          ))}
-        </div>
+        <span className="num text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          {formatGoalTotal(goal)}
+        </span>
       </div>
 
-      {type === 'time' && (
-        <div className="flex items-center gap-1.5">
-          <input
-            type="number"
-            min="1"
-            value={targetMin}
-            onChange={(e) => setTargetMin(e.target.value)}
-            placeholder="30"
-            className="w-20 rounded-lg px-2 py-1.5 text-sm outline-none border"
-            style={inputStyle}
-          />
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>minutes per period</span>
-        </div>
-      )}
-      {type === 'counter' && (
-        <div className="flex items-center gap-1.5">
-          <input
-            type="number"
-            min="1"
-            value={targetTimes}
-            onChange={(e) => setTargetTimes(e.target.value)}
-            placeholder="1"
-            className="w-20 rounded-lg px-2 py-1.5 text-sm outline-none border"
-            style={inputStyle}
-          />
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>times per period</span>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-1">
-        <span className="text-xs font-semibold" style={{ color: 'var(--color-text-muted)' }}>Reset period</span>
-        <div className="flex gap-1.5 flex-wrap">
-          {(['daily', 'weekly', 'custom'] as GoalPeriod[]).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setPeriod(p)}
-              className="px-3 py-1 rounded-lg text-xs font-semibold"
-              style={segBtn(period === p)}
-            >
-              {p === 'custom' ? 'Custom' : p.charAt(0).toUpperCase() + p.slice(1)}
-            </button>
-          ))}
-          {period === 'custom' && (
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                min="2"
-                value={periodDays}
-                onChange={(e) => setPeriodDays(e.target.value)}
-                className="w-14 rounded-lg px-2 py-1 text-xs outline-none border"
-                style={inputStyle}
-              />
-              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>days</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          className="px-4 py-2 rounded-xl text-sm font-semibold"
-          style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)', fontFamily: 'var(--font-display)' }}
+      {frac != null && (
+        <div
+          className="h-1.5 rounded-full overflow-hidden"
+          style={{ background: 'var(--color-surface-2)' }}
         >
-          Add Goal
-        </button>
-        <button
-          type="button"
-          onClick={onDone}
-          className="px-4 py-2 rounded-xl text-sm opacity-60 hover:opacity-100 transition-opacity"
-          style={{ color: 'var(--color-text-muted)' }}
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-// ── GoalList (exported) ───────────────────────────────────────────────────────
-
-export function GoalList() {
-  const { goals, reorderGoals } = useGoals();
-  const [showForm, setShowForm] = useState(false);
-
-  const sorted = [...goals].sort((a, b) => a.order - b.order);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 2 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
-    // Reordering with the keyboard: focus a drag handle, space to lift, arrows to move.
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = sorted.findIndex((g) => g.id === active.id);
-      const newIndex = sorted.findIndex((g) => g.id === over.id);
-      reorderGoals(arrayMove(sorted, oldIndex, newIndex).map((g) => g.id));
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-3">
-      {/* Add goal button — prominent, left-aligned */}
-      {!showForm && (
-        <div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-3 py-1.5 rounded-xl text-sm font-semibold transition-all"
+          <div
+            className="h-full rounded-full"
             style={{
-              background: 'var(--color-accent-dim)',
-              color: 'var(--color-accent)',
-              border: '1px solid var(--color-accent)',
-              fontFamily: 'var(--font-display)',
+              width: `${Math.min(100, frac * 100)}%`,
+              background: met ? 'var(--color-rest)' : 'var(--color-accent)',
             }}
+          />
+        </div>
+      )}
+
+      {goal.outcome.kind === 'count' && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => logCount(goal.id, -1)}
+            className="w-7 h-7 rounded-lg border text-sm"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
           >
-            + Add Goal
+            −
+          </button>
+          <span className="num text-sm">
+            {Math.round(cumulativeTotal(goal))} / {goal.outcome.target} {goal.outcome.unit}
+          </span>
+          <button
+            onClick={() => logCount(goal.id, 1)}
+            className="w-7 h-7 rounded-lg border text-sm"
+            style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)' }}
+          >
+            +
           </button>
         </div>
       )}
 
-      {showForm && <AddGoalForm onDone={() => setShowForm(false)} />}
+      {goal.milestones.length > 0 && (
+        <div className="flex flex-wrap gap-3">
+          {goal.milestones.map((m) => (
+            <MilestoneChip key={m.id} goalId={goal.id} milestoneId={m.id} label={m.label} done={!!m.doneAt} />
+          ))}
+        </div>
+      )}
+    </li>
+  );
+}
 
-      {sorted.length === 0 && !showForm && (
-        <p className="text-sm py-2" style={{ color: 'var(--color-text-muted)' }}>
-          No goals yet — click above to add one
+function MilestoneChip({
+  goalId,
+  milestoneId,
+  label,
+  done,
+}: {
+  goalId: string;
+  milestoneId: string;
+  label: string;
+  done: boolean;
+}) {
+  const toggleMilestone = useGoals((s) => s.toggleMilestone);
+  return (
+    <button
+      onClick={() => toggleMilestone(goalId, milestoneId)}
+      className="flex items-center gap-1.5 text-xs"
+      style={{ color: done ? 'var(--color-text-muted)' : 'var(--color-text)' }}
+    >
+      <span
+        className="w-4 h-4 rounded flex items-center justify-center"
+        style={{
+          background: done ? 'var(--color-rest)' : 'transparent',
+          border: `1px solid ${done ? 'var(--color-rest)' : 'var(--color-border-strong)'}`,
+          color: 'var(--color-bg)',
+        }}
+      >
+        {done ? '✓' : ''}
+      </span>
+      {label}
+    </button>
+  );
+}
+
+export function GoalList() {
+  const goals = useGoals((s) => s.goals);
+  const [showArchived, setShowArchived] = useState(false);
+  const active = goals.filter((g) => !g.archivedAt).sort((a, b) => a.order - b.order);
+  const archived = goals.filter((g) => g.archivedAt);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {active.length === 0 ? (
+        <p className="text-sm py-6 text-center" style={{ color: 'var(--color-text-muted)' }}>
+          No goals yet.
         </p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {active.map((g) => (
+            <GoalRow key={g.id} goal={g} />
+          ))}
+        </ul>
       )}
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={sorted.map((g) => g.id)} strategy={verticalListSortingStrategy}>
-          <ul className="flex flex-col gap-1.5">
-            {sorted.map((goal) => (
-              <GoalCard key={goal.id} goal={goal} />
-            ))}
-          </ul>
-        </SortableContext>
-      </DndContext>
+      {archived.length > 0 && (
+        <button
+          onClick={() => setShowArchived((v) => !v)}
+          className="self-start text-xs font-semibold"
+          style={{ color: 'var(--color-text-muted)' }}
+        >
+          {showArchived ? 'Hide' : `${archived.length} archived`}
+        </button>
+      )}
+      {showArchived &&
+        archived.map((g) => (
+          <div key={g.id} className="text-sm px-1" style={{ color: 'var(--color-text-muted)' }}>
+            {g.title}
+          </div>
+        ))}
     </div>
   );
 }
