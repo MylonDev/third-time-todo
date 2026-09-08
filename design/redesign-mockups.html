@@ -1,0 +1,1258 @@
+<title>Third Time Redesign Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap">
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     Third Time redesign — mockup review.
+     Committed dark: this is a faithful preview of a dark-first app,
+     so the page paints its own ground and never borrows the host's.
+     ───────────────────────────────────────────────────────────── */
+  :root {
+    color-scheme: dark;
+    --ground: #080808;
+    --surface: #111111;
+    --surface-2: #1c1c1c;
+    --surface-3: #141414;
+    --line: rgba(255, 255, 255, 0.09);
+    --line-strong: rgba(255, 255, 255, 0.16);
+    --text: #e8e8e8;
+    --muted: #8a8a8a;
+    --faint: #6f6f6f;
+    --dim: #5f5f5f;
+
+    --accent: #4f8ef7;
+    --accent-wash: #0f1626;
+    --accent-line: #24467e;
+    --rest: #34d399;
+    --rest-wash: #0c1c17;
+    --green: #22c55e;
+    --green-wash: #0f1712;
+    --green-line: #22331d;
+    --cyan: #38bdf8;
+    --cyan-wash: #0d1a24;
+    --amber: #fb923c;
+    --debt: #f87171;
+    --debt-wash: #24140f;
+
+    --page-max: 1180px;
+    --frame-w: 1040px;
+
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+    --r-frame: 16px;
+    --r-card: 14px;
+    --r-item: 11px;
+    --r-pill: 999px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Shell layout ─────────────────────────────────────────── */
+  .layout {
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    gap: 0;
+    max-width: var(--page-max);
+    margin: 0 auto;
+  }
+
+  .toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 28px;
+    border-right: 1px solid var(--line);
+  }
+  .toc__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .toc__mark {
+    width: 30px; height: 30px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent) 0%, #1e3a8a 100%);
+    display: grid; place-items: center;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 15px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .toc__title { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
+  .toc__group {
+    margin-top: 22px;
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .toc a {
+    display: block;
+    padding: 7px 10px;
+    margin: 2px 0 2px -10px;
+    border-radius: 8px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 2px solid transparent;
+  }
+  .toc a:hover { color: var(--text); background: var(--surface); }
+  .toc a.is-active {
+    color: var(--text);
+    background: var(--accent-wash);
+    border-left-color: var(--accent);
+  }
+  .toc a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  main { padding: 0 40px 160px; min-width: 0; }
+
+  /* ── Intro ───────────────────────────────────────────────── */
+  .intro { padding: 56px 0 40px; max-width: 760px; }
+  .intro h1 {
+    font-size: 34px;
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0 0 14px;
+  }
+  .intro .lead { font-size: 16px; color: var(--muted); margin: 0 0 28px; }
+  .intro__cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    padding: 16px 18px;
+    background: var(--surface);
+  }
+  .panel h3 {
+    margin: 0 0 10px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .panel ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .panel li { font-size: 13px; color: var(--text); padding-left: 16px; position: relative; }
+  .panel li::before {
+    content: ""; position: absolute; left: 0; top: 8px;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--accent);
+  }
+  .panel--open li::before { background: var(--amber); }
+
+  /* ── Screen sections ─────────────────────────────────────── */
+  .screen { padding: 44px 0; border-top: 1px solid var(--line); }
+  .screen__head { max-width: 760px; margin-bottom: 22px; }
+  .screen__eyebrow {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.13em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .screen__head h2 {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.015em;
+    margin: 0 0 8px; text-wrap: balance;
+  }
+  .screen__head p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+  .notes { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .notes li {
+    font-size: 12px;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 5px 10px;
+  }
+  .notes li b { color: var(--accent); font-weight: 600; }
+  .notes li.q { border-color: var(--accent-line); }
+  .notes li.q b { color: var(--amber); }
+
+  .stage {
+    overflow-x: auto;
+    padding: 4px;
+    margin: 0 -4px;
+  }
+  .browserframe {
+    width: var(--frame-w);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-frame);
+    overflow: hidden;
+    background: var(--ground);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  }
+  .browserbar {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    background: #0d0d0d;
+    border-bottom: 1px solid var(--line);
+  }
+  .browserbar i { width: 9px; height: 9px; border-radius: 50%; background: #2a2a2a; }
+  .browserbar span {
+    margin-left: 12px; font-size: 11px; color: var(--dim);
+    font-family: var(--mono);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     "tt" — the app's own design system, reproduced
+     ═══════════════════════════════════════════════════════════ */
+  .tt { font-family: var(--sans); color: var(--text); background: var(--ground); }
+  .tt-num { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .tt-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--faint);
+  }
+
+  .tt-header {
+    height: 64px; padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .tt-brand { display: flex; align-items: center; gap: 11px; }
+  .tt-logo {
+    width: 32px; height: 32px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent) 0%, #1e3a8a 100%);
+    display: grid; place-items: center;
+    font-family: var(--mono); font-weight: 700; font-size: 14px; color: #fff;
+  }
+  .tt-brand strong { font-size: 16px; font-weight: 700; }
+  .tt-gear {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: var(--surface); border: 1px solid var(--line);
+    display: grid; place-items: center; color: var(--muted); font-size: 14px;
+  }
+  .tt-end {
+    height: 30px; padding: 0 12px; border-radius: 8px;
+    background: var(--debt-wash); border: 1px solid var(--debt); color: var(--debt);
+    display: grid; place-items: center; font-size: 12px; font-weight: 600;
+  }
+
+  .tt-pinned {
+    padding: 14px 24px;
+    background: #0d0d0d;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 11px;
+  }
+  .tt-modes { display: flex; gap: 8px; }
+  .tt-mode {
+    flex: 1; height: 50px; border-radius: 11px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    color: var(--muted);
+  }
+  .tt-mode b { font-size: 13px; font-weight: 600; }
+  .tt-mode span { font-size: 11px; }
+  .tt-mode.is-active { background: var(--cyan-wash); border-color: var(--cyan); color: var(--cyan); }
+  .tt-start {
+    width: 200px; height: 50px; border-radius: 11px;
+    background: var(--cyan); color: #05202b;
+    display: grid; place-items: center; font-size: 14px; font-weight: 700;
+  }
+  .tt-quote {
+    display: flex; align-items: center; gap: 10px;
+    height: 36px; padding: 0 12px; border-radius: 10px;
+    background: var(--surface); font-size: 12px; color: var(--muted);
+  }
+  .tt-quote x { margin-left: auto; color: var(--dim); font-style: normal; }
+
+  .tt-sessioncards { display: flex; gap: 14px; }
+  .tt-scard {
+    flex: 1; padding: 15px 16px; border-radius: 15px;
+    background: var(--green-wash); border: 1px solid var(--green);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .tt-scard .row { display: flex; align-items: center; justify-content: space-between; }
+  .tt-scard .timer { font-size: 38px; font-weight: 700; color: var(--green); }
+  .tt-scard.rest { background: var(--rest-wash); border-color: var(--rest); }
+  .tt-scard.rest .timer { color: var(--rest); }
+  .tt-mini {
+    height: 20px; padding: 0 8px; border-radius: 6px;
+    background: rgba(34, 197, 94, 0.14); color: var(--green);
+    display: inline-flex; align-items: center; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .tt-take {
+    flex: 1; height: 38px; border-radius: 11px; background: var(--rest); color: #05201a;
+    display: grid; place-items: center; font-size: 13px; font-weight: 700;
+  }
+  .tt-chip {
+    height: 38px; padding: 0 14px; border-radius: 11px;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+    display: grid; place-items: center; font-size: 12px;
+  }
+
+  .tt-tabs {
+    display: flex; gap: 26px; padding: 0 24px; height: 46px; align-items: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .tt-tabs a { font-size: 13px; font-weight: 600; color: var(--muted); text-decoration: none; position: relative; }
+  .tt-tabs a.is-active { color: var(--text); }
+  .tt-tabs a.is-active::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -15px; height: 2px; background: var(--accent);
+  }
+
+  .tt-body { padding: 26px 24px; display: flex; justify-content: center; }
+  .tt-col { width: 100%; max-width: 980px; display: flex; flex-direction: column; gap: 12px; }
+  .tt-secline { display: flex; align-items: center; justify-content: space-between; padding-bottom: 2px; }
+
+  /* add input */
+  .tt-add { display: flex; gap: 10px; }
+  .tt-add .field {
+    flex: 1; height: 44px; border-radius: 12px; padding: 0 14px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    display: flex; align-items: center; color: var(--faint); font-size: 13px;
+  }
+  .tt-add .go {
+    width: 72px; border-radius: 12px;
+    background: var(--accent-wash); border: 1px solid var(--accent); color: var(--accent);
+    display: grid; place-items: center; font-size: 13px; font-weight: 600;
+  }
+
+  /* generic row */
+  .tt-row {
+    min-height: 52px; padding: 12px 14px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--line);
+    display: flex; align-items: center; gap: 13px;
+  }
+  .tt-row.is-focused { background: var(--accent-wash); border-color: var(--accent); }
+  .tt-row.is-done { }
+  .tt-row.is-done .title { color: var(--faint); text-decoration: line-through; }
+  .tt-box {
+    width: 20px; height: 20px; border-radius: 5px; flex-shrink: 0;
+    border: 1.5px solid var(--line-strong);
+  }
+  .tt-box.acc { border-color: var(--accent); }
+  .tt-box.on {
+    background: var(--rest); border-color: var(--rest);
+    display: grid; place-items: center; color: #05201a; font-size: 12px;
+  }
+  .tt-row .title { font-size: 14px; }
+  .tt-row .spacer { flex: 1; }
+  .tt-row .meta { font-size: 11px; color: var(--muted); }
+  .tt-tag {
+    height: 20px; padding: 0 8px; border-radius: 6px;
+    background: var(--accent-wash); color: var(--accent);
+    display: inline-flex; align-items: center; font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+  }
+  .tt-tag.stale { background: var(--surface-2); color: var(--muted); }
+  .tt-disc { font-size: 12px; font-weight: 600; color: var(--faint); padding: 4px 0; }
+  .tt-sub {
+    margin-left: 34px; padding: 4px 0 0; display: flex; flex-direction: column; gap: 6px;
+    border-left: 1px solid var(--line); padding-left: 14px;
+  }
+  .tt-sub .s { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--muted); }
+  .tt-sub .s i { width: 14px; height: 14px; border-radius: 5px; border: 1px solid var(--line-strong); }
+
+  .tt-foot { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  .tt-ghost {
+    height: 30px; padding: 0 12px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--line); color: var(--muted);
+    display: grid; place-items: center; font-size: 12px; font-weight: 600;
+  }
+  .tt-ghost.acc { background: var(--accent-wash); border-color: var(--accent); color: var(--accent); }
+
+  /* habit dots */
+  .tt-habit .name { display: flex; flex-direction: column; gap: 2px; }
+  .tt-habit .name b { font-size: 14px; font-weight: 500; color: var(--text); }
+  .tt-habit.is-done .name b { color: var(--faint); }
+  .tt-habit .name span { font-size: 11px; color: var(--muted); }
+  .tt-habit.dim { opacity: 0.42; }
+  .tt-dots { display: flex; gap: 4px; }
+  .tt-dots i { width: 7px; height: 7px; border-radius: 50%; background: #2b2b2b; }
+  .tt-dots i.on { background: var(--green); }
+  .tt-dots i.off-day { background: transparent; box-shadow: inset 0 0 0 1px #2b2b2b; }
+
+  /* goal card */
+  .tt-goal {
+    padding: 18px; border-radius: 16px;
+    background: var(--surface); border: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .tt-goal.is-focused { background: var(--accent-wash); border-color: var(--accent); }
+  .tt-goal .top { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; }
+  .tt-goal .kickers { display: flex; gap: 6px; margin-bottom: 6px; }
+  .tt-kick {
+    height: 18px; padding: 0 7px; border-radius: 6px;
+    background: var(--surface-2); color: var(--muted);
+    display: inline-flex; align-items: center; font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+  }
+  .tt-kick.acc { background: var(--accent-wash); color: var(--accent); }
+  .tt-kick.grn { background: var(--green-wash); color: var(--green); }
+  .tt-goal h4 { margin: 0 0 5px; font-size: 17px; font-weight: 700; }
+  .tt-goal .dw { font-size: 12px; color: var(--muted); }
+  .tt-goal .right { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-end; }
+  .tt-goal .right .v { font-size: 14px; color: var(--muted); }
+  .tt-goal .right .v.acc { color: var(--accent); }
+  .tt-goal .right small { font-size: 10px; color: var(--faint); }
+
+  .tt-stones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tt-stone { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .tt-stone i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--line-strong); }
+  .tt-stone i.done { background: var(--green); border-color: var(--green); }
+  .tt-stone i.now { background: var(--accent); border-color: var(--accent); }
+  .tt-stone.now b { color: var(--text); font-weight: 600; }
+  .tt-link { width: 20px; height: 2px; background: #2a2a2a; }
+
+  .tt-check { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text); }
+  .tt-check i { width: 16px; height: 16px; border-radius: 5px; border: 1px solid var(--line-strong); }
+  .tt-check i.done { background: var(--green); border-color: var(--green); display: grid; place-items: center; color: #05201a; font-size: 10px; }
+  .tt-checks { display: flex; gap: 18px; flex-wrap: wrap; }
+  .tt-checks .tt-check.done span { color: var(--faint); }
+
+  .tt-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+  .tt-bar > i { display: block; height: 100%; border-radius: 3px; }
+  .tt-bar > i.acc { background: var(--accent); }
+  .tt-bar > i.grn { background: var(--green); }
+  .tt-progline { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+
+  .tt-next {
+    height: 40px; padding: 0 12px; border-radius: 10px;
+    background: rgba(0,0,0,0.25); border: 1px solid var(--accent-line);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tt-next .t { font-size: 13px; color: #d8d8d8; }
+  .tt-next .e { margin-left: auto; color: var(--dim); font-size: 12px; }
+
+  .tt-counter { display: flex; align-items: center; gap: 8px; }
+  .tt-counter b { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); font-weight: 400; font-size: 15px; }
+  .tt-counter b.plus { background: var(--accent-wash); border-color: var(--accent); color: var(--accent); }
+  .tt-counter .n { font-size: 15px; font-weight: 700; }
+
+  /* add-goal form */
+  .tt-form { display: flex; flex-direction: column; gap: 15px; padding: 20px; border-radius: 16px;
+    background: var(--surface); border: 1px solid var(--line); width: 560px; }
+  .tt-form h4 { margin: 0; font-size: 15px; font-weight: 700; }
+  .tt-fg { display: flex; flex-direction: column; gap: 6px; }
+  .tt-in {
+    height: 40px; padding: 0 12px; border-radius: 10px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    display: flex; align-items: center; color: var(--faint); font-size: 13px;
+  }
+  .tt-in.filled { color: var(--text); }
+  .tt-in.sel { justify-content: space-between; }
+  .tt-in.sel x { font-style: normal; color: var(--faint); }
+  .tt-seg { display: flex; gap: 8px; }
+  .tt-seg > div {
+    flex: 1; height: 54px; border-radius: 10px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    color: var(--muted);
+  }
+  .tt-seg > div b { font-size: 13px; font-weight: 600; }
+  .tt-seg > div span { font-size: 10px; color: var(--faint); }
+  .tt-seg > div.is-active { background: var(--accent-wash); border-color: var(--accent); color: var(--accent); }
+  .tt-two { display: flex; gap: 10px; }
+  .tt-two .tt-fg { flex: 1; }
+  .tt-msrow {
+    height: 34px; padding: 0 10px; border-radius: 9px; background: var(--surface-2);
+    display: flex; align-items: center; gap: 8px; font-size: 12px; color: #d8d8d8;
+  }
+  .tt-msrow i { width: 13px; height: 13px; border-radius: 4px; border: 1px solid var(--line-strong); }
+  .tt-msrow.add { background: var(--surface-3); border: 1px solid var(--line); color: var(--faint); }
+  .tt-formbtns { display: flex; gap: 10px; padding-top: 2px; }
+  .tt-formbtns .mk { flex: 1; height: 40px; border-radius: 10px; background: var(--accent); color: #05202b;
+    display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  .tt-formbtns .cx { height: 40px; padding: 0 18px; border-radius: 10px; background: var(--surface-2);
+    border: 1px solid var(--line); color: var(--muted); display: grid; place-items: center; font-size: 13px; }
+
+  /* evolve dialog */
+  .tt-dialog { width: 560px; padding: 24px; border-radius: 18px; background: var(--surface);
+    border: 1px solid var(--green); display: flex; flex-direction: column; gap: 18px; }
+  .tt-dialog .hd { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; }
+  .tt-dialog .hd i { width: 22px; height: 22px; border-radius: 7px; background: var(--green);
+    display: grid; place-items: center; color: #05201a; font-size: 13px; }
+  .tt-dialog .sub { font-size: 13px; color: var(--muted); margin-top: -10px; }
+  .tt-opts { display: flex; gap: 12px; }
+  .tt-opts > div { flex: 1; padding: 14px 16px; border-radius: 12px; background: var(--surface-2);
+    border: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; }
+  .tt-opts > div.acc { background: var(--accent-wash); border-color: var(--accent); }
+  .tt-opts b { font-size: 13px; }
+  .tt-opts .acc b { color: var(--accent); }
+  .tt-opts span { font-size: 11px; color: var(--muted); }
+  .tt-hr { height: 1px; background: var(--line); }
+  .tt-chain { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tt-chain em { font-style: normal; color: var(--dim); }
+  .tt-chain .node { height: 26px; padding: 0 10px; border-radius: 7px; display: grid; place-items: center;
+    font-size: 12px; background: var(--surface-2); border: 1px solid var(--line); color: var(--faint); }
+  .tt-chain .node.done { background: var(--green-wash); border-color: transparent; color: var(--green); }
+  .tt-chain .node.now { background: var(--accent-wash); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+  /* activity */
+  .tt-pace { padding: 18px; border-radius: 16px; background: var(--green-wash); border: 1px solid var(--green-line);
+    display: flex; flex-direction: column; gap: 12px; }
+  .tt-pace .row { display: flex; justify-content: space-between; align-items: flex-start; }
+  .tt-pace h4 { margin: 0 0 3px; font-size: 16px; font-weight: 700; color: var(--rest); }
+  .tt-pace p { margin: 0; font-size: 12px; color: var(--muted); }
+  .tt-pace .r { text-align: right; }
+  .tt-pace .r b { font-size: 18px; font-weight: 700; color: var(--rest); }
+  .tt-pace .r span { display: block; font-size: 11px; color: var(--muted); }
+  .tt-band { border-radius: 10px; background: #0a0f0c; padding: 6px 8px; }
+  .tt-band svg { display: block; width: 100%; height: auto; }
+  .tt-band .axis { font-family: var(--mono); font-size: 11px; fill: var(--faint); }
+  .tt-cap { font-size: 10px; color: var(--faint); }
+
+  .tt-chart { display: flex; align-items: flex-end; gap: 8px; height: 128px; padding: 0 2px; }
+  .tt-chart > i { flex: 1; border-radius: 4px 4px 3px 3px; background: #2f6ac0; }
+  .tt-chart > i.we { background: #26405c; }
+  .tt-chart > i.today { background: transparent; box-shadow: inset 0 0 0 1px var(--accent); }
+  .tt-chart > i.hi { background: var(--accent); }
+  .tt-strip { display: flex; gap: 8px; padding: 0 2px; }
+  .tt-strip > i { flex: 1; height: 4px; border-radius: 2px; background: #163a2b; }
+  .tt-strip > i.low { background: #0f2a1f; }
+  .tt-strip > i.over { background: var(--debt-wash); }
+
+  .tt-day { padding: 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 12px; }
+  .tt-day .h { font-size: 13px; font-weight: 600; }
+  .tt-tiles { display: flex; gap: 12px; }
+  .tt-tiles > div { flex: 1; padding: 10px; border-radius: 10px; background: var(--surface-3);
+    display: flex; flex-direction: column; gap: 2px; }
+  .tt-tiles small { font-size: 11px; color: var(--muted); }
+  .tt-tiles b { font-size: 15px; font-weight: 700; }
+  .tt-tiles b.grn { color: var(--rest); }
+  .tt-tiles b.mut { color: var(--muted); }
+  .tt-clock { height: 22px; border-radius: 7px; background: var(--surface-3); overflow: hidden; display: flex; }
+  .tt-clock > i.w { background: var(--accent); }
+  .tt-clock > i.r { background: var(--rest); }
+  .tt-clock > i.g { background: transparent; }
+
+  .tt-adh { display: flex; flex-direction: column; gap: 12px; }
+  .tt-adh .r { display: flex; align-items: center; gap: 12px; }
+  .tt-adh .nm { width: 130px; display: flex; flex-direction: column; gap: 1px; }
+  .tt-adh .nm b { font-size: 12px; font-weight: 500; }
+  .tt-adh .nm span { font-size: 10px; color: var(--muted); }
+  .tt-grid { flex: 1; display: flex; gap: 3px; }
+  .tt-grid > i { flex: 1; height: 16px; border-radius: 3px; background: #2b2b2b; }
+  .tt-grid > i.on { background: var(--green); }
+  .tt-grid > i.na { background: var(--surface-3); }
+  .tt-adh .pct { font-size: 11px; color: var(--rest); }
+
+  .footnote { max-width: 700px; margin: 80px 0 0; padding-top: 24px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--muted); }
+
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 1fr; }
+    .toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+    main { padding: 0 24px 120px; }
+    .intro__cols { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="layout">
+  <aside class="toc">
+    <div class="toc__brand">
+      <div class="toc__mark">&#8531;</div>
+      <div class="toc__title">Redesign&nbsp;Mockups</div>
+    </div>
+    <nav>
+      <div class="toc__group">Shell</div>
+      <a href="#shell-idle">Idle</a>
+      <a href="#shell-active">Session running</a>
+      <div class="toc__group">Habits</div>
+      <a href="#habits">Today &amp; all</a>
+      <div class="toc__group">Goals</div>
+      <a href="#goals-list">The list</a>
+      <a href="#goals-new">New goal</a>
+      <a href="#goals-evolve">Met &rarr; evolve</a>
+      <div class="toc__group">Tasks</div>
+      <a href="#tasks">The list</a>
+      <div class="toc__group">Activity</div>
+      <a href="#activity">Combined view</a>
+    </nav>
+  </aside>
+
+  <main>
+    <section class="intro">
+      <h1>Third Time &mdash; redesign mockups</h1>
+      <p class="lead">A tabbed shell with the session pinned on top, routines flattened into
+        boolean habits, and goals that accumulate toward an outcome instead of resetting each
+        week. Dark theme shown throughout &mdash; the light palette carries over unchanged.</p>
+      <div class="intro__cols">
+        <div class="panel">
+          <h3>Decided</h3>
+          <ul>
+            <li>Tabs replace the accordion sections; session zone is pinned above them</li>
+            <li>One boolean habit per step &mdash; flat list, no groups</li>
+            <li>Habit rows read out as recent-history dots (last 7), no streak counts</li>
+            <li>Goals are cumulative: measure = Time / Count / Open, milestones optional on any</li>
+            <li>Goals stay fully editable after creation &mdash; measure included</li>
+            <li>A met goal is archived or evolved; lineage stays visible as a chain</li>
+            <li>Quotes are the user&rsquo;s own, added and managed in Options</li>
+            <li>Desktop content column widens to ~980px now the rail is gone</li>
+          </ul>
+        </div>
+        <div class="panel panel--open">
+          <h3>Still open</h3>
+          <ul>
+            <li>Activity: keep or drop the wall-clock day strip</li>
+            <li>How much of the pace band chart survives</li>
+            <li>Name: parked &mdash; the owner will revisit</li>
+            <li>Not yet drawn: mobile widths, the add-habit and add-quote forms</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────────── SHELL · IDLE ─────────────── -->
+    <section class="screen" id="shell-idle">
+      <div class="screen__head">
+        <div class="screen__eyebrow">Shell</div>
+        <h2>Idle &mdash; no session running</h2>
+        <p>The header, the pinned session zone, and the tab bar are always present. Idle, the
+          zone offers the mode and a Start button, plus the optional first-session quote.</p>
+        <ul class="notes">
+          <li><b>Pinned</b> session zone replaces the scroll-away SessionBar</li>
+          <li><b>Tabs</b> &mdash; Habits / Tasks / Goals / Activity</li>
+          <li><b>Quotes</b> are your own &mdash; add them in Options, shown once on the first session of the day</li>
+        </ul>
+      </div>
+      <div class="stage"><div class="browserframe">
+        <div class="browserbar"><i></i><i></i><i></i><span>third time &mdash; tasks</span></div>
+        <div class="tt">
+          <div class="tt-header">
+            <div class="tt-brand"><div class="tt-logo">&#8531;</div><strong>Third Time</strong></div>
+            <div class="tt-gear">&#9881;</div>
+          </div>
+          <div class="tt-pinned">
+            <div class="tt-label">Start a session</div>
+            <div class="tt-modes">
+              <div class="tt-mode is-active"><b>Relaxed</b><span class="tt-num">1:2</span></div>
+              <div class="tt-mode"><b>Serious</b><span class="tt-num">1:3</span></div>
+              <div class="tt-mode"><b>Locked in</b><span class="tt-num">1:4</span></div>
+              <div class="tt-start">Start &rarr;</div>
+            </div>
+            <div class="tt-quote">&ldquo;It does not matter how slowly you go as long as you do not stop.&rdquo; &mdash; Confucius <x>&times;</x></div>
+          </div>
+          <div class="tt-tabs">
+            <a>Habits</a><a class="is-active">Tasks</a><a>Goals</a><a>Activity</a>
+          </div>
+          <div class="tt-body"><div class="tt-col">
+            <div class="tt-add">
+              <div class="field">Add a task&hellip;</div>
+              <div class="go">Add</div>
+            </div>
+            <div class="tt-row">
+              <div class="tt-box"></div>
+              <div class="title">Draft the redesign spec</div>
+              <div class="spacer"></div>
+              <div class="meta tt-num">Tracked 42:10</div>
+            </div>
+            <div class="tt-row is-focused">
+              <div class="tt-box acc"></div>
+              <div class="title">Review pull requests</div>
+              <div class="spacer"></div>
+              <div class="tt-tag">Focused</div>
+            </div>
+            <div class="tt-row is-done">
+              <div class="tt-box on">&check;</div>
+              <div class="title">Clear inbox</div>
+            </div>
+            <div class="tt-disc">&#9656;&nbsp;&nbsp;2 completed</div>
+          </div></div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ─────────────── SHELL · ACTIVE ─────────────── -->
+    <section class="screen" id="shell-active">
+      <div class="screen__head">
+        <div class="screen__eyebrow">Shell</div>
+        <h2>Session running</h2>
+        <p>The pinned zone becomes the live clock and the rest bank, side by side. End Session
+          moves into the header. Whatever tab you&rsquo;re on, the session stays in view.</p>
+        <ul class="notes">
+          <li><b>Active Time</b> and <b>Rest Bank</b> take the mode&rsquo;s colour</li>
+          <li><b>End Session</b> in the header, in the danger tokens</li>
+        </ul>
+      </div>
+      <div class="stage"><div class="browserframe">
+        <div class="browserbar"><i></i><i></i><i></i><span>third time &mdash; session</span></div>
+        <div class="tt">
+          <div class="tt-header">
+            <div class="tt-brand"><div class="tt-logo">&#8531;</div><strong>Third Time</strong></div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <div class="tt-end">End Session</div>
+              <div class="tt-gear">&#9881;</div>
+            </div>
+          </div>
+          <div class="tt-pinned">
+            <div class="tt-sessioncards">
+              <div class="tt-scard">
+                <div class="row"><span class="tt-label">Active time</span><span class="tt-mini" style="background:none;color:var(--green)">&#9679; Active</span></div>
+                <div class="timer tt-num">28:14</div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <span class="tt-mini">Serious &middot; 1:3</span>
+                  <span style="font-size:12px;color:var(--muted)">Focusing on: Review pull requests</span>
+                </div>
+              </div>
+              <div class="tt-scard rest">
+                <div class="row"><span class="tt-label">Rest bank</span><span class="tt-mini" style="background:none;color:var(--rest)">&#9679; Earning</span></div>
+                <div class="timer tt-num">9:24</div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <div class="tt-take">Take a break</div>
+                  <div class="tt-chip tt-num">5m</div>
+                  <div class="tt-chip tt-num">10m</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tt-tabs">
+            <a>Habits</a><a class="is-active">Tasks</a><a>Goals</a><a>Activity</a>
+          </div>
+          <div class="tt-body"><div class="tt-col">
+            <div class="tt-row is-focused">
+              <div class="tt-box acc"></div>
+              <div class="title">Review pull requests</div>
+              <div class="spacer"></div>
+              <div class="meta tt-num" style="color:var(--accent)">Tracked 6:11</div>
+            </div>
+            <div class="tt-row">
+              <div class="tt-box"></div>
+              <div class="title">Draft the redesign spec</div>
+              <div class="spacer"></div>
+              <div class="meta tt-num">Tracked 42:10</div>
+            </div>
+            <div class="tt-row is-done">
+              <div class="tt-box on">&check;</div>
+              <div class="title">Clear inbox</div>
+            </div>
+          </div></div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ─────────────── HABITS ─────────────── -->
+    <section class="screen" id="habits">
+      <div class="screen__head">
+        <div class="screen__eyebrow">Habits</div>
+        <h2>Today, with everything one tap behind it</h2>
+        <p>A flat list of boolean habits &mdash; the old routine steps, each standing on its own.
+          The list shows only what&rsquo;s due today; &ldquo;Show all&rdquo; reveals the rest, greyed.
+          Every row ends the same way: the last seven occurrences as dots.</p>
+        <ul class="notes">
+          <li><b>Frequency</b> &mdash; Daily / Weekly / Every N days / set weekdays</li>
+          <li><b>Dots</b> = last 7 occurrences, filled = done, ring = a day it wasn&rsquo;t due</li>
+          <li>No time tracking on habits &mdash; that&rsquo;s Goals&rsquo; job now</li>
+          <li class="q"><b>Open</b> does a habit ever need an edit affordance inline, or menu-only</li>
+        </ul>
+      </div>
+      <div class="stage"><div class="browserframe">
+        <div class="browserbar"><i></i><i></i><i></i><span>third time &mdash; habits</span></div>
+        <div class="tt">
+          <div class="tt-header">
+            <div class="tt-brand"><div class="tt-logo">&#8531;</div><strong>Third Time</strong></div>
+            <div class="tt-gear">&#9881;</div>
+          </div>
+          <div class="tt-pinned">
+            <div class="tt-modes">
+              <div class="tt-mode" style="max-width:220px"><b>Serious &middot; 1:3</b></div>
+              <div class="tt-start" style="width:150px;background:var(--green);color:#05201a">Start &rarr;</div>
+              <div class="spacer" style="flex:1"></div>
+              <span style="font-size:12px;color:var(--faint);align-self:center">No session running</span>
+            </div>
+          </div>
+          <div class="tt-tabs">
+            <a class="is-active">Habits</a><a>Tasks</a><a>Goals</a><a>Activity</a>
+          </div>
+          <div class="tt-body"><div class="tt-col">
+            <div class="tt-secline">
+              <span class="tt-label">Due today &middot; Thu 8</span>
+              <span class="tt-num" style="font-size:11px;font-weight:600;color:var(--muted)">2 / 6 done</span>
+            </div>
+
+            <div class="tt-row tt-habit is-done" style="background:var(--green-wash);border-color:var(--green-line)">
+              <div class="tt-box on">&check;</div>
+              <div class="name"><b>Meditate</b><span>Daily</span></div>
+              <div class="spacer"></div>
+              <div class="tt-dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+            </div>
+            <div class="tt-row tt-habit is-done" style="background:var(--green-wash);border-color:var(--green-line)">
+              <div class="tt-box on">&check;</div>
+              <div class="name"><b>Make the bed</b><span>Daily</span></div>
+              <div class="spacer"></div>
+              <div class="tt-dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+            </div>
+            <div class="tt-row tt-habit">
+              <div class="tt-box"></div>
+              <div class="name"><b>Read 20 minutes</b><span>Daily</span></div>
+              <div class="spacer"></div>
+              <div class="tt-dots"><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+            </div>
+            <div class="tt-row tt-habit">
+              <div class="tt-box"></div>
+              <div class="name"><b>Strength training</b><span>Mon &middot; Wed &middot; Fri</span></div>
+              <div class="spacer"></div>
+              <div class="tt-dots"><i class="on"></i><i class="off-day"></i><i class="on"></i><i class="on"></i><i class="off-day"></i><i class="on"></i><i class="off-day"></i></div>
+            </div>
+            <div class="tt-row tt-habit">
+              <div class="tt-box"></div>
+              <div class="name"><b>Journal</b><span>Daily</span></div>
+              <div class="spacer"></div>
+              <div class="tt-dots"><i></i><i></i><i class="on"></i><i></i><i></i><i class="on"></i><i class="on"></i></div>
+            </div>
+            <div class="tt-row tt-habit">
+              <div class="tt-box"></div>
+              <div class="name"><b>Water the plants</b><span>Every 3 days</span></div>
+              <div class="spacer"></div>
+              <div class="tt-dots"><i class="off-day"></i><i class="off-day"></i><i class="on"></i><i class="off-day"></i><i class="off-day"></i><i class="on"></i><i class="off-day"></i></div>
+            </div>
+
+            <div class="tt-row tt-habit dim">
+              <div class="tt-box"></div>
+              <div class="name"><b>Call a friend</b><span>Weekly &middot; not due today</span></div>
+              <div class="spacer"></div>
+              <div class="tt-dots"><i class="off-day"></i><i class="off-day"></i><i class="off-day"></i><i class="off-day"></i><i class="off-day"></i><i class="off-day"></i><i class="on"></i></div>
+            </div>
+
+            <div class="tt-foot">
+              <div class="tt-ghost">Show all 11 habits &#9662;</div>
+              <div class="spacer" style="flex:1"></div>
+              <div class="tt-ghost acc">+ New habit</div>
+            </div>
+          </div></div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ─────────────── GOALS · LIST ─────────────── -->
+    <section class="screen" id="goals-list">
+      <div class="screen__head">
+        <div class="screen__eyebrow">Goals</div>
+        <h2>Cumulative, toward an outcome</h2>
+        <p>Progress never resets. Each goal carries one measure &mdash; <b>Time</b>, <b>Count</b>,
+          or <b>Open</b> &mdash; and any of them can also carry milestones. A focused goal shows its
+          next action; banked focus time always counts, and shows as the bar for a Time goal or
+          as context for the others.</p>
+        <ul class="notes">
+          <li><b>Time</b> &mdash; hours banked toward a target</li>
+          <li><b>Count</b> &mdash; a number you name: km, steps, books, calls</li>
+          <li><b>Open</b> &mdash; no number; milestones + a &ldquo;done when&rdquo; carry it</li>
+          <li>A goal must have a number <b>or</b> a milestone &mdash; else it&rsquo;s a task</li>
+        </ul>
+      </div>
+      <div class="stage"><div class="browserframe">
+        <div class="browserbar"><i></i><i></i><i></i><span>third time &mdash; goals</span></div>
+        <div class="tt">
+          <div class="tt-header">
+            <div class="tt-brand"><div class="tt-logo">&#8531;</div><strong>Third Time</strong></div>
+            <div class="tt-gear">&#9881;</div>
+          </div>
+          <div class="tt-pinned">
+            <div class="tt-modes">
+              <div class="tt-mini" style="height:34px;padding:0 16px;background:var(--rest-wash);border:1px solid var(--rest);color:var(--rest)">&#9679;&nbsp; 41:07 &nbsp;&middot;&nbsp; focusing Learn German</div>
+              <div class="spacer" style="flex:1"></div>
+              <span class="tt-num" style="font-size:12px;color:var(--muted);align-self:center">Rest bank 12:30</span>
+            </div>
+          </div>
+          <div class="tt-tabs">
+            <a>Habits</a><a>Tasks</a><a class="is-active">Goals</a><a>Activity</a>
+          </div>
+          <div class="tt-body"><div class="tt-col">
+            <div class="tt-secline">
+              <span class="tt-label">Goals &middot; 3 active</span>
+              <div class="tt-ghost acc">+ New goal</div>
+            </div>
+
+            <div class="tt-goal is-focused">
+              <div class="top">
+                <div>
+                  <div class="kickers"><span class="tt-kick acc">Focused</span><span class="tt-kick">Time</span></div>
+                  <h4>Learn German</h4>
+                  <div class="dw">Done when &middot; hold a 10-minute conversation without switching to English</div>
+                </div>
+                <div class="right"><span class="v acc tt-num">62 h / ~150 h</span><small>focus time banked</small></div>
+              </div>
+              <div class="tt-stones">
+                <span class="tt-stone"><i class="done"></i>A1</span><span class="tt-link"></span>
+                <span class="tt-stone"><i class="done"></i>A2</span><span class="tt-link"></span>
+                <span class="tt-stone now"><i class="now"></i><b>B1 &mdash; in progress</b></span><span class="tt-link"></span>
+                <span class="tt-stone"><i></i>B2</span>
+              </div>
+              <div class="tt-bar"><i class="acc" style="width:41%"></i></div>
+              <div class="tt-next">
+                <span class="tt-label" style="letter-spacing:0.07em">Next</span>
+                <span class="t">Finish Unit 12 vocabulary, then book a tutor session</span>
+                <span class="e">&#9998;</span>
+              </div>
+            </div>
+
+            <div class="tt-goal">
+              <div class="top">
+                <div>
+                  <div class="kickers"><span class="tt-kick">Count &middot; km</span></div>
+                  <h4>Cycle 1,000&nbsp;km this year</h4>
+                  <div class="dw">Target &middot; 1,000&nbsp;km &nbsp;&middot;&nbsp; 4h 12m of rides logged alongside</div>
+                </div>
+                <div class="tt-counter">
+                  <b>&minus;</b><span class="n tt-num">642 / 1000</span><b class="plus">+</b>
+                </div>
+              </div>
+              <div>
+                <div class="tt-progline"><span>642&nbsp;km &middot; on pace for December</span><span class="tt-num">64%</span></div>
+                <div class="tt-bar"><i class="grn" style="width:64%"></i></div>
+              </div>
+            </div>
+
+            <div class="tt-goal">
+              <div class="top">
+                <div>
+                  <div class="kickers"><span class="tt-kick">Open</span></div>
+                  <h4>Ship the app redesign</h4>
+                  <div class="dw">Done when &middot; v2 is deployed to production &nbsp;&middot;&nbsp; 3h 10m invested</div>
+                </div>
+                <div class="right"><span class="v tt-num">1 / 4</span><small>milestones</small></div>
+              </div>
+              <div class="tt-checks">
+                <span class="tt-check done"><i class="done">&check;</i><span>Mockups</span></span>
+                <span class="tt-check"><i></i><span>Specs</span></span>
+                <span class="tt-check"><i></i><span>Build</span></span>
+                <span class="tt-check"><i></i><span>Ship</span></span>
+              </div>
+            </div>
+
+            <div class="tt-disc">&#9656;&nbsp;&nbsp;2 archived goals</div>
+          </div></div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ─────────────── GOALS · NEW ─────────────── -->
+    <section class="screen" id="goals-new">
+      <div class="screen__head">
+        <div class="screen__eyebrow">Goals</div>
+        <h2>New goal &mdash; the measure picker</h2>
+        <p>Pick how the goal is measured. Count reveals a unit you name and a target; Time asks
+          for a number of hours; Open asks for nothing. Milestones are optional under all three.</p>
+        <ul class="notes">
+          <li>Measure is <b>changeable later</b> &mdash; banked time is always kept</li>
+          <li><b>Evolves from</b> links this goal to the one it succeeds</li>
+          <li class="q"><b>Open</b> should the form block &ldquo;Create&rdquo; until there&rsquo;s a number or a milestone</li>
+        </ul>
+      </div>
+      <div class="stage"><div class="browserframe" style="width:auto;display:inline-block">
+        <div class="browserbar"><i></i><i></i><i></i><span>new goal</span></div>
+        <div class="tt" style="padding:28px;background:var(--ground)">
+          <div class="tt-form">
+            <h4>New goal</h4>
+            <div class="tt-fg">
+              <span class="tt-label">Name</span>
+              <div class="tt-in">e.g. Cycle 1,000 km this year</div>
+            </div>
+            <div class="tt-fg">
+              <span class="tt-label">Measure</span>
+              <div class="tt-seg">
+                <div><b>Time</b><span>hours banked</span></div>
+                <div class="is-active"><b>Count</b><span>a number you name</span></div>
+                <div><b>Open</b><span>milestones only</span></div>
+              </div>
+            </div>
+            <div class="tt-two">
+              <div class="tt-fg"><span class="tt-label">Unit</span><div class="tt-in filled">km</div></div>
+              <div class="tt-fg"><span class="tt-label">Target</span><div class="tt-in filled tt-num">1000</div></div>
+            </div>
+            <div class="tt-fg">
+              <span class="tt-label">Done when &middot; optional</span>
+              <div class="tt-in">a sentence that says you&rsquo;ve really arrived</div>
+            </div>
+            <div class="tt-fg">
+              <span class="tt-label">Milestones &middot; optional</span>
+              <div class="tt-msrow"><i></i>First 250 km</div>
+              <div class="tt-msrow"><i></i>Halfway &mdash; 500 km</div>
+              <div class="tt-msrow add">+ Add milestone</div>
+            </div>
+            <div class="tt-fg">
+              <span class="tt-label">Evolves from &middot; optional</span>
+              <div class="tt-in sel">none <x>&#9662;</x></div>
+            </div>
+            <div class="tt-formbtns">
+              <div class="mk">Create goal</div>
+              <div class="cx">Cancel</div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ─────────────── GOALS · EVOLVE ─────────────── -->
+    <section class="screen" id="goals-evolve">
+      <div class="screen__head">
+        <div class="screen__eyebrow">Goals</div>
+        <h2>Met &mdash; archive or evolve</h2>
+        <p>When a goal&rsquo;s &ldquo;done when&rdquo; is checked, this is the choice. Evolving carries the
+          history forward and keeps the chain visible on the new goal&rsquo;s card.</p>
+        <ul class="notes">
+          <li><b>Archive</b> keeps the record, out of the active list</li>
+          <li><b>Evolve</b> opens the New-goal form pre-linked to this one</li>
+        </ul>
+      </div>
+      <div class="stage"><div class="browserframe" style="width:auto;display:inline-block">
+        <div class="browserbar"><i></i><i></i><i></i><span>goal complete</span></div>
+        <div class="tt" style="padding:36px;background:var(--ground)">
+          <div class="tt-dialog">
+            <div class="hd"><i>&check;</i>You hit it &mdash; Run a 5k</div>
+            <div class="sub">28 sessions &middot; <span class="tt-num">9:12:00</span> banked &middot; first logged 4 months ago</div>
+            <div class="tt-opts">
+              <div><b>Archive it</b><span>Move to the archive, keep the history</span></div>
+              <div class="acc"><b>Evolve it &rarr;</b><span>Start the next goal, linked to this one</span></div>
+            </div>
+            <div class="tt-hr"></div>
+            <div>
+              <div class="tt-label" style="margin-bottom:10px">The chain</div>
+              <div class="tt-chain">
+                <span class="node done">Run a 5k &check;</span>
+                <em>&rarr;</em>
+                <span class="node now">Run a 10k</span>
+                <em>&rarr;</em>
+                <span class="node">Half marathon</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ─────────────── TASKS ─────────────── -->
+    <section class="screen" id="tasks">
+      <div class="screen__head">
+        <div class="screen__eyebrow">Tasks</div>
+        <h2>Left almost exactly as it is</h2>
+        <p>Same add-and-check list, the same subtasks, drag-to-reorder and the row menu. The only
+          real changes are the wider column and quick-add reachable from any tab.</p>
+        <ul class="notes">
+          <li>Add field stays at the top of the list, Enter to add</li>
+          <li><b>Focus</b> a row to bank session time against it</li>
+          <li class="q"><b>Open</b> global quick-add on every tab, or a switch to Tasks</li>
+        </ul>
+      </div>
+      <div class="stage"><div class="browserframe">
+        <div class="browserbar"><i></i><i></i><i></i><span>third time &mdash; tasks</span></div>
+        <div class="tt">
+          <div class="tt-header">
+            <div class="tt-brand"><div class="tt-logo">&#8531;</div><strong>Third Time</strong></div>
+            <div class="tt-gear">&#9881;</div>
+          </div>
+          <div class="tt-pinned">
+            <div class="tt-modes">
+              <div class="tt-mode" style="max-width:220px"><b>Serious &middot; 1:3</b></div>
+              <div class="tt-start" style="width:150px;background:var(--green);color:#05201a">Start &rarr;</div>
+              <div class="spacer" style="flex:1"></div>
+              <span style="font-size:12px;color:var(--faint);align-self:center">No session running</span>
+            </div>
+          </div>
+          <div class="tt-tabs">
+            <a>Habits</a><a class="is-active">Tasks</a><a>Goals</a><a>Activity</a>
+          </div>
+          <div class="tt-body"><div class="tt-col">
+            <div class="tt-add">
+              <div class="field">Add a task&hellip;</div>
+              <div class="go">Add</div>
+            </div>
+            <div class="tt-row">
+              <div class="tt-box"></div>
+              <div class="title">Draft the redesign spec</div>
+              <div class="tt-tag">&#9662; 1/3</div>
+              <div class="spacer"></div>
+              <div class="meta tt-num">Tracked 42:10</div>
+              <div class="meta">&#8943;</div>
+            </div>
+            <div class="tt-sub">
+              <div class="s"><i></i> Outline the sections</div>
+              <div class="s"><i style="background:var(--rest);border-color:var(--rest)"></i> <span style="text-decoration:line-through">Gather the open questions</span></div>
+              <div class="s" style="color:var(--faint)">Add subtask&hellip;</div>
+            </div>
+            <div class="tt-row is-focused">
+              <div class="tt-box acc"></div>
+              <div class="title">Review pull requests</div>
+              <div class="spacer"></div>
+              <div class="tt-tag">Focused</div>
+              <div class="meta">&#8943;</div>
+            </div>
+            <div class="tt-row">
+              <div class="tt-box"></div>
+              <div class="title">Email the landlord</div>
+              <div class="tt-tag stale">3d old</div>
+              <div class="spacer"></div>
+              <div class="meta">&#8943;</div>
+            </div>
+            <div class="tt-row is-done">
+              <div class="tt-box on">&check;</div>
+              <div class="title">Clear inbox</div>
+              <div class="spacer"></div>
+              <div class="meta">&times;</div>
+            </div>
+            <div class="tt-disc">&#9656;&nbsp;&nbsp;2 completed</div>
+          </div></div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ─────────────── ACTIVITY ─────────────── -->
+    <section class="screen" id="activity">
+      <div class="screen__head">
+        <div class="screen__eyebrow">Activity</div>
+        <h2>One scroll instead of three sub-tabs</h2>
+        <p>Pace verdict, then the last two weeks of work and rest, then the selected day, then
+          habit adherence. The routine panel&rsquo;s &ldquo;which one matters right now&rdquo; logic is gone
+          &mdash; habits are filtered by their frequency, not the hour.</p>
+        <ul class="notes">
+          <li><b>Sessions + Pace + Habits</b> collapse into one view</li>
+          <li>No morning / afternoon / evening framing</li>
+          <li class="q"><b>Open</b> keep the wall-clock day strip, or a plain block count</li>
+          <li class="q"><b>Open</b> how much of the pace band chart survives</li>
+        </ul>
+      </div>
+      <div class="stage"><div class="browserframe">
+        <div class="browserbar"><i></i><i></i><i></i><span>third time &mdash; activity</span></div>
+        <div class="tt">
+          <div class="tt-header">
+            <div class="tt-brand"><div class="tt-logo">&#8531;</div><strong>Third Time</strong></div>
+            <div class="tt-gear">&#9881;</div>
+          </div>
+          <div class="tt-tabs">
+            <a>Habits</a><a>Tasks</a><a>Goals</a><a class="is-active">Activity</a>
+          </div>
+          <div class="tt-body"><div class="tt-col" style="gap:22px">
+
+            <div class="tt-pace">
+              <div class="row">
+                <div><h4>Sustainable pace</h4><p>This week looks like your recent normal.</p></div>
+                <div class="r"><b class="tt-num">1.05&times;</b><span class="tt-num">21h this week &middot; 20h usual</span></div>
+              </div>
+              <div class="tt-band">
+                <svg viewBox="0 0 900 264" role="img" aria-label="Acute workload against the sustainable band, last eight weeks">
+                  <rect x="44" y="63" width="840" height="119" fill="rgba(52,211,153,0.13)"></rect>
+                  <line x1="44" y1="63" x2="884" y2="63" stroke="rgba(52,211,153,0.45)" stroke-width="1.5"></line>
+                  <line x1="44" y1="182" x2="884" y2="182" stroke="rgba(52,211,153,0.45)" stroke-width="1.5"></line>
+                  <line x1="44" y1="135" x2="884" y2="135" stroke="rgba(52,211,153,0.4)" stroke-width="1.5" stroke-dasharray="4 7"></line>
+                  <polygon points="44,201 164,170 284,206 404,130 524,149 644,82 764,116 884,123 884,240 44,240"
+                    fill="rgba(79,142,247,0.10)"></polygon>
+                  <polyline points="44,201 164,170 284,206 404,130 524,149 644,82 764,116 884,123"
+                    fill="none" stroke="var(--accent)" stroke-width="3"
+                    stroke-linejoin="round" stroke-linecap="round"></polyline>
+                  <circle cx="884" cy="123" r="10" fill="rgba(79,142,247,0.2)"></circle>
+                  <circle cx="884" cy="123" r="4.5" fill="var(--accent)"></circle>
+                  <text class="axis" x="38" y="67" text-anchor="end">1.3&times;</text>
+                  <text class="axis" x="38" y="139" text-anchor="end">1.0&times;</text>
+                  <text class="axis" x="38" y="186" text-anchor="end">0.8&times;</text>
+                  <text class="axis" x="44" y="258" text-anchor="start">8 weeks ago</text>
+                  <text class="axis" x="884" y="258" text-anchor="end">now</text>
+                </svg>
+              </div>
+              <div class="tt-cap">acute load (last 7 days, rolling) against the 0.8&ndash;1.3&times; band you can sustain &middot; today sits at 1.05&times;</div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="tt-secline">
+                <span class="tt-label">Last 14 days</span>
+                <span class="tt-num" style="font-size:11px;color:var(--muted)">avg 1h 34m / day</span>
+              </div>
+              <div class="tt-chart">
+                <i style="height:56%"></i><i style="height:69%"></i><i style="height:45%"></i><i style="height:80%"></i>
+                <i style="height:34%"></i><i class="we" style="height:17%"></i><i class="we" style="height:24%"></i>
+                <i style="height:63%"></i><i style="height:86%"></i><i style="height:55%"></i><i class="hi" style="height:72%"></i>
+                <i style="height:41%"></i><i class="we" style="height:14%"></i><i class="today" style="height:31%"></i>
+              </div>
+              <div class="tt-strip">
+                <i></i><i></i><i class="low"></i><i></i><i class="over"></i><i class="low"></i><i class="low"></i>
+                <i></i><i></i><i class="low"></i><i></i><i class="low"></i><i class="low"></i><i class="low"></i>
+              </div>
+              <div class="tt-cap">bars = active time &middot; thin track = share of earned rest actually taken</div>
+            </div>
+
+            <div class="tt-day">
+              <div class="h">Wednesday, Sept 7</div>
+              <div class="tt-tiles">
+                <div><small>Active</small><b class="tt-num">2h 40m</b></div>
+                <div><small>Rest taken</small><b class="grn tt-num">38m</b></div>
+                <div><small>Rest earned</small><b class="mut tt-num">53m</b></div>
+              </div>
+              <div class="tt-clock">
+                <i class="w" style="flex:0 0 34%"></i><i class="r" style="flex:0 0 8%"></i><i class="g" style="flex:0 0 6%"></i>
+                <i class="w" style="flex:0 0 22%"></i><i class="r" style="flex:0 0 5%"></i><i class="g" style="flex:0 0 8%"></i>
+                <i class="w" style="flex:0 0 17%"></i>
+              </div>
+              <div class="tt-cap">the day&rsquo;s blocks on a wall-clock line &middot; 3 blocks &middot; longest 1h 05m</div>
+            </div>
+
+            <div class="tt-adh">
+              <span class="tt-label">Habits &middot; last 14</span>
+              <div class="r">
+                <div class="nm"><b>Meditate</b><span>Daily</span></div>
+                <div class="tt-grid"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+                <span class="pct tt-num">86%</span>
+              </div>
+              <div class="r">
+                <div class="nm"><b>Strength training</b><span>Mon &middot; Wed &middot; Fri</span></div>
+                <div class="tt-grid"><i class="on"></i><i class="na"></i><i class="on"></i><i class="na"></i><i></i><i class="na"></i><i class="na"></i><i class="on"></i><i class="na"></i><i class="on"></i><i class="na"></i><i class="on"></i><i class="na"></i><i class="on"></i></div>
+                <span class="pct tt-num">83%</span>
+              </div>
+              <div class="r">
+                <div class="nm"><b>Journal</b><span>Daily</span></div>
+                <div class="tt-grid"><i></i><i></i><i class="on"></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+                <span class="pct tt-num" style="color:var(--muted)">50%</span>
+              </div>
+            </div>
+
+          </div></div>
+        </div>
+      </div></div>
+    </section>
+
+    <p class="footnote">Built from the app&rsquo;s own tokens &mdash; deep-black surfaces, IBM&nbsp;Plex&nbsp;Sans
+      with JetBrains&nbsp;Mono for figures, the accent / rest / debt colour roles. Every screen here is
+      HTML, not a screenshot, so the type and spacing are the real thing. Next: react to these, then
+      one spec per thread in the order shell &rarr; habits &rarr; activity &rarr; goals &rarr; rename.</p>
+  </main>
+</div>
+
+<script>
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+    var map = {};
+    links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (l) { l.classList.remove('is-active'); });
+          var a = map[e.target.id];
+          if (a) a.classList.add('is-active');
+        }
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    document.querySelectorAll('section[id]').forEach(function (s) { io.observe(s); });
+  })();
+</script>

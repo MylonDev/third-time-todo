@@ -145,12 +145,14 @@ async function seed(page: import('@playwright/test').Page, days: number, hoursFo
   await page.reload();
 }
 
+// The pace verdict now heads the combined Activity scroll — no inner sub-tab.
 const paceTab = async (page: import('@playwright/test').Page) => {
-  const activity = page.locator('section').filter({
-    has: page.getByRole('heading', { name: 'Activity', exact: true }),
-  });
-  await activity.getByRole('tab', { name: 'Pace' }).click();
-  return activity;
+  await page.getByRole('tab', { name: 'Activity', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Activity', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  );
+  return page.locator('main');
 };
 
 test.describe('the pace chart', () => {
@@ -220,7 +222,7 @@ test.describe('the pace chart', () => {
 
   test("today's marker is painted in the same verdict as the headline", async ({ app }) => {
     const markerFill = async () =>
-      app.locator('svg circle').last().getAttribute('fill');
+      app.getByTestId('pace-marker').getAttribute('fill');
 
     await seed(app, 60, (i) => (i < 7 ? 11 : 5));
     let activity = await paceTab(app);
