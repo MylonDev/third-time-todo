@@ -37,7 +37,9 @@ export function formatGoalTotal(goal: Goal): string {
   const total = cumulativeTotal(goal);
   if (goal.outcome.kind === 'time') return formatDuration(total);
   if (goal.outcome.kind === 'count') return `${Math.round(total)} ${goal.outcome.unit}`;
-  return `${Math.round(total)}`;
+  // Open goal: its one bucket holds counts for a migrated boolean, else banked ms.
+  if (goal.effort?.metric === 'count') return `${Math.round(total)} times`;
+  return formatDuration(total);
 }
 
 // ── Formatting helpers ───────────────────────────────────────────────────────
@@ -246,7 +248,7 @@ export interface GoalDraft {
   targetHours: string;
   unit: string;
   count: string;
-  milestones: string[];
+  milestones: { id?: string; label: string }[];
   effortEnabled: boolean;
   effortAmount: string;
 }
@@ -263,7 +265,7 @@ export function draftHasOutcomeNumber(d: GoalDraft): boolean {
  */
 export function goalDraftIsValid(d: GoalDraft): boolean {
   if (!d.title.trim()) return false;
-  const hasMilestone = d.milestones.some((m) => m.trim());
+  const hasMilestone = d.milestones.some((m) => m.label.trim());
   const hasEffort = d.effortEnabled && Number(d.effortAmount) > 0;
   return draftHasOutcomeNumber(d) || hasMilestone || hasEffort;
 }

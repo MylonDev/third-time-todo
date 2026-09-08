@@ -42,7 +42,10 @@ export function GoalCard({
   onEdit: () => void;
   onReview: () => void;
 }) {
-  const focusable = goal.outcome.kind !== 'count';
+  // Focusing banks session time into `progress`. A count outcome or a
+  // count-metric effort share that bucket with `+1` logging, so banking ms
+  // there would swamp the reading — those goals are not focusable.
+  const focusable = goal.outcome.kind !== 'count' && goal.effort?.metric !== 'count';
   const { isFocused, tracking, toggleFocus } = useFocusable({ kind: 'goal', id: goal.id }, focusable);
   const logCount = useGoals((s) => s.logCount);
   const archiveGoal = useGoals((s) => s.archiveGoal);
