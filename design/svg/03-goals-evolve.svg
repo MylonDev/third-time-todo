@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="720" height="345" viewBox="0 0 720 345">
+  <g>
+    <rect width="720" height="345" rx="14" ry="14" fill="#0A0A0A" stroke="#242424" stroke-width="1"/>
+    <g transform="translate(80, 40)">
+      <rect width="560" height="265" rx="18" ry="18" fill="#111111" stroke="#22C55E" stroke-width="1"/>
+      <g transform="translate(24, 24)">
+        <g>
+          <g transform="translate(0, 1)">
+            <rect width="22" height="22" rx="7" ry="7" fill="#22C55E"/>
+            <g transform="translate(5, 3)">
+              <text x="0" y="13" font-family="Inter" font-size="13" fill="#080808">✓</text>
+            </g>
+          </g>
+          <g transform="translate(30, 0)">
+            <text x="0" y="18" font-family="IBM Plex Sans" font-size="18" font-weight="700" fill="#E8E8E8">You hit it — Run a 5k</text>
+          </g>
+        </g>
+        <g transform="translate(0, 30)">
+          <text x="0" y="13" font-family="IBM Plex Sans" font-size="13" fill="#8A8A8A">28 sessions · 9:12:00 banked · first logged 4 months ago</text>
+        </g>
+      </g>
+      <g transform="translate(24, 89)">
+        <g>
+          <rect width="250" height="64" rx="12" ry="12" fill="#1C1C1C" stroke="#242424" stroke-width="1"/>
+          <g transform="translate(16, 14.5)">
+            <text x="0" y="13" font-family="IBM Plex Sans" font-size="13" font-weight="700" fill="#D8D8D8">Archive it</text>
+          </g>
+          <g transform="translate(16, 34.5)">
+            <text x="0" y="11" font-family="IBM Plex Sans" font-size="11" fill="#8A8A8A">Move to the archive, keep the history</text>
+          </g>
+        </g>
+        <g transform="translate(262, 0)">
+          <rect width="250" height="64" rx="12" ry="12" fill="#0F1420" stroke="#4F8EF7" stroke-width="1"/>
+          <g transform="translate(16, 14.5)">
+            <text x="0" y="13" font-family="IBM Plex Sans" font-size="13" font-weight="700" fill="#4F8EF7">Evolve it  →</text>
+          </g>
+          <g transform="translate(16, 34.5)">
+            <text x="0" y="11" font-family="IBM Plex Sans" font-size="11" fill="#8A8A8A">Start the next goal, linked to this one</text>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(24, 171)">
+        <rect width="512" height="1" fill="#242424"/>
+      </g>
+      <g transform="translate(24, 190)">
+        <g>
+          <text x="0" y="11" font-family="IBM Plex Sans" font-size="11" fill="#6F6F6F">THE CHAIN</text>
+        </g>
+        <g transform="translate(0, 25)">
+          <g>
+            <rect width="76" height="26" rx="7" ry="7" fill="#161D16"/>
+            <g transform="translate(10, 5)">
+              <text x="0" y="12" font-family="IBM Plex Sans" font-size="12" fill="#22C55E">Run a 5k ✓</text>
+            </g>
+          </g>
+          <g transform="translate(86, 5.5)">
+            <text x="0" y="12" font-family="Inter" font-size="12" fill="#5F5F5F">→</text>
+          </g>
+          <g transform="translate(108, 0)">
+            <rect width="75" height="26" rx="7" ry="7" fill="#0F1420" stroke="#4F8EF7" stroke-width="1"/>
+            <g transform="translate(10, 5)">
+              <text x="0" y="12" font-family="IBM Plex Sans" font-size="12" fill="#4F8EF7">Run a 10k</text>
+            </g>
+          </g>
+          <g transform="translate(193, 5.5)">
+            <text x="0" y="12" font-family="Inter" font-size="12" fill="#5F5F5F">→</text>
+          </g>
+          <g transform="translate(215, 0)">
+            <rect width="98" height="26" rx="7" ry="7" fill="#1C1C1C" stroke="#242424" stroke-width="1"/>
+            <g transform="translate(10, 5)">
+              <text x="0" y="12" font-family="IBM Plex Sans" font-size="12" fill="#6F6F6F">Half marathon</text>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
