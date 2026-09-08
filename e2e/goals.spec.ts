@@ -90,6 +90,31 @@ test.describe('goals', () => {
     await expect(menu(app)).toBeHidden();
   });
 
+  test('editing out a completed milestone does not promote the survivor', async ({ app }) => {
+    await goToGoals(app);
+    await addGoal(app, { name: 'Two steps', measure: 'Open', milestones: ['Step A', 'Step B'] });
+    const card = app.getByRole('listitem').filter({ hasText: 'Two steps' });
+    await card.getByRole('button', { name: 'Step A' }).click();
+
+    await card.getByRole('button', { name: 'Goal actions' }).click();
+    await menu(app).getByRole('menuitem', { name: 'Edit' }).click();
+    const dialog = app.getByRole('dialog', { name: 'Edit goal' });
+    await dialog.getByRole('button', { name: 'Remove milestone 1' }).click();
+    await dialog.getByRole('button', { name: 'Save' }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect(card).toContainText('0 / 1');
+    await expect(card).not.toContainText('Met');
+  });
+
+  test('a count-metric goal is not focusable', async ({ app }) => {
+    await goToGoals(app);
+    await addGoal(app, { name: 'Call 50 leads', measure: 'Count', unit: 'calls', target: '50' });
+    const card = app.getByRole('listitem').filter({ hasText: 'Call 50 leads' });
+    await card.getByText('Call 50 leads').click();
+    await expect(card).not.toContainText('Focused');
+  });
+
   test('Archive moves a goal behind the disclosure; Delete removes it', async ({ app }) => {
     await goToGoals(app);
     await addGoal(app, { name: 'Alpha goal', measure: 'Count', unit: 'x', target: '5' });

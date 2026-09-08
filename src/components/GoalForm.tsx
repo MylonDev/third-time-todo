@@ -33,7 +33,7 @@ function draftFromGoal(goal: Goal | undefined): GoalDraft {
     targetHours: goal.outcome.kind === 'time' ? String(goal.outcome.targetHours) : '',
     unit: goal.outcome.kind === 'count' ? goal.outcome.unit : '',
     count: goal.outcome.kind === 'count' ? String(goal.outcome.target) : '',
-    milestones: goal.milestones.map((m) => m.label),
+    milestones: goal.milestones.map((m) => ({ id: m.id, label: m.label })),
     effortEnabled: !!goal.effort,
     effortAmount: goal.effort
       ? String(goal.effort.metric === 'time' ? goal.effort.amount / 3_600_000 : goal.effort.amount)
@@ -95,7 +95,9 @@ export function GoalForm({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!valid) return;
-    const milestones = d.milestones.map((s) => s.trim()).filter(Boolean).map((label) => ({ label }));
+    const milestones = d.milestones
+      .map((m) => ({ id: m.id, label: m.label.trim() }))
+      .filter((m) => m.label);
     const common = {
       title: d.title.trim(),
       outcome: buildOutcome(),
@@ -107,15 +109,18 @@ export function GoalForm({
       updateGoal(goal.id, {
         ...common,
         evolvesFromId: linkTo || undefined,
-        milestones: milestones.map((m, i) => ({
-          id: goal.milestones[i]?.id ?? crypto.randomUUID(),
-          label: m.label,
-          doneAt: goal.milestones[i]?.doneAt,
-        })),
+        milestones: milestones.map((m) => {
+          const prev = m.id ? goal.milestones.find((x) => x.id === m.id) : undefined;
+          return { id: prev?.id ?? crypto.randomUUID(), label: m.label, doneAt: prev?.doneAt };
+        }),
       });
       onClose();
     } else {
-      const id = addGoal({ ...common, milestones, evolvesFromId: linkTo || undefined });
+      const id = addGoal({
+        ...common,
+        milestones: milestones.map((m) => ({ label: m.label })),
+        evolvesFromId: linkTo || undefined,
+      });
       onCreated?.(id);
       onClose();
     }
@@ -323,11 +328,11 @@ export function GoalForm({
           {d.milestones.map((m, i) => (
             <div key={i} className="flex gap-2">
               <input
-                value={m}
+                value={m.label}
                 onChange={(e) =>
                   patch(
                     'milestones',
-                    d.milestones.map((x, j) => (j === i ? e.target.value : x))
+                    d.milestones.map((x, j) => (j === i ? { ...x, label: e.target.value } : x))
                   )
                 }
                 placeholder={`Milestone ${i + 1}`}
@@ -352,7 +357,7 @@ export function GoalForm({
           ))}
           <button
             type="button"
-            onClick={() => patch('milestones', [...d.milestones, ''])}
+            onClick={() => patch('milestones', [...d.milestones, { label: '' }])}
             className="self-start text-xs font-semibold"
             style={{ color: 'var(--color-accent)' }}
           >
