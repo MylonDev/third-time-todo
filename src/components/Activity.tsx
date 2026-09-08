@@ -135,12 +135,6 @@ function DayShape({ sessions }: { sessions: SessionLog[] }) {
   );
 }
 
-const DOT_COLOR: Record<DotState, string> = {
-  done: 'var(--color-habit)',
-  missed: 'transparent',
-  off: 'transparent',
-};
-
 function HabitRow({ habit }: { habit: Habit }) {
   const created = new Date(habit.createdAt);
   created.setHours(0, 0, 0, 0);
@@ -169,15 +163,15 @@ function HabitRow({ habit }: { habit: Habit }) {
         {cells.map((state, i) => (
           <span
             key={i}
-            className="flex-1 min-w-0 h-4 rounded-sm"
+            className="h-3.5 w-3.5 rounded-[3px] flex-shrink-0"
             title={state === 'done' ? 'Done' : state === 'missed' ? 'Missed' : 'Not due'}
             style={{
-              background: DOT_COLOR[state],
+              background: state === 'done' ? 'var(--color-habit)' : 'transparent',
               border:
                 state === 'done'
                   ? 'none'
                   : `1px solid ${state === 'missed' ? 'var(--color-border-strong)' : 'var(--color-border)'}`,
-              opacity: state === 'off' ? 0.5 : 1,
+              opacity: state === 'off' ? 0.4 : 1,
             }}
           />
         ))}
