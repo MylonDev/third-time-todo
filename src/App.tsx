@@ -228,13 +228,13 @@ export default function App() {
         <section className="flex flex-col gap-3">
           {!sessionActive ? (
             <>
-              <div className="flex flex-col sm:flex-row gap-3 sm:items-stretch">
-                <div className="flex-1">
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-start">
+                <div className="flex-1 min-w-0">
                   <ModeSelector locked={false} />
                 </div>
                 <button
                   onClick={handleStart}
-                  className="px-6 py-2.5 rounded-xl font-bold text-sm transition-all sm:w-auto"
+                  className="h-[52px] px-8 rounded-xl font-bold text-sm transition-all"
                   style={{
                     background: `var(--color-mode-${mode})`,
                     color: 'var(--color-bg)',
