@@ -44,7 +44,10 @@ function isFocusable(target: FocusTarget): boolean {
     return !!task && task.status !== 'done';
   }
   const goal = useGoals.getState().goals.find((g) => g.id === target.id);
-  return !!goal && !goal.archivedAt && !goal.completedAt;
+  if (!goal || goal.archivedAt || goal.completedAt) return false;
+  // Count-flavoured goals log into the same period bucket as focus time would,
+  // so pouring milliseconds in would corrupt the count. They are not focusable.
+  return goal.outcome.kind !== 'count' && goal.effort?.metric !== 'count';
 }
 
 // Cross-store time attribution — called inside stopWork / setFocus
