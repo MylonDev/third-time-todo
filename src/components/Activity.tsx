@@ -4,9 +4,10 @@ import { useSession } from '../store/session';
 import { useHabits } from '../store/habits';
 import { earnBreak, formatDuration, todayKey } from '../utils/thirdTime';
 import { adherence, dotStates, type DotState } from '../utils/habit';
+import { freqLabel } from '../utils/habitFreq';
 import { lastNDays } from '../utils/goalPeriod';
 import { PaceChart } from './PaceChart';
-import type { Habit, HabitFreq, HistoryEntry, SessionLog } from '../types';
+import type { Habit, HistoryEntry, SessionLog } from '../types';
 
 const DAYS = 14;
 const PLOT_HEIGHT = 116;
@@ -55,23 +56,6 @@ function fullDayLabel(dateStr: string, isToday: boolean): string {
 
 function clockLabel(ms: number): string {
   return new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-}
-
-const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-function freqLabel(freq: HabitFreq): string {
-  switch (freq.kind) {
-    case 'daily':
-      return 'Daily';
-    case 'weekly':
-      return 'Weekly';
-    case 'everyN':
-      return `Every ${freq.n} days`;
-    case 'weekdays':
-      return freq.days.length === 0
-        ? 'Weekdays'
-        : [...freq.days].sort((a, b) => a - b).map((d) => WEEKDAY_NAMES[d]).join(' · ');
-  }
 }
 
 /**
