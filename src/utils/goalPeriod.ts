@@ -76,10 +76,11 @@ export function pastPeriodKeys(
 }
 
 /**
- * Progress is keyed by period and never expires on its own. Keep a couple of
- * years of keys so a daily cadence does not grow localStorage without bound.
+ * Progress is keyed by period and never expires on its own. Cumulative goal
+ * totals are the sum of this map, so pruning understates them — keep enough
+ * keys that a daily cadence lasts years before the oldest is dropped.
  */
-const MAX_PERIODS = 90;
+const MAX_PERIODS = 800;
 
 export function prunePeriods(progress: Record<string, number>): Record<string, number> {
   const keys = Object.keys(progress);
@@ -119,14 +120,37 @@ export function isHabitDueOn(habit: Habit, date: Date): boolean {
   }
 }
 
-/** Whether a habit still needs doing today (due, and not yet completed this period). */
+function midnight(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+/**
+ * Whether a habit still needs doing — due for the current period and not yet
+ * completed. `everyN` catches up: a missed occurrence stays outstanding until
+ * its next scheduled day comes round, not only on the exact day.
+ */
 export function isHabitOutstanding(habit: Habit, today: Date = new Date()): boolean {
   if (habit.archivedAt) return false;
-  const key = dateKey(today);
-  if (habit.freq.kind === 'weekly') {
+  const f = habit.freq;
+
+  if (f.kind === 'weekly') {
     const weekStart = getWeekKey(today);
     return !Object.keys(habit.completions).some((k) => k >= weekStart && habit.completions[k]);
   }
+
+  if (f.kind === 'everyN') {
+    const n = Math.max(2, f.n);
+    const start = midnight(new Date(habit.createdAt));
+    const days = Math.round((midnight(today).getTime() - start.getTime()) / 86_400_000);
+    if (days < 0) return false;
+    const lastDue = new Date(start);
+    lastDue.setDate(lastDue.getDate() + (days - (days % n)));
+    const lastDueKey = dateKey(lastDue);
+    return !Object.keys(habit.completions).some((k) => k >= lastDueKey && habit.completions[k]);
+  }
+
   if (!isHabitDueOn(habit, today)) return false;
-  return !habit.completions[key];
+  return !habit.completions[dateKey(today)];
 }
