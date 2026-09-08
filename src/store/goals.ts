@@ -17,7 +17,7 @@ interface AddGoalParams {
 interface GoalsState {
   goals: Goal[];
   addGoal: (params: AddGoalParams) => string;
-  updateGoal: (id: string, patch: Partial<Omit<Goal, 'id' | 'createdAt' | 'progress'>>) => void;
+  updateGoal: (id: string, patch: Partial<Omit<Goal, 'id' | 'createdAt' | 'progress' | 'total'>>) => void;
   deleteGoal: (id: string) => void;
   reorderGoals: (orderedIds: string[]) => void;
   archiveGoal: (id: string) => void;
@@ -40,7 +40,11 @@ function periodKeyFor(goal: Goal): string {
   return goal.effort ? effortPeriodKey(goal.effort, goal.createdAt) : todayKey();
 }
 
-// ── v1 → v2 migration ─────────────────────────────────────────────────────────
+function sumProgress(progress: Record<string, number> = {}): number {
+  return Object.values(progress).reduce((a, b) => a + b, 0);
+}
+
+// ── migrations ────────────────────────────────────────────────────────────────
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function migrateV1Goal(g: any): Goal {
@@ -71,6 +75,7 @@ function migrateV1Goal(g: any): Goal {
     createdAt: g.createdAt ?? Date.now(),
     order: g.order ?? 0,
     progress: g.progress ?? {},
+    total: sumProgress(g.progress),
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -100,6 +105,7 @@ export const useGoals = create<GoalsState>()(
               createdAt: Date.now(),
               order: s.goals.length,
               progress: {},
+              total: 0,
             },
           ],
         }));
@@ -144,6 +150,7 @@ export const useGoals = create<GoalsState>()(
             return {
               ...g,
               progress: prunePeriods({ ...g.progress, [key]: (g.progress[key] ?? 0) + ms }),
+              total: g.total + ms,
             };
           }),
         })),
@@ -153,8 +160,13 @@ export const useGoals = create<GoalsState>()(
           goals: s.goals.map((g) => {
             if (g.id !== goalId) return g;
             const key = periodKeyFor(g);
-            const next = Math.max(0, (g.progress[key] ?? 0) + delta);
-            return { ...g, progress: prunePeriods({ ...g.progress, [key]: next }) };
+            const prev = g.progress[key] ?? 0;
+            const next = Math.max(0, prev + delta);
+            return {
+              ...g,
+              progress: prunePeriods({ ...g.progress, [key]: next }),
+              total: Math.max(0, g.total + (next - prev)),
+            };
           }),
         })),
 
@@ -208,11 +220,21 @@ export const useGoals = create<GoalsState>()(
     }),
     {
       name: 'tt-goals',
-      version: 2,
+      version: 3,
       migrate: (persisted: unknown, version: number) => {
-        const s = persisted as { goals?: unknown[] };
+        let s = persisted as { goals?: unknown[] };
         if (version < 2) {
-          return { goals: (s.goals ?? []).map(migrateV1Goal) };
+          s = { goals: (s.goals ?? []).map(migrateV1Goal) };
+        }
+        if (version < 3) {
+          // `total` becomes the authoritative cumulative figure; seed it from
+          // whatever `progress` buckets currently hold.
+          return {
+            goals: ((s.goals ?? []) as Goal[]).map((g) => ({
+              ...g,
+              total: g.total ?? sumProgress(g.progress),
+            })),
+          };
         }
         return s as { goals: Goal[] };
       },
