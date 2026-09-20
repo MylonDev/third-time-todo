@@ -81,8 +81,15 @@ export function formatDuration(ms: number): string {
   return `${hours}h ${minutes}m`;
 }
 
-export function todayKey(): string {
-  const d = new Date();
+// ── Date keys ─────────────────────────────────────────────────────────────────
+//
+// `dateKey` and `weekdayIndex` live here rather than in `goalPeriod.ts` (which
+// re-exports them) because `dayKeyOf` below needs `dateKey`, and
+// `goalPeriod.ts` imports `todayKey` from this module — putting both ends of
+// that dependency in the same file avoids the cycle.
+
+/** YYYY-MM-DD for a Date, in local time. */
+export function dateKey(d: Date): string {
   return [
     d.getFullYear(),
     String(d.getMonth() + 1).padStart(2, '0'),
@@ -90,14 +97,39 @@ export function todayKey(): string {
   ].join('-');
 }
 
-export function tomorrowKey(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, '0'),
-    String(d.getDate()).padStart(2, '0'),
-  ].join('-');
+/** Monday=0 … Sunday=6 for a Date (JS `getDay` has Sunday=0). */
+export function weekdayIndex(d: Date): number {
+  return (d.getDay() + 6) % 7;
+}
+
+const HOUR_MS = 3_600_000;
+
+/**
+ * The day a moment belongs to. A day ends at `dayEndHour` local time, not
+ * necessarily midnight — someone who works until 1 AM is still having last
+ * night, and their bank, timeline and task list should agree.
+ */
+export function dayKeyOf(t: number, dayEndHour: number): string {
+  return dateKey(new Date(t - dayEndHour * HOUR_MS));
+}
+
+export function todayKey(dayEndHour: number): string {
+  return dayKeyOf(Date.now(), dayEndHour);
+}
+
+export function tomorrowKey(dayEndHour: number): string {
+  return dayKeyOf(Date.now() + 86_400_000, dayEndHour);
+}
+
+/** The instant the day named by `key` begins. */
+export function dayStartOf(key: string, dayEndHour: number): number {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d, dayEndHour, 0, 0, 0).getTime();
+}
+
+/** The instant it ends — the same as the next day's start. */
+export function dayEndOf(key: string, dayEndHour: number): number {
+  return dayStartOf(key, dayEndHour) + 86_400_000;
 }
 
 export const MODE_BADGE_CLASSES: Record<Mode, string> = {
