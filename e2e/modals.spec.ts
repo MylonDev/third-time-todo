@@ -1,4 +1,4 @@
-import { test, expect, startSession } from './helpers';
+import { test, expect, startWork } from './helpers';
 import type { Page } from '@playwright/test';
 
 const dialog = (p: Page) => p.getByRole('dialog');
@@ -32,26 +32,17 @@ test.describe('every overlay is a real dialog', () => {
   });
 
   test('a scrim click closes a dismissible dialog', async ({ app }) => {
-    await startSession(app);
-    await app.getByRole('button', { name: 'End Session' }).click();
+    await app.getByRole('button', { name: 'Options' }).click();
     await expect(dialog(app)).toBeVisible();
     await app.mouse.click(8, 8);
-    await expect(dialog(app)).toBeHidden();
-  });
-
-  test('End Session opens a labelled dialog and Escape closes it', async ({ app }) => {
-    await startSession(app);
-    await app.getByRole('button', { name: 'End Session' }).click();
-    await expect(dialog(app)).toHaveAttribute('aria-label', 'End the session');
-    await app.keyboard.press('Escape');
     await expect(dialog(app)).toBeHidden();
   });
 });
 
 test.describe('the restore prompt demands an answer', () => {
   test('Escape and a scrim click leave it standing; a choice closes it', async ({ app }) => {
-    await startSession(app);
-    await app.reload(); // a session was running when the page went away
+    await startWork(app);
+    await app.reload(); // a timer was running when the page went away
 
     await expect(dialog(app)).toBeVisible();
     await expect(dialog(app)).toHaveAttribute('aria-label', 'Pick up your session');
@@ -61,7 +52,7 @@ test.describe('the restore prompt demands an answer', () => {
     await app.waitForTimeout(400);
     await expect(dialog(app), 'dismissed without a choice').toBeVisible();
 
-    await app.getByRole('button', { name: /Reset/ }).click();
+    await app.getByRole('button', { name: /Discard/ }).click();
     await expect(dialog(app)).toBeHidden();
   });
 });

@@ -7,14 +7,13 @@ import { GoalList } from './components/GoalList';
 import { Activity } from './components/Activity';
 import { ModeSelector } from './components/ModeSelector';
 import { OptionsPanel } from './components/OptionsPanel';
-import { EndSessionModal } from './components/EndSessionModal';
 import { RestoreSessionModal } from './components/RestoreSessionModal';
 import { CarriedOverModal } from './components/CarriedOverModal';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
 import { useTasks } from './store/tasks';
 import { requestNotificationPermission } from './utils/notifications';
-import { earnBreak, todayKey, dayEndOf } from './utils/thirdTime';
+import { todayKey, dayEndOf } from './utils/thirdTime';
 import type { TabId } from './types';
 
 const TABS: { id: TabId; label: string }[] = [
@@ -24,10 +23,8 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 export default function App() {
-  const {
-    timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer,
-    focusedItem, setFocusSegmentStart, pruneFocus, maybeArchivePreviousDay,
-  } = useSession();
+  const { timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer, maybeArchivePreviousDay } =
+    useSession();
   const { theme, mode, activeTab, setActiveTab, quotes, showQuote, setShowQuote, dayEndHour } = useSettings();
   const { rolloverPastTasks } = useTasks();
 
@@ -43,28 +40,10 @@ export default function App() {
     // second pass finds nothing left to move.
     const carried = rolloverPastTasks();
     if (carried.length > 0) setCarriedOver(carried);
-    pruneFocus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [showOptions, setShowOptions] = useState(false);
-  const [showEndModal, setShowEndModal] = useState(false);
-  const [bankToClear, setBankToClear] = useState(0);
-
-  // Sample the bank as the modal opens so the summary can report the rest this
-  // session leaves unspent. Includes what the running timer has earned but not banked.
-  const handleOpenEndModal = () => {
-    const { daily, timerStart: start, timerState: state } = useSession.getState();
-    const elapsed = start ? Date.now() - start : 0;
-    setBankToClear(
-      state === 'working'
-        ? daily.bankMs + earnBreak(elapsed, mode)
-        : state === 'on-break'
-        ? daily.bankMs - elapsed
-        : daily.bankMs
-    );
-    setShowEndModal(true);
-  };
 
   // Show restore modal if a session was active when the page last closed
   const [showRestoreModal] = useState(() => useSession.getState().timerState !== 'idle');
@@ -114,13 +93,11 @@ export default function App() {
     const elapsedAtClose = timerStart ? closedAt - timerStart : 0;
     const resumedStart = Date.now() - elapsedAtClose;
     useSession.setState({ timerStart: resumedStart, sessionClosedAt: null });
-    if (focusedItem) setFocusSegmentStart(resumedStart);
     setRestoreModalDismissed(true);
   };
 
   const handleRestoreResume = () => {
     setClosedAt(null);
-    if (focusedItem && timerStart) setFocusSegmentStart(timerStart);
     setRestoreModalDismissed(true);
   };
 
@@ -180,27 +157,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            <AnimatePresence>
-              {sessionActive && (
-                <motion.button
-                  key="end-session"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.15 }}
-                  onClick={handleOpenEndModal}
-                  className="px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
-                  style={{
-                    background: 'var(--color-danger-dim)',
-                    color: 'var(--color-danger)',
-                    border: '1px solid var(--color-danger)',
-                    fontFamily: 'var(--font-display)',
-                  }}
-                >
-                  End Session
-                </motion.button>
-              )}
-            </AnimatePresence>
             <button
               onClick={() => setShowOptions(true)}
               className="p-2 rounded-xl border transition-opacity opacity-50 hover:opacity-100"
@@ -223,8 +179,11 @@ export default function App() {
         </header>
 
         {/* ── Pinned session zone ─────────────────────────────── */}
+        {/* The bank is a property of the day, not of a running timer — it stays
+            on screen whether or not one is running. Only the Start control and
+            the quote come and go. */}
         <section className="flex flex-col gap-3">
-          {!sessionActive ? (
+          {!sessionActive && (
             <>
               <div className="flex flex-col sm:flex-row gap-3 sm:items-start">
                 <div className="flex-1 min-w-0">
@@ -259,12 +218,11 @@ export default function App() {
                 </div>
               )}
             </>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SessionTimer />
-              <BreakBank />
-            </div>
           )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <SessionTimer />
+            <BreakBank />
+          </div>
         </section>
 
         {/* ── Tabs ────────────────────────────────────────────── */}
@@ -325,17 +283,6 @@ export default function App() {
       <AnimatePresence>
         {carriedOver.length > 0 && (
           <CarriedOverModal taskIds={carriedOver} onClose={() => setCarriedOver([])} />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showEndModal && (
-          <EndSessionModal
-            isOpen={showEndModal}
-            onClose={() => setShowEndModal(false)}
-            mode={mode}
-            bankToClear={bankToClear}
-          />
         )}
       </AnimatePresence>
     </div>

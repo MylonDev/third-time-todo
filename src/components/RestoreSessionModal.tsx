@@ -90,7 +90,7 @@ export function RestoreSessionModal({
               borderColor: 'var(--color-danger)',
             }}
           >
-            Reset — start a new session
+            Discard it
           </button>
         </div>
     </Modal>
