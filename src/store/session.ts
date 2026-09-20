@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Mode, SessionLog, DailyState, SessionReport, HistoryEntry, FocusTarget } from '../types';
-import { applyWork, spendBreak, todayKey } from '../utils/thirdTime';
-import { useTasks } from './tasks';
-import { useGoals } from './goals';
+import type { Mode, TimeEntry, DailyState, HistoryEntry } from '../types';
+import { todayKey } from '../utils/thirdTime';
+import { bankOf, workMsOf, breakMsOf, entriesOverlap, type OpenSegment } from '../utils/ledger';
+import { migrateSessionV3 } from './sessionMigrate';
 import { useSettings } from './settings';
 
 type TimerState = 'idle' | 'working' | 'on-break';
@@ -14,51 +14,33 @@ interface SessionStore {
   timerState: TimerState;
   timerStart: number | null;
   sessionClosedAt: number | null;
-  focusedItem: FocusTarget | null;
-  focusSegmentStart: number | null; // not persisted — set by startWork/setFocus
+  activeProjectId?: string;
+  activeTaskId?: string;
+
+  openSegment: () => OpenSegment | null;
+  bank: () => number;
 
   startWork: () => void;
   stopWork: (mode: Mode) => void;
   startBreak: (mode: Mode) => void;
   stopBreak: () => void;
-  endSession: (mode: Mode) => SessionReport;
+  setActive: (projectId?: string, taskId?: string) => void;
+
+  addEntry: (e: TimeEntry) => void;
+  updateEntry: (id: string, patch: Partial<TimeEntry>) => void;
+  removeEntry: (id: string) => void;
+
   archiveDay: () => void;
   maybeArchivePreviousDay: () => void;
   resetDay: () => void;
   clearTimer: () => void;
   setClosedAt: (t: number | null) => void;
-  setFocus: (target: FocusTarget | null) => void;
-  setFocusSegmentStart: (t: number | null) => void;
-  pruneFocus: () => void;
 
   getElapsedMs: () => number;
 }
 
 function freshDay(): DailyState {
-  return { date: todayKey(useSettings.getState().dayEndHour), bankMs: 0, sessions: [] };
-}
-
-/** A focus target must be a live task or a live (unarchived, incomplete) goal. */
-function isFocusable(target: FocusTarget): boolean {
-  if (target.kind === 'task') {
-    const task = useTasks.getState().tasks.find((t) => t.id === target.id);
-    return !!task && task.status !== 'done';
-  }
-  const goal = useGoals.getState().goals.find((g) => g.id === target.id);
-  if (!goal || goal.archivedAt || goal.completedAt) return false;
-  // Count-flavoured goals log into the same period bucket as focus time would,
-  // so pouring milliseconds in would corrupt the count. They are not focusable.
-  return goal.outcome.kind !== 'count' && goal.effort?.metric !== 'count';
-}
-
-// Cross-store time attribution — called inside stopWork / setFocus
-function commitFocusSegment(target: FocusTarget, ms: number) {
-  if (ms <= 0) return;
-  if (target.kind === 'task') {
-    useTasks.getState().adjustTrackedMs(target.id, ms);
-  } else {
-    useGoals.getState().commitTime(target.id, ms);
-  }
+  return { date: todayKey(useSettings.getState().dayEndHour), entries: [] };
 }
 
 export const useSession = create<SessionStore>()(
@@ -69,25 +51,41 @@ export const useSession = create<SessionStore>()(
       timerState: 'idle',
       timerStart: null,
       sessionClosedAt: null,
-      focusedItem: null,
-      focusSegmentStart: null,
+      activeProjectId: undefined,
+      activeTaskId: undefined,
 
       getElapsedMs: () => {
         const { timerStart } = get();
         return timerStart ? Date.now() - timerStart : 0;
       },
 
+      /** The timer currently running, in the shape `bankOf` expects — or null if idle. */
+      openSegment: () => {
+        const { timerState, timerStart, activeProjectId, activeTaskId } = get();
+        if (timerState === 'idle' || timerStart === null) return null;
+        return {
+          kind: timerState === 'working' ? 'work' : 'break',
+          startedAt: timerStart,
+          mode: useSettings.getState().mode,
+          projectId: activeProjectId,
+          taskId: activeTaskId,
+        };
+      },
+
+      bank: () => {
+        const { daily } = get();
+        return bankOf(daily.entries, get().openSegment(), Date.now());
+      },
+
       archiveDay: () => {
         const { daily, history } = get();
-        if (daily.sessions.length === 0) return;
+        if (daily.entries.length === 0) return;
         const entry: HistoryEntry = {
           date: daily.date,
-          totalWorkMs: daily.sessions.reduce((a, s) => a + s.workMs, 0),
-          totalBreakMs: daily.sessions.reduce((a, s) => a + s.breakMs, 0),
-          // The day's running total from ended sessions, plus anything still
-          // sitting unspent in a session that was never formally ended.
-          unusedRestMs: (daily.unusedRestMs ?? 0) + Math.max(0, daily.bankMs),
-          sessions: daily.sessions,
+          totalWorkMs: workMsOf(daily.entries),
+          totalBreakMs: breakMsOf(daily.entries),
+          unusedRestMs: Math.max(0, bankOf(daily.entries)),
+          entries: daily.entries,
         };
         // Four months. The pace band needs 28 days behind the earliest day it
         // plots, and entries are small.
@@ -98,61 +96,43 @@ export const useSession = create<SessionStore>()(
       /**
        * Close out a day that has already rolled over. The only place the day
        * boundary is decided — the stop handlers used to decide it too, and
-       * discarded the previous day's sessions doing it.
+       * discarded the previous day's entries doing it.
        *
-       * A session running across midnight is left alone: it keeps accruing to
-       * the day it started on, and that day is archived once it ends.
+       * A timer running across midnight is left alone here: it keeps accruing
+       * to the day it started on, and that day is archived once it stops.
+       * (The refusal that used to guard that case moved out — Task 6 owns it.)
        */
       maybeArchivePreviousDay: () => {
-        const { daily, timerState } = get();
+        const { daily } = get();
         if (daily.date === todayKey(useSettings.getState().dayEndHour)) return;
-        // "Ongoing" means a timer is actually running. A session left open
-        // without ending it must not pin the app to yesterday.
-        if (timerState !== 'idle') return;
-        if (daily.sessions.length > 0) get().archiveDay();
+        if (daily.entries.length > 0) get().archiveDay();
         set({ daily: freshDay() });
       },
 
       startWork: () => {
         get().maybeArchivePreviousDay();
-        const { daily, focusedItem } = get();
-        const now = Date.now();
-        set({
-          timerState: 'working',
-          timerStart: now,
-          focusSegmentStart: focusedItem ? now : null,
-          // First stint after an idle bank opens a new session.
-          daily: { ...daily, sessionStartedAt: daily.sessionStartedAt ?? now },
-        });
+        set({ timerState: 'working', timerStart: Date.now() });
       },
 
       stopWork: (mode: Mode) => {
-        const { timerStart, daily, focusedItem, focusSegmentStart } = get();
+        const { timerStart, daily, activeProjectId, activeTaskId } = get();
         if (!timerStart) return;
-
-        // Commit focused time segment
-        if (focusedItem && focusSegmentStart) {
-          commitFocusSegment(focusedItem, Date.now() - focusSegmentStart);
-        }
-
-        const workMs = Date.now() - timerStart;
-        // Write to the day as it stands. Resetting it here dropped the previous
-        // day's sessions whenever a session ran across midnight.
-        const base = daily;
-        const newBank = applyWork(base.bankMs, workMs, mode);
-        const log: SessionLog = {
+        const entry: TimeEntry = {
           id: crypto.randomUUID(),
-          workMs,
-          breakMs: 0,
-          mode,
+          kind: 'work',
           startedAt: timerStart,
+          endedAt: Date.now(),
+          projectId: activeProjectId,
+          taskId: activeTaskId,
+          mode,
         };
         set({
           timerState: 'idle',
           timerStart: null,
-          focusSegmentStart: null,
-          daily: { ...base, bankMs: newBank, sessions: [...base.sessions, log] },
+          daily: { ...daily, entries: [...daily.entries, entry].sort((a, b) => a.startedAt - b.startedAt) },
         });
+        // The day may have rolled over while the timer was running.
+        get().maybeArchivePreviousDay();
       },
 
       startBreak: (mode: Mode) => {
@@ -164,64 +144,45 @@ export const useSession = create<SessionStore>()(
       stopBreak: () => {
         const { timerStart, daily } = get();
         if (!timerStart) return;
-        const breakMs = Date.now() - timerStart;
-        const base = daily;
-        const newBank = spendBreak(base.bankMs, breakMs);
-        const sessions = [...base.sessions];
-        if (sessions.length > 0) {
-          const last = { ...sessions[sessions.length - 1] };
-          last.breakMs += breakMs;
-          sessions[sessions.length - 1] = last;
-        }
+        const entry: TimeEntry = {
+          id: crypto.randomUUID(),
+          kind: 'break',
+          startedAt: timerStart,
+          endedAt: Date.now(),
+          mode: useSettings.getState().mode,
+        };
         set({
           timerState: 'idle',
           timerStart: null,
-          daily: { ...base, bankMs: newBank, sessions },
+          daily: { ...daily, entries: [...daily.entries, entry].sort((a, b) => a.startedAt - b.startedAt) },
         });
+        // The day may have rolled over while the break was running.
+        get().maybeArchivePreviousDay();
       },
 
-      /**
-       * Ends the session, not the day. The bank is cleared — rest is earned
-       * within a session — and whatever was left unspent is added to the day's
-       * running total. The day itself is archived when it rolls over.
-       */
-      endSession: (mode: Mode): SessionReport => {
-        const { timerState } = get();
-        if (timerState === 'working') get().stopWork(mode);
-        else if (timerState === 'on-break') get().stopBreak();
+      setActive: (projectId, taskId) => set({ activeProjectId: projectId, activeTaskId: taskId }),
 
+      addEntry: (e) => {
         const { daily } = get();
-        const since = daily.sessionStartedAt ?? 0;
-        const thisSession = daily.sessions.filter((s) => s.startedAt >= since);
+        if (daily.entries.some((existing) => entriesOverlap(existing, e))) return;
+        set({ daily: { ...daily, entries: [...daily.entries, e].sort((a, b) => a.startedAt - b.startedAt) } });
+      },
 
-        const unusedRestMs = Math.max(0, daily.bankMs);
+      updateEntry: (id, patch) => {
+        const { daily } = get();
+        const current = daily.entries.find((e) => e.id === id);
+        if (!current) return;
+        const updated = { ...current, ...patch };
+        if (daily.entries.some((e) => e.id !== id && entriesOverlap(e, updated))) return;
+        const entries = daily.entries
+          .map((e) => (e.id === id ? updated : e))
+          .sort((a, b) => a.startedAt - b.startedAt);
+        set({ daily: { ...daily, entries } });
+      },
 
-        set({
-          timerState: 'idle',
-          timerStart: null,
-          focusedItem: null,
-          focusSegmentStart: null,
-          daily: {
-            ...daily,
-            bankMs: 0,
-            unusedRestMs: (daily.unusedRestMs ?? 0) + unusedRestMs,
-            sessionStartedAt: undefined,
-          },
-        });
-
-        // The day may have rolled over while the session was running.
-        get().maybeArchivePreviousDay();
-
-        return {
-          totalWorkMs: thisSession.reduce((a, s) => a + s.workMs, 0),
-          totalBreakMs: thisSession.reduce((a, s) => a + s.breakMs, 0),
-          unusedRestMs,
-          dayWorkMs: daily.sessions.reduce((a, s) => a + s.workMs, 0),
-          dayBreakMs: daily.sessions.reduce((a, s) => a + s.breakMs, 0),
-          mode,
-          completedTasks: 0,
-          totalTasks: 0,
-        };
+      removeEntry: (id) => {
+        const { daily } = get();
+        set({ daily: { ...daily, entries: daily.entries.filter((e) => e.id !== id) } });
       },
 
       resetDay: () =>
@@ -230,61 +191,27 @@ export const useSession = create<SessionStore>()(
           timerState: 'idle',
           timerStart: null,
           sessionClosedAt: null,
-          focusedItem: null,
-          focusSegmentStart: null,
         }),
 
       // "Reset — start a new session" from the restore prompt. Abandoning the
-      // session has to close it, or the next one reports the stints from this
-      // one alongside its own.
+      // timer just clears it — there is no session boundary left to close.
       clearTimer: () =>
-        set((s) => ({
+        set({
           timerState: 'idle',
           timerStart: null,
           sessionClosedAt: null,
-          focusSegmentStart: null,
-          daily: { ...s.daily, sessionStartedAt: undefined },
-        })),
+        }),
 
       setClosedAt: (t) => set({ sessionClosedAt: t }),
-
-      setFocus: (target) => {
-        // Refuse targets that can never accrue time — focusing one would silently
-        // end the current segment and then record nothing.
-        if (target && !isFocusable(target)) return;
-        const { timerState, focusedItem, focusSegmentStart } = get();
-        // Commit elapsed time for the previously focused item before switching
-        if (timerState === 'working' && focusedItem && focusSegmentStart) {
-          commitFocusSegment(focusedItem, Date.now() - focusSegmentStart);
-        }
-        set({
-          focusedItem: target,
-          focusSegmentStart: timerState === 'working' ? Date.now() : null,
-        });
-      },
-
-      // focusSegmentStart is never persisted, so it has to be re-established after a
-      // reload — otherwise the timer keeps running and stopWork commits nothing.
-      setFocusSegmentStart: (t) => set({ focusSegmentStart: t }),
-
-      // Drops a focus target that no longer exists or is no longer focusable
-      // (deleted task, goal retyped away from 'time'), which can survive a reload.
-      pruneFocus: () => {
-        const { focusedItem } = get();
-        if (focusedItem && !isFocusable(focusedItem)) {
-          set({ focusedItem: null, focusSegmentStart: null });
-        }
-      },
     }),
     {
       name: 'tt-session',
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
-        const s = persisted as { daily?: DailyState; history?: HistoryEntry[] };
+        let s = persisted as Record<string, unknown>;
         if (version < 2) {
-          return {
-            daily: s.daily ?? freshDay(),
-            history: (s as { history?: HistoryEntry[] }).history ?? [],
+          s = {
+            ...s,
             timerState: 'idle',
             timerStart: null,
             sessionClosedAt: null,
@@ -293,22 +220,20 @@ export const useSession = create<SessionStore>()(
           };
         }
         if (version < 3) {
-          return {
-            ...s,
-            focusedItem: null,
-            focusSegmentStart: null,
-          };
+          s = { ...s, focusedItem: null, focusSegmentStart: null };
         }
-        return s as { daily: DailyState; history: HistoryEntry[] };
+        if (version < 4) {
+          s = { ...s, ...migrateSessionV3(s) };
+        }
+        return s;
       },
       partialize: (s) => ({
         daily: s.daily,
         history: s.history,
         timerState: s.timerState,
         timerStart: s.timerStart,
-        sessionClosedAt: s.sessionClosedAt,
-        focusedItem: s.focusedItem,
-        // focusSegmentStart is intentionally NOT persisted
+        activeProjectId: s.activeProjectId,
+        activeTaskId: s.activeTaskId,
       }),
     }
   )

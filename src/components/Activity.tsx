@@ -3,8 +3,9 @@ import { motion } from 'framer-motion';
 import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
 import { earnBreak, formatDuration, todayKey } from '../utils/thirdTime';
+import { durationOf, workMsOf, breakMsOf } from '../utils/ledger';
 import { PaceChart } from './PaceChart';
-import type { HistoryEntry, SessionLog } from '../types';
+import type { HistoryEntry, TimeEntry } from '../types';
 
 const DAYS = 14;
 const PLOT_HEIGHT = 116;
@@ -14,7 +15,7 @@ type Day = {
   activeMs: number;
   restTakenMs: number;
   restEarnedMs: number;
-  sessions: SessionLog[];
+  entries: TimeEntry[];
   isToday: boolean;
   isWeekend: boolean;
 };
@@ -34,8 +35,10 @@ function shiftKey(days: number): string {
 }
 
 /** Rest the day's work actually earned — summed per block, since mode can change. */
-function restEarned(sessions: SessionLog[]): number {
-  return sessions.reduce((total, s) => total + earnBreak(s.workMs, s.mode), 0);
+function restEarned(entries: TimeEntry[]): number {
+  return entries
+    .filter((e) => e.kind === 'work')
+    .reduce((total, e) => total + earnBreak(durationOf(e), e.mode), 0);
 }
 
 function dayLabel(dateStr: string): string {
@@ -56,18 +59,19 @@ function clockLabel(ms: number): string {
 }
 
 /**
- * The shape of one day: every work block laid out on a wall-clock axis, with the
- * rest that followed it. Turns "4h 12m" into "three long blocks and a
+ * The shape of one day: every entry laid out on a wall-clock axis, work and
+ * the rest that followed it. Turns "4h 12m" into "three long blocks and a
  * fragmented afternoon".
  */
-function DayShape({ sessions }: { sessions: SessionLog[] }) {
-  const blocks = [...sessions].sort((a, b) => a.startedAt - b.startedAt);
+function DayShape({ entries }: { entries: TimeEntry[] }) {
+  const blocks = [...entries].sort((a, b) => a.startedAt - b.startedAt);
   if (blocks.length === 0) return null;
 
+  const workBlocks = blocks.filter((e) => e.kind === 'work');
   const start = blocks[0].startedAt;
-  const end = Math.max(...blocks.map((s) => s.startedAt + s.workMs + s.breakMs));
+  const end = Math.max(...blocks.map((e) => e.endedAt));
   const span = Math.max(end - start, 60_000);
-  const longest = Math.max(...blocks.map((s) => s.workMs));
+  const longest = workBlocks.length > 0 ? Math.max(...workBlocks.map((e) => durationOf(e))) : 0;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -76,30 +80,21 @@ function DayShape({ sessions }: { sessions: SessionLog[] }) {
         style={{ background: 'var(--color-surface-2)' }}
       >
         <div className="absolute inset-0">
-          {blocks.map((s) => {
-            const left = ((s.startedAt - start) / span) * 100;
-            const workW = (s.workMs / span) * 100;
-            const restW = (s.breakMs / span) * 100;
+          {blocks.map((e) => {
+            const left = ((e.startedAt - start) / span) * 100;
+            const width = (durationOf(e) / span) * 100;
             return (
-              <div key={s.id}>
-                <div
-                  className="absolute inset-y-0 rounded-sm"
-                  style={{ left: `${left}%`, width: `${Math.max(workW, 0.6)}%`, background: 'var(--color-accent)' }}
-                  title={`Active ${formatDuration(s.workMs)} from ${clockLabel(s.startedAt)}`}
-                />
-                {restW > 0 && (
-                  <div
-                    className="absolute inset-y-0 rounded-sm"
-                    style={{
-                      left: `${left + workW}%`,
-                      width: `${Math.max(restW, 0.4)}%`,
-                      background: 'var(--color-rest)',
-                      opacity: 0.75,
-                    }}
-                    title={`Rest ${formatDuration(s.breakMs)}`}
-                  />
-                )}
-              </div>
+              <div
+                key={e.id}
+                className="absolute inset-y-0 rounded-sm"
+                style={{
+                  left: `${left}%`,
+                  width: `${Math.max(width, e.kind === 'work' ? 0.6 : 0.4)}%`,
+                  background: e.kind === 'work' ? 'var(--color-accent)' : 'var(--color-rest)',
+                  opacity: e.kind === 'work' ? 1 : 0.75,
+                }}
+                title={`${e.kind === 'work' ? 'Active' : 'Rest'} ${formatDuration(durationOf(e))} from ${clockLabel(e.startedAt)}`}
+              />
             );
           })}
         </div>
@@ -107,7 +102,7 @@ function DayShape({ sessions }: { sessions: SessionLog[] }) {
       <div className="flex justify-between text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
         <span className="num">{clockLabel(start)}</span>
         <span>
-          {blocks.length} block{blocks.length === 1 ? '' : 's'} · longest{' '}
+          {workBlocks.length} block{workBlocks.length === 1 ? '' : 's'} · longest{' '}
           <span className="num">{formatDuration(longest)}</span>
         </span>
         <span className="num">{clockLabel(end)}</span>
@@ -128,23 +123,23 @@ export function Activity() {
     // Today is live, so it always comes from `daily` rather than the archive.
     byDate.set(today, {
       date: today,
-      totalWorkMs: daily.sessions.reduce((a, s) => a + s.workMs, 0),
-      totalBreakMs: daily.sessions.reduce((a, s) => a + s.breakMs, 0),
+      totalWorkMs: workMsOf(daily.entries),
+      totalBreakMs: breakMsOf(daily.entries),
       unusedRestMs: 0,
-      sessions: daily.sessions,
+      entries: daily.entries,
     });
 
     return Array.from({ length: DAYS }, (_, i) => {
       const date = shiftKey(DAYS - 1 - i);
       const entry = byDate.get(date);
-      const sessions = entry?.sessions ?? [];
+      const entries = entry?.entries ?? [];
       const d = parseDate(date);
       return {
         date,
         activeMs: entry?.totalWorkMs ?? 0,
         restTakenMs: entry?.totalBreakMs ?? 0,
-        restEarnedMs: restEarned(sessions),
-        sessions,
+        restEarnedMs: restEarned(entries),
+        entries,
         isToday: date === today,
         isWeekend: d.getDay() === 0 || d.getDay() === 6,
       };
@@ -342,8 +337,8 @@ export function Activity() {
             ))}
           </div>
 
-          {selectedDay.sessions.length > 0 ? (
-            <DayShape sessions={selectedDay.sessions} />
+          {selectedDay.entries.length > 0 ? (
+            <DayShape entries={selectedDay.entries} />
           ) : (
             <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
               Nothing recorded on this day.

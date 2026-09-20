@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { formatTimeLong, isInDebt, earnBreak } from '../utils/thirdTime';
+import { formatTimeLong, isInDebt } from '../utils/thirdTime';
+import { bankOf } from '../utils/ledger';
 import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
-import { useElapsed } from '../hooks/useNow';
+import { useNow, useElapsed } from '../hooks/useNow';
 import { playSound } from '../utils/sounds';
 import { sendNotification } from '../utils/notifications';
 
 type BreakMode = null | 'picker' | 'open' | 'timed';
 
 export function BreakBank() {
-  const { timerState, timerStart, daily, startBreak } = useSession();
+  const { timerState, timerStart, daily, startBreak, openSegment } = useSession();
   const { mode, soundsEnabled, breakIncrements, lastBreakMs, setLastBreakMs } = useSettings();
   const [breakMode, setBreakMode] = useState<BreakMode>(null);
   const [timedBreakMs, setTimedBreakMs] = useState<number | null>(null);
@@ -43,13 +44,8 @@ export function BreakBank() {
   }
 
   const elapsed = useElapsed(timerStart, timerState !== 'idle');
-
-  const liveBank =
-    timerState === 'working'
-      ? daily.bankMs + earnBreak(elapsed, mode)
-      : timerState === 'on-break'
-      ? daily.bankMs - elapsed
-      : daily.bankMs;
+  const now = useNow(timerState !== 'idle');
+  const liveBank = bankOf(daily.entries, openSegment(), now);
 
   const displaySeconds = Math.floor(Math.abs(liveBank) / 1000);
   const isZero = displaySeconds === 0;
@@ -75,9 +71,7 @@ export function BreakBank() {
   const isOnBreak = timerState === 'on-break';
 
   const handleBreakClick = () => {
-    const projectedBank =
-      timerState === 'working' ? daily.bankMs + earnBreak(elapsed, mode) : daily.bankMs;
-    if (projectedBank <= 0) {
+    if (liveBank <= 0) {
       setShowDebtPrompt(true);
       return;
     }
@@ -153,6 +147,7 @@ export function BreakBank() {
       {/* Bank balance */}
       <div className="text-center py-3">
         <div
+          data-testid="bank-balance"
           className="font-timer text-4xl font-bold"
           style={{
             color: isZero

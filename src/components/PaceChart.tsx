@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
 import { todayKey } from '../utils/thirdTime';
+import { workMsOf } from '../utils/ledger';
 import {
   currentRunStart,
   denseLoads,
@@ -75,7 +76,7 @@ export function PaceChart() {
     const byDate = new Map<string, number>();
     history.forEach((h) => byDate.set(h.date, h.totalWorkMs));
     // Today is live, so it comes from `daily` rather than the archive.
-    byDate.set(today, daily.sessions.reduce((a, s) => a + s.workMs, 0));
+    byDate.set(today, workMsOf(daily.entries));
 
     const dates = [...byDate.keys()].sort();
     if (dates.length === 0)
