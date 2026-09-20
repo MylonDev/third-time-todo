@@ -1,5 +1,5 @@
-import type { EffortTarget, GoalPeriod, Recurrence } from '../types';
-import { todayKey, daysSince, dateKey, weekdayIndex, dayKeyOf } from './thirdTime';
+import type { GoalPeriod, PeriodTarget, Recurrence } from '../types';
+import { daysSince, dateKey, weekdayIndex, dayKeyOf } from './thirdTime';
 
 // `dateKey` and `weekdayIndex` actually live in `thirdTime.ts` now — it needs
 // `dateKey` for `dayKeyOf` and already had to import from here, so keeping
@@ -34,21 +34,33 @@ export function lastNDays(n: number, end: Date = new Date()): string[] {
 
 // ── Period keys (goals' effort targets) ───────────────────────────────────────
 
+/**
+ * The period key a moment falls in. `at` defaults to now, which is what every
+ * live caller wants; a re-sum over past ledger entries passes each entry's own
+ * timestamp instead, so a session from three weeks ago lands in that week's
+ * bucket rather than this one's.
+ */
 export function getPeriodKey(
   period: GoalPeriod,
   periodDays: number | undefined,
   anchor: number,
-  dayEndHour: number
+  dayEndHour: number,
+  at: number = Date.now()
 ): string {
-  if (period === 'daily') return todayKey(dayEndHour);
-  if (period === 'weekly') return getWeekKey(new Date(), dayEndHour);
-  const windows = Math.floor(daysSince(anchor) / (periodDays ?? 1));
+  if (period === 'daily') return dayKeyOf(at, dayEndHour);
+  if (period === 'weekly') return getWeekKey(new Date(at), dayEndHour);
+  const windows = Math.floor((at - anchor) / 86_400_000 / (periodDays ?? 1));
   return `custom-${windows}`;
 }
 
-/** The current period key for an effort target, counting custom windows from `anchor`. */
-export function effortPeriodKey(effort: EffortTarget, anchor: number, dayEndHour: number): string {
-  return getPeriodKey(effort.period, effort.periodDays, anchor, dayEndHour);
+/** The period key for a period target at `at` (defaults to now), counting custom windows from `anchor`. */
+export function targetPeriodKey(
+  target: PeriodTarget,
+  anchor: number,
+  dayEndHour: number,
+  at: number = Date.now()
+): string {
+  return getPeriodKey(target.period, target.periodDays, anchor, dayEndHour, at);
 }
 
 /**
