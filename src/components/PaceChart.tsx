@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useSession } from '../store/session';
+import { useSettings } from '../store/settings';
 import { todayKey } from '../utils/thirdTime';
 import {
   currentRunStart,
@@ -66,9 +67,10 @@ const yFor = (ratio: number) => {
 
 export function PaceChart() {
   const { history, daily } = useSession();
+  const dayEndHour = useSettings((s) => s.dayEndHour);
 
   const { points, ready, daysShort, resuming } = useMemo(() => {
-    const today = todayKey();
+    const today = todayKey(dayEndHour);
 
     const byDate = new Map<string, number>();
     history.forEach((h) => byDate.set(h.date, h.totalWorkMs));
@@ -98,7 +100,7 @@ export function PaceChart() {
       daysShort: 0,
       resuming,
     };
-  }, [history, daily]);
+  }, [history, daily, dayEndHour]);
 
   if (!ready) {
     return (

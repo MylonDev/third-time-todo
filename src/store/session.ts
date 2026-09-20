@@ -4,6 +4,7 @@ import type { Mode, SessionLog, DailyState, SessionReport, HistoryEntry, FocusTa
 import { applyWork, spendBreak, todayKey } from '../utils/thirdTime';
 import { useTasks } from './tasks';
 import { useGoals } from './goals';
+import { useSettings } from './settings';
 
 type TimerState = 'idle' | 'working' | 'on-break';
 
@@ -34,7 +35,7 @@ interface SessionStore {
 }
 
 function freshDay(): DailyState {
-  return { date: todayKey(), bankMs: 0, sessions: [] };
+  return { date: todayKey(useSettings.getState().dayEndHour), bankMs: 0, sessions: [] };
 }
 
 /** A focus target must be a live task or a live (unarchived, incomplete) goal. */
@@ -104,7 +105,7 @@ export const useSession = create<SessionStore>()(
        */
       maybeArchivePreviousDay: () => {
         const { daily, timerState } = get();
-        if (daily.date === todayKey()) return;
+        if (daily.date === todayKey(useSettings.getState().dayEndHour)) return;
         // "Ongoing" means a timer is actually running. A session left open
         // without ending it must not pin the app to yesterday.
         if (timerState !== 'idle') return;

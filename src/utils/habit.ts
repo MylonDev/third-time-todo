@@ -18,14 +18,19 @@ export function isDoneOn(habit: Habit, key: string): boolean {
  * first. `off` = the habit wasn't due that day; `done` / `missed` otherwise.
  * A weekly habit reads a day as `done` if it was completed anywhere that week.
  */
-export function dotStates(habit: Habit, n = 7, end: Date = new Date()): DotState[] {
+export function dotStates(
+  habit: Habit,
+  dayEndHour: number,
+  n = 7,
+  end: Date = new Date()
+): DotState[] {
   const createdKey = dateKey(new Date(habit.createdAt));
   return lastNDays(n, end).map((key) => {
     // Days before the habit existed were never "missed".
     if (key < createdKey) return 'off';
     const day = new Date(key + 'T00:00:00');
     if (habit.freq.kind === 'weekly') {
-      const weekStart = getWeekKey(day);
+      const weekStart = getWeekKey(day, dayEndHour);
       const nextWeek = new Date(weekStart + 'T00:00:00');
       nextWeek.setDate(nextWeek.getDate() + 7);
       const doneThisWeek = Object.keys(habit.completions).some(
@@ -48,6 +53,7 @@ function weekdayOf(d: Date): number {
 /** Completed vs due over a trailing window of `windowDays` calendar days. */
 export function adherence(
   habit: Habit,
+  dayEndHour: number,
   windowDays = 14,
   end: Date = new Date()
 ): { done: number; due: number; pct: number } {
@@ -66,7 +72,7 @@ export function adherence(
     const weeks = new Set(
       lastNDays(windowDays, end)
         .filter((k) => k >= createdKey)
-        .map((k) => getWeekKey(new Date(k + 'T00:00:00')))
+        .map((k) => getWeekKey(new Date(k + 'T00:00:00'), dayEndHour))
     );
     for (const weekStart of weeks) {
       due += 1;

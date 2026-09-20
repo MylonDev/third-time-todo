@@ -1,5 +1,6 @@
 import type { Habit } from '../types';
 import { adherence, dotStates, type DotState } from '../utils/habit';
+import { useSettings } from '../store/settings';
 
 function dotStyle(state: DotState): React.CSSProperties {
   if (state === 'done') {
@@ -28,8 +29,9 @@ export function HabitAdherence({
   days?: number;
   showPct?: boolean;
 }) {
-  const states = dotStates(habit, days);
-  const { pct, due } = adherence(habit, days);
+  const dayEndHour = useSettings((s) => s.dayEndHour);
+  const states = dotStates(habit, dayEndHour, days);
+  const { pct, due } = adherence(habit, dayEndHour, days);
 
   return (
     <div className="flex items-center gap-2.5" title={`Last ${days} days`}>

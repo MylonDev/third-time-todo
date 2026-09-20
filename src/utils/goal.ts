@@ -95,9 +95,9 @@ export function effortUnit(goal: Goal): string {
 }
 
 /** How much has been logged toward the effort target in the current period. */
-export function effortThisPeriod(goal: Goal): number {
+export function effortThisPeriod(goal: Goal, dayEndHour: number): number {
   if (!goal.effort) return 0;
-  const key = effortPeriodKey(goal.effort, goal.createdAt);
+  const key = effortPeriodKey(goal.effort, goal.createdAt, dayEndHour);
   return goal.progress[key] ?? 0;
 }
 
@@ -109,9 +109,9 @@ export interface EffortReading {
   text: string;
 }
 
-export function effortReading(goal: Goal): EffortReading | null {
+export function effortReading(goal: Goal, dayEndHour: number): EffortReading | null {
   if (!goal.effort) return null;
-  const done = effortThisPeriod(goal);
+  const done = effortThisPeriod(goal, dayEndHour);
   const target = goal.effort.amount;
   const unit = effortUnit(goal);
   const fraction = target > 0 ? done / target : 0;

@@ -1,5 +1,6 @@
 import { useFocusable } from '../hooks/useFocusable';
 import { useGoals } from '../store/goals';
+import { useSettings } from '../store/settings';
 import { ActionMenu } from './ActionMenu';
 import type { Goal } from '../types';
 import {
@@ -52,10 +53,11 @@ export function GoalCard({
   const deleteGoal = useGoals((s) => s.deleteGoal);
   const toggleMilestone = useGoals((s) => s.toggleMilestone);
   const goals = useGoals((s) => s.goals);
+  const dayEndHour = useSettings((s) => s.dayEndHour);
 
   const met = isGoalMet(goal);
   const outcomeFrac = outcomeProgress(goal);
-  const effort = effortReading(goal);
+  const effort = effortReading(goal, dayEndHour);
   const pace = paceReading(goal);
   const target = formatOutcomeTarget(goal);
   const chain = lineageChain(goals, goal.id);

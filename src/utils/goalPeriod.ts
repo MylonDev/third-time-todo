@@ -1,5 +1,5 @@
 import type { EffortTarget, GoalPeriod, Habit } from '../types';
-import { todayKey, daysSince, dateKey, weekdayIndex } from './thirdTime';
+import { todayKey, daysSince, dateKey, weekdayIndex, dayKeyOf } from './thirdTime';
 
 // `dateKey` and `weekdayIndex` actually live in `thirdTime.ts` now — it needs
 // `dateKey` for `dayKeyOf` and already had to import from here, so keeping
@@ -9,9 +9,15 @@ export { dateKey, weekdayIndex };
 
 // ── Date keys ─────────────────────────────────────────────────────────────────
 
-/** The Monday of a date's ISO week, as a date key. */
-export function getWeekKey(date: Date): string {
-  const d = new Date(date);
+/**
+ * The Monday of a date's ISO week, as a date key. Goes through `dayKeyOf`
+ * rather than the raw date so the week boundary moves with the day boundary —
+ * a Monday session that runs past midnight but before `dayEndHour` is still
+ * Sunday's week.
+ */
+export function getWeekKey(date: Date, dayEndHour: number): string {
+  const key = dayKeyOf(date.getTime(), dayEndHour);
+  const d = new Date(key + 'T00:00:00');
   d.setDate(d.getDate() - weekdayIndex(d));
   return dateKey(d);
 }
@@ -31,17 +37,18 @@ export function lastNDays(n: number, end: Date = new Date()): string[] {
 export function getPeriodKey(
   period: GoalPeriod,
   periodDays: number | undefined,
-  anchor: number
+  anchor: number,
+  dayEndHour: number
 ): string {
-  if (period === 'daily') return todayKey();
-  if (period === 'weekly') return getWeekKey(new Date());
+  if (period === 'daily') return todayKey(dayEndHour);
+  if (period === 'weekly') return getWeekKey(new Date(), dayEndHour);
   const windows = Math.floor(daysSince(anchor) / (periodDays ?? 1));
   return `custom-${windows}`;
 }
 
 /** The current period key for an effort target, counting custom windows from `anchor`. */
-export function effortPeriodKey(effort: EffortTarget, anchor: number): string {
-  return getPeriodKey(effort.period, effort.periodDays, anchor);
+export function effortPeriodKey(effort: EffortTarget, anchor: number, dayEndHour: number): string {
+  return getPeriodKey(effort.period, effort.periodDays, anchor, dayEndHour);
 }
 
 /**
@@ -52,7 +59,8 @@ export function pastPeriodKeys(
   period: GoalPeriod,
   periodDays: number | undefined,
   anchor: number,
-  count: number
+  count: number,
+  dayEndHour: number
 ): string[] {
   if (period === 'custom') {
     const current = Math.floor(daysSince(anchor) / (periodDays ?? 1));
@@ -63,7 +71,7 @@ export function pastPeriodKeys(
   return Array.from({ length: count }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (count - 1 - i) * step);
-    return period === 'weekly' ? getWeekKey(d) : dateKey(d);
+    return period === 'weekly' ? getWeekKey(d, dayEndHour) : dateKey(d);
   });
 }
 
@@ -123,12 +131,16 @@ function midnight(d: Date): Date {
  * completed. `everyN` catches up: a missed occurrence stays outstanding until
  * its next scheduled day comes round, not only on the exact day.
  */
-export function isHabitOutstanding(habit: Habit, today: Date = new Date()): boolean {
+export function isHabitOutstanding(
+  habit: Habit,
+  dayEndHour: number,
+  today: Date = new Date()
+): boolean {
   if (habit.archivedAt) return false;
   const f = habit.freq;
 
   if (f.kind === 'weekly') {
-    const weekStart = getWeekKey(today);
+    const weekStart = getWeekKey(today, dayEndHour);
     return !Object.keys(habit.completions).some((k) => k >= weekStart && habit.completions[k]);
   }
 

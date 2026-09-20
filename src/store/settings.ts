@@ -16,6 +16,8 @@ interface SettingsState {
   activeTab: TabId;
   quotes: string[]; // user-entered, shown once on the first session of the day
   showQuote: boolean;
+  /** Local hour (0–4) after midnight at which "today" turns into "tomorrow". */
+  dayEndHour: number;
   setMode: (mode: Mode) => void;
   setLongWorkReminderMin: (min: number) => void;
   setSoundsEnabled: (enabled: boolean) => void;
@@ -26,6 +28,7 @@ interface SettingsState {
   setActiveTab: (tab: TabId) => void;
   setQuotes: (quotes: string[]) => void;
   setShowQuote: (show: boolean) => void;
+  setDayEndHour: (h: number) => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -41,6 +44,7 @@ export const useSettings = create<SettingsState>()(
       activeTab: 'tasks',
       quotes: [],
       showQuote: true,
+      dayEndHour: 0,
       setMode: (mode) => set({ mode }),
       setActiveTab: (activeTab) => set({ activeTab }),
       setQuotes: (quotes) => set({ quotes }),
@@ -54,10 +58,11 @@ export const useSettings = create<SettingsState>()(
           collapsedSections: { ...s.collapsedSections, [key]: !s.collapsedSections[key] },
         })),
       setLastBreakMs: (ms) => set({ lastBreakMs: ms }),
+      setDayEndHour: (h) => set({ dayEndHour: Math.max(0, Math.min(4, h)) }),
     }),
     {
       name: 'tt-settings',
-      version: 8,
+      version: 9,
       migrate: (persisted: unknown, version: number) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const state = persisted as any;
@@ -87,6 +92,9 @@ export const useSettings = create<SettingsState>()(
             quotes: state.quotes ?? [],
             showQuote: state.showQuote ?? true,
           };
+        }
+        if (version < 9) {
+          return { ...state, dayEndHour: 0 };
         }
         return state;
       },

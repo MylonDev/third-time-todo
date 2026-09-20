@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from '../store/session';
 import { useHabits } from '../store/habits';
+import { useSettings } from '../store/settings';
 import { earnBreak, formatDuration, todayKey } from '../utils/thirdTime';
 import { adherence, dotStates, type DotState } from '../utils/habit';
 import { freqLabel } from '../utils/habitFreq';
@@ -120,17 +121,18 @@ function DayShape({ sessions }: { sessions: SessionLog[] }) {
 }
 
 function HabitRow({ habit }: { habit: Habit }) {
+  const dayEndHour = useSettings((s) => s.dayEndHour);
   const created = new Date(habit.createdAt);
   created.setHours(0, 0, 0, 0);
 
   // Days before the habit existed are not misses — blank them in the grid and
   // keep the percentage over the window the habit has actually been alive for.
-  const states = dotStates(habit, DAYS);
+  const states = dotStates(habit, dayEndHour, DAYS);
   const alive = lastNDays(DAYS).map((key) => new Date(key + 'T00:00:00') >= created);
   const cells = alive.map((live, i) => (live ? states[i] : ('off' as DotState)));
   const aliveDays = alive.filter(Boolean).length;
 
-  const { pct } = adherence(habit, Math.max(1, aliveDays));
+  const { pct } = adherence(habit, dayEndHour, Math.max(1, aliveDays));
   const low = pct < 0.5;
 
   return (
@@ -202,7 +204,8 @@ function HabitAdherence() {
 
 export function Activity() {
   const { daily, history, timerState } = useSession();
-  const today = todayKey();
+  const dayEndHour = useSettings((s) => s.dayEndHour);
+  const today = todayKey(dayEndHour);
   const [selected, setSelected] = useState<string | null>(null);
 
   const days: Day[] = useMemo(() => {

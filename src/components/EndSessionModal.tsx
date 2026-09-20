@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Modal } from './Modal';
 import { useSession } from '../store/session';
 import { useTasks } from '../store/tasks';
+import { useSettings } from '../store/settings';
 import { formatTimeLong, todayKey } from '../utils/thirdTime';
 import type { Mode, SessionReport } from '../types';
 
@@ -18,6 +19,7 @@ interface Props {
 export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
   const { endSession } = useSession();
   const { tasks } = useTasks();
+  const dayEndHour = useSettings((s) => s.dayEndHour);
 
   const [step, setStep] = useState<Step>('confirm');
   const [report, setReport] = useState<SessionReport | null>(null);
@@ -37,7 +39,7 @@ export function EndSessionModal({ isOpen, onClose, mode, bankToClear }: Props) {
 
   if (!isOpen) return null;
 
-  const today = todayKey();
+  const today = todayKey(dayEndHour);
   const todays = tasks.filter((t) => t.scheduledDate === today);
   const completedTasks = todays.filter((t) => t.status === 'done').length;
 
