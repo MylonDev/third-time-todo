@@ -15,7 +15,7 @@ import { useSession } from './store/session';
 import { useSettings } from './store/settings';
 import { useTasks } from './store/tasks';
 import { requestNotificationPermission } from './utils/notifications';
-import { earnBreak, todayKey } from './utils/thirdTime';
+import { earnBreak, todayKey, dayEndOf } from './utils/thirdTime';
 import type { TabId } from './types';
 
 const TABS: { id: TabId; label: string }[] = [
@@ -30,7 +30,7 @@ export default function App() {
     timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer,
     focusedItem, setFocusSegmentStart, pruneFocus, maybeArchivePreviousDay,
   } = useSession();
-  const { theme, mode, activeTab, setActiveTab, quotes, showQuote, setShowQuote } = useSettings();
+  const { theme, mode, activeTab, setActiveTab, quotes, showQuote, setShowQuote, dayEndHour } = useSettings();
   const { rolloverPastTasks } = useTasks();
 
   // Tasks that came over from a previous day on this open. Offered for triage
@@ -88,20 +88,20 @@ export default function App() {
     };
   }, []);
 
-  // A tab left open across midnight keeps yesterday's task list; re-run rollover
-  // as the day turns.
-  const [dayKey, setDayKey] = useState(() => todayKey());
+  // A tab left open across the day boundary keeps yesterday's task list;
+  // re-run rollover as the day turns. Re-scheduled whenever `dayEndHour`
+  // changes, since that moves when "the day turns" means.
+  const [dayKey, setDayKey] = useState(() => todayKey(dayEndHour));
   useEffect(() => {
-    const next = new Date();
-    next.setHours(24, 0, 0, 500);
+    const turnover = dayEndOf(todayKey(dayEndHour), dayEndHour);
     const id = setTimeout(() => {
       maybeArchivePreviousDay();
       const carried = rolloverPastTasks();
       if (carried.length > 0) setCarriedOver(carried);
-      setDayKey(todayKey());
-    }, next.getTime() - Date.now());
+      setDayKey(todayKey(dayEndHour));
+    }, turnover - Date.now());
     return () => clearTimeout(id);
-  }, [dayKey, rolloverPastTasks, maybeArchivePreviousDay]);
+  }, [dayKey, dayEndHour, rolloverPastTasks, maybeArchivePreviousDay]);
 
   // Restore handlers
   const [restoreModalDismissed, setRestoreModalDismissed] = useState(false);
