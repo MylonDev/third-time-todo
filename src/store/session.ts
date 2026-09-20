@@ -45,6 +45,28 @@ function freshDay(): DailyState {
   return { date: todayKey(useSettings.getState().dayEndHour), entries: [] };
 }
 
+/**
+ * The full ledger — every entry any project or task total is ever summed
+ * from, not just today's. A project's older period buckets live only in
+ * history; recomputing from `daily` alone would zero them out the moment
+ * anyone edited or removed an entry from today.
+ */
+function allEntries(daily: DailyState, history: HistoryEntry[]): TimeEntry[] {
+  return [...history.flatMap((h) => h.entries), ...daily.entries];
+}
+
+/**
+ * `addEntry`/`updateEntry`/`removeEntry` are the editable-timeline's doors
+ * into the ledger — a delta patched onto a project's or task's total at the
+ * moment of the edit is only ever right until the next edit touches the same
+ * entry, so every one of them re-sums from scratch instead.
+ */
+function recomputeAggregates(daily: DailyState, history: HistoryEntry[]): void {
+  const entries = allEntries(daily, history);
+  useProjects.getState().recomputeFrom(entries);
+  useTasks.getState().recomputeFrom(entries);
+}
+
 export const useSession = create<SessionStore>()(
   persist(
     (set, get) => ({
@@ -128,6 +150,20 @@ export const useSession = create<SessionStore>()(
         const open = get().openSegment();
         if (open && open.startedAt < boundary) {
           const { closed, reopened } = splitAtBoundary(open, boundary, Date.now());
+          // This is a real closing entry, same as the ones `stopWork` and
+          // `setActive` produce — it needs the same one-time credit, right
+          // here, or the pre-boundary half is credited nowhere. The reopened
+          // far side is a fresh open segment under the same ids; whatever
+          // eventually closes it (a plain `stopWork`, most likely) commits
+          // that half on its own, so there is no double-count here.
+          const ms = closed.endedAt - closed.startedAt;
+          if (closed.kind === 'work' && ms > 0) {
+            // The pre-boundary half happened before today's boundary even
+            // though it's being committed after it — bucket it by its own
+            // `startedAt` or it lands in today's period instead of yesterday's.
+            if (closed.projectId) useProjects.getState().commitTime(closed.projectId, ms, closed.startedAt);
+            if (closed.taskId) useTasks.getState().adjustTrackedMs(closed.taskId, ms);
+          }
           set({
             daily: {
               ...daily,
@@ -168,7 +204,7 @@ export const useSession = create<SessionStore>()(
         // sync by `setActive`). Either, both, or neither can be empty; an
         // entry with no target is still an honest record of unattributed time.
         if (ms > 0) {
-          if (entry.projectId) useProjects.getState().commitTime(entry.projectId, ms);
+          if (entry.projectId) useProjects.getState().commitTime(entry.projectId, ms, entry.startedAt);
           if (entry.taskId) useTasks.getState().adjustTrackedMs(entry.taskId, ms);
         }
         set({
@@ -238,7 +274,7 @@ export const useSession = create<SessionStore>()(
           mode: useSettings.getState().mode,
         };
         const ms = entry.endedAt - entry.startedAt;
-        if (entry.projectId) useProjects.getState().commitTime(entry.projectId, ms);
+        if (entry.projectId) useProjects.getState().commitTime(entry.projectId, ms, entry.startedAt);
         if (entry.taskId) useTasks.getState().adjustTrackedMs(entry.taskId, ms);
 
         set({
@@ -250,13 +286,15 @@ export const useSession = create<SessionStore>()(
       },
 
       addEntry: (e) => {
-        const { daily } = get();
+        const { daily, history } = get();
         if (daily.entries.some((existing) => entriesOverlap(existing, e))) return;
-        set({ daily: { ...daily, entries: [...daily.entries, e].sort((a, b) => a.startedAt - b.startedAt) } });
+        const entries = [...daily.entries, e].sort((a, b) => a.startedAt - b.startedAt);
+        set({ daily: { ...daily, entries } });
+        recomputeAggregates({ ...daily, entries }, history);
       },
 
       updateEntry: (id, patch) => {
-        const { daily } = get();
+        const { daily, history } = get();
         const current = daily.entries.find((e) => e.id === id);
         if (!current) return;
         const updated = { ...current, ...patch };
@@ -265,11 +303,14 @@ export const useSession = create<SessionStore>()(
           .map((e) => (e.id === id ? updated : e))
           .sort((a, b) => a.startedAt - b.startedAt);
         set({ daily: { ...daily, entries } });
+        recomputeAggregates({ ...daily, entries }, history);
       },
 
       removeEntry: (id) => {
-        const { daily } = get();
-        set({ daily: { ...daily, entries: daily.entries.filter((e) => e.id !== id) } });
+        const { daily, history } = get();
+        const entries = daily.entries.filter((e) => e.id !== id);
+        set({ daily: { ...daily, entries } });
+        recomputeAggregates({ ...daily, entries }, history);
       },
 
       resetDay: () =>

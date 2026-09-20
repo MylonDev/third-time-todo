@@ -27,8 +27,16 @@ interface ProjectsState {
 
   /** The period key a bit of progress belongs in right now. */
   currentPeriodKey: (projectId: string) => string;
-  /** Add focused time (ms) to a project's current period. Called by the session store. */
-  commitTime: (projectId: string, ms: number) => void;
+  /**
+   * Add focused time (ms) to a project's period. Called by the session store.
+   * `at` buckets the period the same way `recomputeFrom` does — by when the
+   * work happened, not by when it's being committed — which matters for the
+   * boundary-split half of a stint: that half's own `startedAt` is before
+   * today, so it must file under yesterday's bucket even though the commit
+   * itself runs after the boundary. Defaults to now for every ordinary,
+   * same-moment commit.
+   */
+  commitTime: (projectId: string, ms: number, at?: number) => void;
   /**
    * Re-sum a project's period buckets from the ledger. Retroactive edits to the
    * timeline recompute rather than patch — a delta that is ever computed against
@@ -102,12 +110,12 @@ export const useProjects = create<ProjectsState>()(
         return project ? periodKeyFor(project, dayEndHour) : todayKey(dayEndHour);
       },
 
-      commitTime: (projectId, ms) => {
+      commitTime: (projectId, ms, at = Date.now()) => {
         const dayEndHour = useSettings.getState().dayEndHour;
         set((s) => ({
           projects: s.projects.map((p) => {
             if (p.id !== projectId || ms <= 0) return p;
-            const key = periodKeyFor(p, dayEndHour);
+            const key = periodKeyFor(p, dayEndHour, at);
             return {
               ...p,
               progress: {
