@@ -1,6 +1,7 @@
 # Projects, a day timeline, and a weekly schedule
 
-**Status:** designed, not yet built.
+**Status:** Phase 1 implemented, 2026-09-21. Phases 2, 3 and 4 are designed,
+not yet built.
 **Supersedes** parts of `2026-09-08-redesign.md` (habits) and
 `2026-09-05-session-model.md` (the session as a unit of work).
 
@@ -315,6 +316,38 @@ The `tt-habits` localStorage key is left untouched.
 | No sessions | no End Session control anywhere in the UI |
 
 ---
+
+## Found while implementing
+
+**The `tt-goals` migration chain needed to keep its v1 and v2 legs.** A first
+pass replaced them with the v2 → v3 project migration alone; anyone still on
+v1 or v2 would have had those legs skipped and arrived at v3 with zero logged
+time. They stay.
+
+**`sessionClosedAt` needed to stay persisted, not go away with the rest of
+the session fields.** Unpersisted, a reload with a running timer had nothing
+to compare against on restore, so the whole time away read as real work and
+got written into the ledger as one long entry.
+
+**The day-boundary split has to credit its own closed half.** `stopWork` only
+ever sees the reopened far side of the entry, the one still open after the
+split; the half that got closed at the boundary needs its own project/task
+credit at split time, or that stretch of work is silently lost.
+
+**`commitTime` takes the entry's own timestamp, not `Date.now()`.** Bucketing
+by wall-clock-now files a stint that ran late at night against the following
+day's period target instead of the day it actually happened on.
+
+**`dayEndOf` cannot be `dayStartOf + 86_400_000`.** A day is not always 24
+hours of wall clock — the spring-forward DST transition is 23 — so that
+arithmetic returns the wrong day key once a year.
+
+**The v8 settings migration leg was overwriting `activeTab`.** It runs for
+everyone below v8 regardless of how they got there, so a store already past
+v8 that later needed a later leg's `activeTab` translation (v10's habits
+cleanup, v11's goals rename) had its value stomped back to the v8 default
+first. The legs after it now build on what came before rather than assuming
+v8's placeholder.
 
 # Phase 2 — The day timeline
 

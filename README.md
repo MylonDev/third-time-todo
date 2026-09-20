@@ -10,13 +10,22 @@ Live at **https://mylondev.github.io/third-time-todo/**
 ## Features
 
 - **Break bank** — work accrues break time at your chosen ratio; the balance can
-  go negative (debt) and carries through the day.
-- **Difficulty modes** — Hard (1:4), Medium (1:3), Easy (1:2).
+  go negative (debt) and carries through the day. There's no Start/End Session
+  step; you just start a timer and stop it. The bank itself isn't stored — it's
+  derived on the fly from a ledger of time entries, so trimming or moving an
+  entry later moves the break it earned along with it.
+- **Difficulty modes** — Locked in (1:4), Serious (1:3), Relaxed (1:2). Each
+  time entry remembers the mode that was in force when it ran, so switching
+  modes never rewrites what you already earned.
+- **Projects** — a name, an optional colour, an optional time target per period
+  ("10h / week"), an optional deadline. Time accrues to a project forever; a
+  project is archived, never "completed".
 - **Tasks and subtasks** — drag to reorder, per-task time tracking, and an
-  end-of-day flow for whatever is left over.
-- **Routines** — named groups of recurring tasks that spawn into today's list on
-  each daily/weekly/custom period turnover, with adherence history.
-- **Goals** — boolean, counter, or time-based, tracked per period.
+  end-of-day flow for whatever is left over. A task can be tagged to a
+  project, and a timer started on that task credits the project too.
+- **A configurable end of day** — the day cuts over at midnight by default, but
+  can be pushed to 1–4 AM for anyone who works past midnight. A timer left
+  running across that boundary gets split there instead of stalling the day.
 - **Activity** — daily history of work, break, and unused rest time.
 - Installable PWA with sound and notification cues. Everything is stored in
   `localStorage`; there is no account and no server.
@@ -30,12 +39,13 @@ npx playwright install chromium   # once, for the test suite
 npm run dev      # vite dev server on http://localhost:5173
 npm run build    # typecheck (tsc -b) + production build to dist/
 npm run lint     # eslint
+npm run test:unit # vitest unit suite
 npm test         # playwright end-to-end suite (~12s)
 npm run preview  # serve the production build locally
 ```
 
 Requires Node 20+. `npm test` starts its own dev server, so nothing needs to
-be running first. Lint, build and tests all run on every PR via
+be running first. Lint, build and both test suites all run on every PR via
 `.github/workflows/ci.yml`.
 
 ### Tests
@@ -46,14 +56,18 @@ and surviving a reload, dialogs trapping focus and closing on Escape, inline
 editors committing and cancelling, empty states, and both colour themes. Each
 test starts from an empty `localStorage` and fails on any console error.
 
+`npm run test:unit` runs a vitest suite alongside it, for the logic that
+doesn't need a browser: the migration chains for each store, the derived
+break bank, and the day-boundary arithmetic.
+
 ## Stack
 
 React 19, TypeScript, Vite 8, Tailwind CSS 4, zustand (with `persist`),
 `@dnd-kit` for drag-and-drop, and framer-motion for animation.
 
 State lives in four zustand stores under `src/store/` — `session`, `tasks`,
-`goals`, `settings` — each persisted to its own `localStorage` key. The break
-mechanic itself is pure and lives in `src/utils/thirdTime.ts`.
+`projects`, `settings` — each persisted to its own `localStorage` key. The
+break mechanic itself is pure and lives in `src/utils/thirdTime.ts`.
 
 > Persisted stores are versioned. Changing a store's shape requires bumping its
 > `version` and extending `migrate`, or existing users lose data.
