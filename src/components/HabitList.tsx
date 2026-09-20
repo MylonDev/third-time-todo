@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useHabits } from '../store/habits';
+import { useSettings } from '../store/settings';
 import { dateKey, weekdayIndex, isHabitOutstanding } from '../utils/goalPeriod';
 import { isDoneOn } from '../utils/habit';
 import { HabitRow } from './HabitRow';
@@ -10,6 +11,7 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export function HabitList() {
   const habits = useHabits((s) => s.habits);
   const addHabit = useHabits((s) => s.addHabit);
+  const dayEndHour = useSettings((s) => s.dayEndHour);
 
   const [showAll, setShowAll] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -32,7 +34,7 @@ export function HabitList() {
   // Due-today set: still outstanding, or touched today at all (a ticked habit
   // stays visible for the rest of the day; a partially-logged target too).
   const isDue = (h: (typeof active)[number]) =>
-    isHabitOutstanding(h) || h.completions[today] != null;
+    isHabitOutstanding(h, dayEndHour) || h.completions[today] != null;
   const due = active.filter(isDue);
   const rest = active.filter((h) => !isDue(h));
   const doneCount = due.filter((h) => isDoneOn(h, today)).length;

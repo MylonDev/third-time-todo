@@ -2,6 +2,11 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { dayKeyOf } from './utils/thirdTime'
+
+// A hook for the e2e suite, which cannot otherwise reach a pure function.
+// Harmless in production and smaller than the alternatives.
+;(window as unknown as Record<string, unknown>).__ttDayKeyOf = dayKeyOf
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

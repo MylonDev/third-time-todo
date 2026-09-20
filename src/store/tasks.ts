@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Task, TaskStatus, SubTask } from '../types';
 import { todayKey, tomorrowKey } from '../utils/thirdTime';
+import { useSettings } from './settings';
 
 /**
  * Legacy routine data. Routines became habits (`store/habits.ts`); this data is
@@ -58,7 +59,7 @@ function migrateChecklists(existingTasks: PersistedTask[]): LegacyRoutines {
     if (!raw) return [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const lists: any[] = JSON.parse(raw)?.state?.checklists ?? [];
-    const today = todayKey();
+    const today = todayKey(useSettings.getState().dayEndHour);
     let order = existingTasks.filter((t) => t.scheduledDate === today).length;
     const spawned: Task[] = [];
 
@@ -135,12 +136,14 @@ export const useTasks = create<TasksState>()(
           s.tasks.some((t) => t.id === task.id) ? s : { tasks: [...s.tasks, task] }
         ),
 
-      moveToTomorrow: (id) =>
+      moveToTomorrow: (id) => {
+        const dayEndHour = useSettings.getState().dayEndHour;
         set((s) => ({
           tasks: s.tasks.map((t) =>
-            t.id === id ? { ...t, scheduledDate: tomorrowKey() } : t
+            t.id === id ? { ...t, scheduledDate: tomorrowKey(dayEndHour) } : t
           ),
-        })),
+        }));
+      },
 
       reorderTasks: (orderedIds) =>
         set((s) => ({
@@ -203,7 +206,7 @@ export const useTasks = create<TasksState>()(
         })),
 
       rolloverPastTasks: () => {
-        const today = todayKey();
+        const today = todayKey(useSettings.getState().dayEndHour);
         const carried = get()
           .tasks.filter(
             (t) => t.scheduledDate < today && t.status !== 'done' && !t.routineId
@@ -242,7 +245,7 @@ export const useTasks = create<TasksState>()(
                   ? 'todo'
                   : t.status ?? 'todo',
               createdAt: t.createdAt ?? Date.now(),
-              scheduledDate: t.scheduledDate ?? todayKey(),
+              scheduledDate: t.scheduledDate ?? todayKey(useSettings.getState().dayEndHour),
               order: t.order ?? i,
               subtasks: t.subtasks ?? [],
               trackedMs: 0,

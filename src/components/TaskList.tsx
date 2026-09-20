@@ -18,6 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTasks } from '../store/tasks';
+import { useSettings } from '../store/settings';
 import { todayKey, isStale, daysSince, formatTimeLong } from '../utils/thirdTime';
 import { ActionMenu } from './ActionMenu';
 import { InlineInput } from './InlineInput';
@@ -414,6 +415,7 @@ export function TaskList() {
     reorderTasks, addSubtask, toggleSubtask, deleteSubtask, editSubtask,
     adjustTrackedMs, restoreTask,
   } = useTasks();
+  const dayEndHour = useSettings((s) => s.dayEndHour);
   const [title, setTitle] = useState('');
   const [showDone, setShowDone] = useState(false);
 
@@ -457,7 +459,7 @@ export function TaskList() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const today = todayKey();
+  const today = todayKey(dayEndHour);
   const todayTasks = useMemo(
     () => tasks.filter((t) => t.scheduledDate === today),
     [tasks, today]

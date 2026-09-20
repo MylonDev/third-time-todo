@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Goal, GoalMilestone, GoalOutcome, EffortTarget } from '../types';
 import { effortPeriodKey, prunePeriods } from '../utils/goalPeriod';
 import { todayKey } from '../utils/thirdTime';
+import { useSettings } from './settings';
 
 interface AddGoalParams {
   title: string;
@@ -36,8 +37,8 @@ interface GoalsState {
   toggleMilestone: (goalId: string, milestoneId: string) => void;
 }
 
-function periodKeyFor(goal: Goal): string {
-  return goal.effort ? effortPeriodKey(goal.effort, goal.createdAt) : todayKey();
+function periodKeyFor(goal: Goal, dayEndHour: number): string {
+  return goal.effort ? effortPeriodKey(goal.effort, goal.createdAt, dayEndHour) : todayKey(dayEndHour);
 }
 
 function sumProgress(progress: Record<string, number> = {}): number {
@@ -138,28 +139,32 @@ export const useGoals = create<GoalsState>()(
         })),
 
       currentPeriodKey: (goalId) => {
+        const dayEndHour = useSettings.getState().dayEndHour;
         const goal = get().goals.find((g) => g.id === goalId);
-        return goal ? periodKeyFor(goal) : todayKey();
+        return goal ? periodKeyFor(goal, dayEndHour) : todayKey(dayEndHour);
       },
 
-      commitTime: (goalId, ms) =>
+      commitTime: (goalId, ms) => {
+        const dayEndHour = useSettings.getState().dayEndHour;
         set((s) => ({
           goals: s.goals.map((g) => {
             if (g.id !== goalId || ms <= 0) return g;
-            const key = periodKeyFor(g);
+            const key = periodKeyFor(g, dayEndHour);
             return {
               ...g,
               progress: prunePeriods({ ...g.progress, [key]: (g.progress[key] ?? 0) + ms }),
               total: g.total + ms,
             };
           }),
-        })),
+        }));
+      },
 
-      logCount: (goalId, delta) =>
+      logCount: (goalId, delta) => {
+        const dayEndHour = useSettings.getState().dayEndHour;
         set((s) => ({
           goals: s.goals.map((g) => {
             if (g.id !== goalId) return g;
-            const key = periodKeyFor(g);
+            const key = periodKeyFor(g, dayEndHour);
             const prev = g.progress[key] ?? 0;
             const next = Math.max(0, prev + delta);
             return {
@@ -168,7 +173,8 @@ export const useGoals = create<GoalsState>()(
               total: Math.max(0, g.total + (next - prev)),
             };
           }),
-        })),
+        }));
+      },
 
       addMilestone: (goalId, label) =>
         set((s) => ({
