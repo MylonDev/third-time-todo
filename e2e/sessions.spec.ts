@@ -39,6 +39,105 @@ test('the bank advances while working', async ({ app }) => {
   expect(await app.getByTestId('bank-balance').textContent()).not.toBe(first);
 });
 
+test.describe('restoring a timer that survived a reload', () => {
+  /** YYYY-MM-DD for a Date, in local time — matches `dateKey` in thirdTime.ts. */
+  const k = (d: Date) =>
+    [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+
+  /**
+   * Seed a `working` timer that was closed a real amount of time ago, without
+   * ever running it through this page's own `pagehide` handler — that handler
+   * would stamp `sessionClosedAt` at reload time (whatever the clock says
+   * then), overwriting exactly the value this test needs to hold constant.
+   * Seeding `localStorage` directly and reloading a page that is still idle
+   * (its `pagehide` guard skips a timer that isn't running) sidesteps that.
+   */
+  async function seedClosedTimer(page: Page, workedMs: number, closedAt: number) {
+    await page.evaluate(
+      ({ workedMs, closedAt, date }) => {
+        localStorage.setItem(
+          'tt-session',
+          JSON.stringify({
+            state: {
+              daily: { date, entries: [] },
+              history: [],
+              timerState: 'working',
+              timerStart: closedAt - workedMs,
+              sessionClosedAt: closedAt,
+            },
+            version: 4,
+          })
+        );
+      },
+      { workedMs, closedAt, date: k(new Date(closedAt)) }
+    );
+  }
+
+  test('Continue logs the time actually worked, not the time the tab was closed', async ({ app }) => {
+    const workedMs = 1_500;
+    const gapMs = 2 * 3_600_000; // two hours with the tab closed — well past the 30-minute Resume cutoff
+    const closedAt = Date.now();
+
+    await seedClosedTimer(app, workedMs, closedAt);
+    await app.clock.install();
+    await app.clock.setSystemTime(new Date(closedAt + gapMs));
+    await app.reload();
+
+    await expect(app.getByRole('dialog')).toHaveAttribute('aria-label', 'Pick up your session');
+    // Past the cutoff, Resume must not be offered — only Continue and Discard.
+    await expect(app.getByRole('button', { name: /Resume/ })).toHaveCount(0);
+    await app.getByRole('button', { name: /Continue/ }).click();
+    await app.getByRole('button', { name: 'Stop' }).click();
+
+    const s = await store(app);
+    const entry = s.daily.entries[s.daily.entries.length - 1];
+    const loggedMs = entry.endedAt - entry.startedAt;
+    expect(loggedMs, 'the closed-tab gap leaked into the ledger as active time').toBeLessThan(gapMs / 2);
+    expect(loggedMs, 'the work actually done before closing was dropped').toBeGreaterThan(500);
+  });
+
+  test('Continue logs actual rest taken on a break, not the time the tab was closed', async ({ app }) => {
+    const restedMs = 1_500;
+    const gapMs = 2 * 3_600_000;
+    const closedAt = Date.now();
+
+    await app.evaluate(
+      ({ restedMs, closedAt, date }) => {
+        localStorage.setItem(
+          'tt-session',
+          JSON.stringify({
+            state: {
+              daily: { date, entries: [] },
+              history: [],
+              timerState: 'on-break',
+              timerStart: closedAt - restedMs,
+              sessionClosedAt: closedAt,
+            },
+            version: 4,
+          })
+        );
+      },
+      { restedMs, closedAt, date: k(new Date(closedAt)) }
+    );
+    await app.clock.install();
+    await app.clock.setSystemTime(new Date(closedAt + gapMs));
+    await app.reload();
+
+    await expect(app.getByRole('dialog')).toHaveAttribute('aria-label', 'Pick up your session');
+    await app.getByRole('button', { name: /Continue/ }).click();
+    // No dedicated Stop-from-break assertion here — Resume then Stop exercises
+    // the same `stopBreak` write this test cares about.
+    await app.getByRole('button', { name: 'Resume' }).click();
+    await app.getByRole('button', { name: 'Stop' }).click();
+
+    const s = await store(app);
+    const restEntry = s.daily.entries.find((e: { kind: string }) => e.kind === 'break');
+    const loggedMs = restEntry.endedAt - restEntry.startedAt;
+    expect(loggedMs, 'the closed-tab gap leaked into the ledger as rest taken').toBeLessThan(gapMs / 2);
+    expect(loggedMs, 'the rest actually taken before closing was dropped').toBeGreaterThan(500);
+  });
+});
+
 test.describe('the day ends by itself', () => {
   test('a finished day is archived on the next open, exactly once', async ({ app }) => {
     await startWork(app);
