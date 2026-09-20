@@ -33,18 +33,21 @@ export interface SessionLog {
   startedAt: number;
 }
 
+export interface TimeEntry {
+  id: string;
+  kind: 'work' | 'break';
+  /** Wall clock. Duration is always `endedAt - startedAt`; it is never stored. */
+  startedAt: number;
+  endedAt: number;
+  projectId?: string; // work entries only
+  taskId?: string;    // work entries only; implies the task's project
+  /** The ratio in force when this ran, so changing difficulty is never retroactive. */
+  mode: Mode;
+}
+
 export interface DailyState {
-  date: string; // YYYY-MM-DD
-  bankMs: number; // can be negative (debt)
-  sessions: SessionLog[];
-  /** Running total for the day: each ended session adds what it left unspent. */
-  unusedRestMs?: number;
-  /**
-   * When the open session began, or undefined when none is. A SessionLog is
-   * one work stint; a session is everything from Start to End Session, which
-   * may be several of them.
-   */
-  sessionStartedAt?: number;
+  date: string; // day key, per `dayKeyOf`
+  entries: TimeEntry[];
 }
 
 /** What the session that just ended did, plus where that leaves the day. */
@@ -64,7 +67,7 @@ export interface HistoryEntry {
   totalWorkMs: number;
   totalBreakMs: number;
   unusedRestMs: number;
-  sessions: SessionLog[];
+  entries: TimeEntry[];
 }
 
 /** What to do with a task carried over from a previous day. */
