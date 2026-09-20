@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { SubTask, Task, TaskStatus, TimeEntry } from '../types';
 import { todayKey, tomorrowKey } from '../utils/thirdTime';
 import { useSettings } from './settings';
+import { reattributeActiveTask, resyncAggregates } from './sessionBridge';
 
 /**
  * Legacy routine data. Routines became habits, and habits are gone too now —
@@ -243,10 +244,19 @@ export const useTasks = create<TasksState>()(
           ),
         })),
 
-      setTaskProject: (id, projectId) =>
+      setTaskProject: (id, projectId) => {
         set((s) => ({
           tasks: s.tasks.map((t) => (t.id === id ? { ...t, projectId } : t)),
-        })),
+        }));
+        // A task's time is filed under whatever project the task belongs to,
+        // so retagging it moves all of that time at once. The stint running
+        // right now has to be closed under the old project and reopened under
+        // the new one before another second accrues to the wrong one; the
+        // entries already in the ledger follow from the re-sum, which reads
+        // each entry's project through its task.
+        reattributeActiveTask(id);
+        resyncAggregates();
+      },
 
       clearTaskProject: (projectId) =>
         set((s) => ({

@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useProjects } from './projects';
 import { useSession } from './session';
 import { useTasks } from './tasks';
 import type { Project, Task, TimeEntry } from '../types';
 import { dayKeyOf } from '../utils/thirdTime';
+import { targetThisPeriod } from '../utils/project';
 
 const HOUR = 3_600_000;
 
@@ -165,5 +166,87 @@ describe('editing the timeline re-sums project and task totals', () => {
 
     expect(useProjects.getState().projects[0].total.time).toBe(0);
     expect(useTasks.getState().tasks[0].trackedMs).toBe(0);
+  });
+});
+
+// A project's period buckets are keyed by the target's own period, so editing
+// the target re-keys every bucket it ever filled. Nothing else in the store
+// can reach a stored aggregate the way this edit can.
+describe('editing a project re-sums its buckets from the ledger', () => {
+  const workedOn = new Date(2026, 8, 23, 9, 0, 0, 0).getTime(); // Wednesday
+  const ninetyMin = 90 * 60_000;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 23, 18, 0, 0, 0));
+    useTasks.setState({ tasks: [] });
+    useProjects.setState({
+      projects: [
+        project({ id: 'p1', target: { metric: 'time', amount: 2 * HOUR, period: 'daily' } }),
+      ],
+    });
+    useSession.setState({
+      daily: { date: '2026-09-23', entries: [] },
+      history: [],
+      timerState: 'idle',
+      timerStart: null,
+      sessionClosedAt: null,
+      activeProjectId: undefined,
+      activeTaskId: undefined,
+    });
+    useSession.getState().addEntry(
+      workEntry({ id: 'e1', projectId: 'p1', startedAt: workedOn, endedAt: workedOn + ninetyMin })
+    );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('carries the logged time over when the target period changes', () => {
+    expect(useProjects.getState().projects[0].progress.time['2026-09-23']).toBe(ninetyMin);
+
+    useProjects.getState().updateProject('p1', {
+      target: { metric: 'time', amount: 10 * HOUR, period: 'weekly' },
+    });
+
+    const [p1] = useProjects.getState().projects;
+    // The same ninety minutes, now filed under the week that Wednesday is in.
+    expect(targetThisPeriod(p1, 0)).toBe(ninetyMin);
+    expect(p1.progress.time['2026-09-21']).toBe(ninetyMin);
+    expect(p1.total.time).toBe(ninetyMin);
+  });
+});
+
+// An entry may name only the task it was worked on — `addEntry` accepts that
+// shape, and `stopWork` writes it whenever the target is a task. The project
+// such an entry belongs to is the one its task is filed under.
+describe('recomputeFrom resolves a project through the entry\'s task', () => {
+  it('credits the task\'s project to an entry that names no project of its own', () => {
+    useTasks.setState({
+      tasks: [
+        {
+          id: 't1',
+          title: 'Task',
+          status: 'todo',
+          createdAt: 0,
+          scheduledDate: '2026-09-23',
+          order: 0,
+          subtasks: [],
+          trackedMs: 0,
+          projectId: 'p1',
+        },
+      ],
+    });
+    const t = new Date(2026, 8, 23, 9, 0, 0, 0).getTime();
+
+    useProjects.getState().recomputeFrom([
+      workEntry({ id: 'e1', taskId: 't1', startedAt: t, endedAt: t + HOUR }),
+    ]);
+
+    const [p1, p2] = useProjects.getState().projects;
+    expect(p1.total.time).toBe(HOUR);
+    expect(p1.progress.time[dayKeyOf(t, 0)]).toBe(HOUR);
+    expect(p2.total.time).toBe(0);
   });
 });
