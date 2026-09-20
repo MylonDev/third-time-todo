@@ -1,14 +1,10 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from '../store/session';
-import { useHabits } from '../store/habits';
 import { useSettings } from '../store/settings';
 import { earnBreak, formatDuration, todayKey } from '../utils/thirdTime';
-import { adherence, dotStates, type DotState } from '../utils/habit';
-import { freqLabel } from '../utils/habitFreq';
-import { lastNDays } from '../utils/goalPeriod';
 import { PaceChart } from './PaceChart';
-import type { Habit, HistoryEntry, SessionLog } from '../types';
+import type { HistoryEntry, SessionLog } from '../types';
 
 const DAYS = 14;
 const PLOT_HEIGHT = 116;
@@ -120,88 +116,6 @@ function DayShape({ sessions }: { sessions: SessionLog[] }) {
   );
 }
 
-function HabitRow({ habit }: { habit: Habit }) {
-  const dayEndHour = useSettings((s) => s.dayEndHour);
-  const created = new Date(habit.createdAt);
-  created.setHours(0, 0, 0, 0);
-
-  // Days before the habit existed are not misses — blank them in the grid and
-  // keep the percentage over the window the habit has actually been alive for.
-  const states = dotStates(habit, dayEndHour, DAYS);
-  const alive = lastNDays(DAYS).map((key) => new Date(key + 'T00:00:00') >= created);
-  const cells = alive.map((live, i) => (live ? states[i] : ('off' as DotState)));
-  const aliveDays = alive.filter(Boolean).length;
-
-  const { pct } = adherence(habit, dayEndHour, Math.max(1, aliveDays));
-  const low = pct < 0.5;
-
-  return (
-    <div className="flex items-center gap-3">
-      <div className="min-w-0 flex-shrink-0 w-32">
-        <div className="text-sm font-medium truncate" style={{ color: 'var(--color-text)' }}>
-          {habit.name}
-        </div>
-        <div className="text-[11px] truncate" style={{ color: 'var(--color-text-muted)' }}>
-          {freqLabel(habit.freq)}
-        </div>
-      </div>
-      <div className="flex-1 flex items-center gap-1 min-w-0">
-        {cells.map((state, i) => (
-          <span
-            key={i}
-            className="h-3.5 w-3.5 rounded-[3px] flex-shrink-0"
-            title={state === 'done' ? 'Done' : state === 'missed' ? 'Missed' : 'Not due'}
-            style={{
-              background: state === 'done' ? 'var(--color-habit)' : 'transparent',
-              border:
-                state === 'done'
-                  ? 'none'
-                  : `1px solid ${state === 'missed' ? 'var(--color-border-strong)' : 'var(--color-border)'}`,
-              opacity: state === 'off' ? 0.4 : 1,
-            }}
-          />
-        ))}
-      </div>
-      <span
-        className="num text-sm flex-shrink-0 w-10 text-right"
-        style={{ color: low ? 'var(--color-text-muted)' : 'var(--color-text)' }}
-      >
-        {Math.round(pct * 100)}%
-      </span>
-    </div>
-  );
-}
-
-function HabitAdherence() {
-  const habits = useHabits((s) => s.habits);
-  const shown = useMemo(
-    () =>
-      habits
-        .filter((h) => !h.archivedAt)
-        .sort((a, b) => a.order - b.order)
-        .slice(0, 6),
-    [habits]
-  );
-
-  if (shown.length === 0) return null;
-
-  return (
-    <section className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between">
-        <span className="section-label">Habits</span>
-        <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-          last <span className="num">{DAYS}</span> days
-        </span>
-      </div>
-      <div className="flex flex-col gap-2.5">
-        {shown.map((h) => (
-          <HabitRow key={h.id} habit={h} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
 export function Activity() {
   const { daily, history, timerState } = useSession();
   const dayEndHour = useSettings((s) => s.dayEndHour);
@@ -254,8 +168,8 @@ export function Activity() {
     { color: 'var(--color-rest)', label: 'Rest taken' },
   ];
 
-  // One combined scroll — pace, then the fortnight, then the selected day, then
-  // habit adherence. No outer card: the tab header is the frame.
+  // One combined scroll — pace, then the fortnight, then the selected day.
+  // No outer card: the tab header is the frame.
   return (
     <div className="flex flex-col gap-8">
       <PaceChart />
@@ -437,8 +351,6 @@ export function Activity() {
           )}
         </section>
       )}
-
-      <HabitAdherence />
     </div>
   );
 }

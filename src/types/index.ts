@@ -72,7 +72,7 @@ export type TaskDisposition = 'keep' | 'mark-done' | 'discard';
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
-export type TabId = 'habits' | 'tasks' | 'goals' | 'activity';
+export type TabId = 'tasks' | 'goals' | 'activity';
 
 // ── Focus ─────────────────────────────────────────────────────────────────────
 
@@ -84,30 +84,19 @@ export type FocusTarget =
 
 export type GoalPeriod = 'daily' | 'weekly' | 'custom';
 
-// ── Habits ────────────────────────────────────────────────────────────────────
+// ── Recurrence ────────────────────────────────────────────────────────────────
 
 /**
- * How often a habit comes due. `weekdays` days are 0=Mon … 6=Sun. `everyN`
- * counts from the habit's `createdAt`.
+ * How often something comes due. Kept from the old habits feature for the
+ * weekly task schedule, which reuses the same due-date predicate. `weekdays`
+ * days are 0=Mon … 6=Sun. `everyN` counts from an anchor timestamp supplied by
+ * the caller.
  */
-export type HabitFreq =
+export type Recurrence =
   | { kind: 'daily' }
   | { kind: 'weekly' }
   | { kind: 'everyN'; n: number }
   | { kind: 'weekdays'; days: number[] };
-
-export interface Habit {
-  id: string;
-  name: string;
-  freq: HabitFreq;
-  /** Optional per-occurrence quantity: "20 minutes", "10 pages". Absent = plain checkbox. */
-  target?: { amount: number; unit: string };
-  createdAt: number;
-  order: number;
-  /** dateKey (YYYY-MM-DD) → `true` for a checkbox tick, or the logged amount. */
-  completions: Record<string, number | true>;
-  archivedAt?: number;
-}
 
 // ── Goals ─────────────────────────────────────────────────────────────────────
 

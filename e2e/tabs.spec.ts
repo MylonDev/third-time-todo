@@ -2,7 +2,7 @@ import { test, expect, switchTab } from './helpers';
 
 test.describe('the tab shell', () => {
   test('every tab is present and Tasks is the default', async ({ app }) => {
-    for (const name of ['Habits', 'Tasks', 'Goals', 'Activity'])
+    for (const name of ['Tasks', 'Goals', 'Activity'])
       await expect(app.getByRole('tab', { name, exact: true })).toBeVisible();
     await expect(app.getByRole('tab', { name: 'Tasks', exact: true })).toHaveAttribute(
       'aria-selected',
@@ -12,12 +12,12 @@ test.describe('the tab shell', () => {
   });
 
   test('switching tabs swaps the panel', async ({ app }) => {
-    await switchTab(app, 'Habits');
-    await expect(app.getByPlaceholder('Add a habit…')).toBeVisible();
-    await expect(app.getByPlaceholder('Add a task…')).toBeHidden();
-
     await switchTab(app, 'Goals');
     await expect(app.locator('main')).toContainText('No goals yet');
+    await expect(app.getByPlaceholder('Add a task…')).toBeHidden();
+
+    await switchTab(app, 'Tasks');
+    await expect(app.getByPlaceholder('Add a task…')).toBeVisible();
   });
 
   test('the chosen tab survives a reload', async ({ app }) => {
@@ -30,8 +30,6 @@ test.describe('the tab shell', () => {
   });
 
   test('each empty tab states that it is empty', async ({ app }) => {
-    await switchTab(app, 'Habits');
-    await expect(app.locator('main')).toContainText('No habits yet');
     await switchTab(app, 'Goals');
     await expect(app.locator('main')).toContainText('No goals yet');
   });
