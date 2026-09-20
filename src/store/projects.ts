@@ -5,6 +5,7 @@ import { targetPeriodKey, prunePeriods } from '../utils/goalPeriod';
 import { dayKeyOf, todayKey } from '../utils/thirdTime';
 import { useSettings } from './settings';
 import { useTasks } from './tasks';
+import { forgetProject, resyncAggregates } from './sessionBridge';
 import { migrateGoalsChain } from './projectsMigrate';
 
 interface AddProjectParams {
@@ -35,6 +36,12 @@ interface ProjectsState {
    * today, so it must file under yesterday's bucket even though the commit
    * itself runs after the boundary. Defaults to now for every ordinary,
    * same-moment commit.
+   *
+   * An id with no project behind it is a deliberate no-op. Entries outlive the
+   * projects they name — one can be deleted in the middle of a stint — and the
+   * ledger keeps that record whether or not a bucket is still there to add it
+   * to. Nothing upstream has a better answer to give, so there is nothing to
+   * raise.
    */
   commitTime: (projectId: string, ms: number, at?: number) => void;
   /**
@@ -77,10 +84,17 @@ export const useProjects = create<ProjectsState>()(
         return id;
       },
 
-      updateProject: (id, patch) =>
+      updateProject: (id, patch) => {
         set((s) => ({
           projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)),
-        })),
+        }));
+        // A target's period is the key its progress is bucketed under, so
+        // changing it re-keys every bucket the project ever filled — time
+        // logged against a daily target is invisible to a weekly one until
+        // the buckets are rebuilt. Re-sum rather than try to move them: the
+        // ledger is what they were a summary of in the first place.
+        resyncAggregates();
+      },
 
       deleteProject: (id) => {
         // Tasks lose the tag, not their history — a task's own record of what
@@ -88,6 +102,10 @@ export const useProjects = create<ProjectsState>()(
         // exists is cleared. Entries are untouched for the same reason: they
         // record what happened, not what still exists to be filed under.
         useTasks.getState().clearTaskProject(id);
+        // Then the timer, which may be aimed here: order matters, because
+        // re-aiming it resolves the target's project through the task, and
+        // the task has to have lost the tag by then.
+        forgetProject(id);
         set((s) => ({ projects: s.projects.filter((p) => p.id !== id) }));
       },
 
@@ -129,12 +147,24 @@ export const useProjects = create<ProjectsState>()(
 
       recomputeFrom: (entries) => {
         const dayEndHour = useSettings.getState().dayEndHour;
+        const projectOfTask = new Map(
+          useTasks.getState().tasks.map((t) => [t.id, t.projectId])
+        );
+        /**
+         * The project an entry counts toward. An entry that names only a task
+         * still belongs to that task's project — `stopWork` writes exactly
+         * that shape whenever the timer is aimed at a task — and reading it
+         * through the task is what keeps the ledger, rather than the totals
+         * riding alongside it, the record of where time went.
+         */
+        const ownerOf = (entry: TimeEntry): string | undefined =>
+          entry.projectId ?? (entry.taskId ? projectOfTask.get(entry.taskId) : undefined);
         set((s) => ({
           projects: s.projects.map((p) => {
             const time: Record<string, number> = {};
             let total = 0;
             for (const entry of entries) {
-              if (entry.kind !== 'work' || entry.projectId !== p.id) continue;
+              if (entry.kind !== 'work' || ownerOf(entry) !== p.id) continue;
               const duration = entry.endedAt - entry.startedAt;
               if (duration <= 0) continue;
               // Bucket by when the work actually happened, not by today's date —
