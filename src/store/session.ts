@@ -5,6 +5,8 @@ import { todayKey, dayEndOf } from '../utils/thirdTime';
 import { bankOf, workMsOf, breakMsOf, entriesOverlap, splitAtBoundary, type OpenSegment } from '../utils/ledger';
 import { migrateSessionV3 } from './sessionMigrate';
 import { useSettings } from './settings';
+import { useProjects } from './projects';
+import { useTasks } from './tasks';
 
 type TimerState = 'idle' | 'working' | 'on-break';
 
@@ -160,6 +162,15 @@ export const useSession = create<SessionStore>()(
           taskId: activeTaskId,
           mode,
         };
+        const ms = entry.endedAt - entry.startedAt;
+        // Credit whatever the entry actually names — a project directly, or a
+        // task (which is itself only ever tagged with its own project, kept in
+        // sync by `setActive`). Either, both, or neither can be empty; an
+        // entry with no target is still an honest record of unattributed time.
+        if (ms > 0) {
+          if (entry.projectId) useProjects.getState().commitTime(entry.projectId, ms);
+          if (entry.taskId) useTasks.getState().adjustTrackedMs(entry.taskId, ms);
+        }
         set({
           timerState: 'idle',
           timerStart: null,
@@ -192,7 +203,51 @@ export const useSession = create<SessionStore>()(
         });
       },
 
-      setActive: (projectId, taskId) => set({ activeProjectId: projectId, activeTaskId: taskId }),
+      /**
+       * When a task is the target, the project it credits is the task's own
+       * project — never a project picked independently of it — so a task's
+       * time always lands where the task itself is filed.
+       *
+       * A work timer already running is the interesting case: a single entry
+       * must never smear across two projects, so the segment open under the
+       * old target is closed and committed right here, at `now`, and a fresh
+       * one opens immediately under the new target. Idle or on a break, there
+       * is no open segment to protect — the ids are just swapped.
+       */
+      setActive: (projectId, taskId) => {
+        const resolvedProjectId = taskId
+          ? useTasks.getState().tasks.find((t) => t.id === taskId)?.projectId ?? undefined
+          : projectId;
+
+        get().maybeArchivePreviousDay();
+        const { timerState, timerStart, daily, activeProjectId, activeTaskId } = get();
+        const now = Date.now();
+
+        if (timerState !== 'working' || !timerStart || now <= timerStart) {
+          set({ activeProjectId: resolvedProjectId, activeTaskId: taskId });
+          return;
+        }
+
+        const entry: TimeEntry = {
+          id: crypto.randomUUID(),
+          kind: 'work',
+          startedAt: timerStart,
+          endedAt: now,
+          projectId: activeProjectId,
+          taskId: activeTaskId,
+          mode: useSettings.getState().mode,
+        };
+        const ms = entry.endedAt - entry.startedAt;
+        if (entry.projectId) useProjects.getState().commitTime(entry.projectId, ms);
+        if (entry.taskId) useTasks.getState().adjustTrackedMs(entry.taskId, ms);
+
+        set({
+          daily: { ...daily, entries: [...daily.entries, entry].sort((a, b) => a.startedAt - b.startedAt) },
+          timerStart: now,
+          activeProjectId: resolvedProjectId,
+          activeTaskId: taskId,
+        });
+      },
 
       addEntry: (e) => {
         const { daily } = get();
