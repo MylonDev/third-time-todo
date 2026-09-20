@@ -4,6 +4,7 @@ import type { PeriodTarget, Project, TimeEntry } from '../types';
 import { targetPeriodKey, prunePeriods } from '../utils/goalPeriod';
 import { dayKeyOf, todayKey } from '../utils/thirdTime';
 import { useSettings } from './settings';
+import { useTasks } from './tasks';
 import { migrateGoalsChain } from './projectsMigrate';
 
 interface AddProjectParams {
@@ -73,8 +74,14 @@ export const useProjects = create<ProjectsState>()(
           projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)),
         })),
 
-      deleteProject: (id) =>
-        set((s) => ({ projects: s.projects.filter((p) => p.id !== id) })),
+      deleteProject: (id) => {
+        // Tasks lose the tag, not their history — a task's own record of what
+        // it did stays put; only the pointer to a project that no longer
+        // exists is cleared. Entries are untouched for the same reason: they
+        // record what happened, not what still exists to be filed under.
+        useTasks.getState().clearTaskProject(id);
+        set((s) => ({ projects: s.projects.filter((p) => p.id !== id) }));
+      },
 
       reorderProjects: (orderedIds) =>
         set((s) => ({

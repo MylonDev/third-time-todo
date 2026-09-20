@@ -12,7 +12,7 @@ test.describe('the task menu', () => {
     await trigger.click();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
     expect(await items(app)).toEqual([
-      'Edit', 'Subtasks', 'Move to tomorrow', 'Adjust tracked time', 'Delete',
+      'Edit', 'Subtasks', 'Move to tomorrow', 'Adjust tracked time', 'Project…', 'Delete',
     ]);
   });
 
