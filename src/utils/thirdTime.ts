@@ -127,9 +127,15 @@ export function dayStartOf(key: string, dayEndHour: number): number {
   return new Date(y, m - 1, d, dayEndHour, 0, 0, 0).getTime();
 }
 
-/** The instant it ends — the same as the next day's start. */
+/**
+ * The instant it ends — the same as the next day's start. Built the same way
+ * `dayStartOf` is (calendar arithmetic, not a fixed millisecond step) so it
+ * still lands on the next day's boundary across a DST transition, where the
+ * local day is 23 or 25 hours long.
+ */
 export function dayEndOf(key: string, dayEndHour: number): number {
-  return dayStartOf(key, dayEndHour) + 86_400_000;
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d + 1, dayEndHour, 0, 0, 0).getTime();
 }
 
 export const MODE_BADGE_CLASSES: Record<Mode, string> = {
