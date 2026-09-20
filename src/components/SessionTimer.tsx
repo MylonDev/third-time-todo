@@ -3,10 +3,12 @@ import { motion } from 'framer-motion';
 import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
 import { useTasks } from '../store/tasks';
+import { useProjects } from '../store/projects';
 import { formatTimeLong, MODE_CONFIG, MODE_BADGE_CLASSES } from '../utils/thirdTime';
 import { playSound } from '../utils/sounds';
 import { sendNotification } from '../utils/notifications';
 import { useElapsed } from '../hooks/useNow';
+import { useActiveTarget } from '../hooks/useFocusable';
 import type { Mode } from '../types';
 
 const MODE_COLOR: Record<Mode, string> = {
@@ -21,11 +23,20 @@ const MODE_COLOR_DIM: Record<Mode, string> = {
 };
 
 export function SessionTimer() {
-  const { timerState, timerStart, stopWork, stopBreak, startWork, activeTaskId } = useSession();
+  const { timerState, timerStart, stopWork, stopBreak, startWork } = useSession();
   const { mode, longWorkReminderMin, soundsEnabled } = useSettings();
   const { tasks } = useTasks();
+  const { projects } = useProjects();
+  const { projectId: activeProjectId, taskId: activeTaskId } = useActiveTarget();
 
-  const focusLabel = activeTaskId ? tasks.find((t) => t.id === activeTaskId)?.title : null;
+  // A task's own project always wins the label — that is what the entry will
+  // actually be credited to — so only fall back to a bare project name when
+  // no task is the target.
+  const focusLabel = activeTaskId
+    ? tasks.find((t) => t.id === activeTaskId)?.title
+    : activeProjectId
+    ? projects.find((p) => p.id === activeProjectId)?.name
+    : null;
   const [reminderDismissedAt, setReminderDismissedAt] = useState<number | null>(null);
   const firedReminder = useRef(false);
 
