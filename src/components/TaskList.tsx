@@ -20,15 +20,17 @@ import { CSS } from '@dnd-kit/utilities';
 import { useTasks } from '../store/tasks';
 import { useSettings } from '../store/settings';
 import { useSession } from '../store/session';
+import { useProjects } from '../store/projects';
 import { todayKey, isStale, daysSince, formatTimeLong } from '../utils/thirdTime';
 import { ActionMenu } from './ActionMenu';
 import { InlineInput } from './InlineInput';
 import { useActiveTarget } from '../hooks/useFocusable';
 import { useElapsed } from '../hooks/useNow';
-import type { Task } from '../types';
+import type { Project, Task } from '../types';
 
 function SortableTask({
   task,
+  projects,
   onUpdate,
   onDelete,
   onMoveToTomorrow,
@@ -37,8 +39,10 @@ function SortableTask({
   onDeleteSubtask,
   onEditSubtask,
   onAdjustTrackedMs,
+  onSetTaskProject,
 }: {
   task: Task;
+  projects: Project[];
   onUpdate: (id: string, patch: Partial<Task>) => void;
   onDelete: (id: string) => void;
   onMoveToTomorrow: (id: string) => void;
@@ -47,6 +51,7 @@ function SortableTask({
   onDeleteSubtask: (taskId: string, subtaskId: string) => void;
   onEditSubtask: (taskId: string, subtaskId: string, title: string) => void;
   onAdjustTrackedMs: (id: string, deltaMs: number) => void;
+  onSetTaskProject: (id: string, projectId?: string) => void;
 }) {
   const enabled = task.status !== 'done';
   const { taskId: activeTaskId } = useActiveTarget();
@@ -63,6 +68,9 @@ function SortableTask({
     if (!enabled) return;
     setActive(undefined, isFocused ? undefined : task.id);
   };
+
+  const taskProject = task.projectId ? projects.find((p) => p.id === task.projectId) : undefined;
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -251,6 +259,21 @@ function SortableTask({
                     Focused
                   </span>
                 )}
+                {taskProject && (
+                  <span
+                    className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full font-medium"
+                    style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-muted)' }}
+                  >
+                    {taskProject.color && (
+                      <span
+                        className="inline-block h-1.5 w-1.5 rounded-full"
+                        style={{ background: taskProject.color }}
+                        aria-hidden
+                      />
+                    )}
+                    {taskProject.name}
+                  </span>
+                )}
                 {!isDone && (
                   <button
                     onClick={toggleFocus}
@@ -317,6 +340,47 @@ function SortableTask({
                   )}
                 </div>
               )}
+
+              {showProjectPicker && !isDone && (
+                <div
+                  role="listbox"
+                  aria-label="Project"
+                  className="flex flex-col gap-0.5 mt-1.5 rounded-lg border p-1"
+                  style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}
+                >
+                  <div
+                    role="option"
+                    tabIndex={0}
+                    aria-selected={!task.projectId}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSetTaskProject(task.id, undefined);
+                      setShowProjectPicker(false);
+                    }}
+                    className="text-xs px-2 py-1 rounded-md cursor-pointer hover:bg-[var(--color-surface)]"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    No project
+                  </div>
+                  {projects.map((p) => (
+                    <div
+                      key={p.id}
+                      role="option"
+                      tabIndex={0}
+                      aria-selected={task.projectId === p.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSetTaskProject(task.id, p.id);
+                        setShowProjectPicker(false);
+                      }}
+                      className="text-xs px-2 py-1 rounded-md cursor-pointer hover:bg-[var(--color-surface)]"
+                      style={{ color: 'var(--color-text)' }}
+                    >
+                      {p.name}
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -339,6 +403,7 @@ function SortableTask({
                 label: 'Adjust tracked time',
                 onSelect: () => { setShowTimeEdit(true); setTimeEditMin(''); },
               },
+              { label: 'Project…', onSelect: () => setShowProjectPicker(true) },
               { label: 'Delete', onSelect: () => onDelete(task.id), danger: true },
             ]}
           />
@@ -439,8 +504,9 @@ export function TaskList() {
   const {
     tasks, addTask, updateTask, deleteTask, moveToTomorrow,
     reorderTasks, addSubtask, toggleSubtask, deleteSubtask, editSubtask,
-    adjustTrackedMs, restoreTask,
+    adjustTrackedMs, restoreTask, setTaskProject,
   } = useTasks();
+  const projects = useProjects((s) => s.projects);
   const dayEndHour = useSettings((s) => s.dayEndHour);
   const [title, setTitle] = useState('');
   const [showDone, setShowDone] = useState(false);
@@ -570,6 +636,7 @@ export function TaskList() {
               <SortableTask
                 key={task.id}
                 task={task}
+                projects={projects}
                 onUpdate={updateTask}
                 onDelete={handleDelete}
                 onMoveToTomorrow={moveToTomorrow}
@@ -578,6 +645,7 @@ export function TaskList() {
                 onDeleteSubtask={deleteSubtask}
                 onEditSubtask={editSubtask}
                 onAdjustTrackedMs={adjustTrackedMs}
+                onSetTaskProject={setTaskProject}
               />
             ))}
           </ul>
@@ -601,6 +669,7 @@ export function TaskList() {
                 <SortableTask
                   key={task.id}
                   task={task}
+                  projects={projects}
                   onUpdate={updateTask}
                   onDelete={handleDelete}
                   onMoveToTomorrow={moveToTomorrow}
@@ -609,6 +678,7 @@ export function TaskList() {
                   onDeleteSubtask={deleteSubtask}
                   onEditSubtask={editSubtask}
                   onAdjustTrackedMs={adjustTrackedMs}
+                  onSetTaskProject={setTaskProject}
                 />
               ))}
             </ul>

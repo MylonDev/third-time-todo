@@ -32,6 +32,9 @@ interface TasksState {
   /** Moves unfinished tasks from past days into today, returning their ids. */
   rolloverPastTasks: () => string[];
   adjustTrackedMs: (id: string, deltaMs: number) => void;
+  setTaskProject: (id: string, projectId?: string) => void;
+  /** A deleted project untags itself from every task — the tasks stay, the tag doesn't. */
+  clearTaskProject: (projectId: string) => void;
 }
 
 /**
@@ -231,10 +234,20 @@ export const useTasks = create<TasksState>()(
               : t
           ),
         })),
+
+      setTaskProject: (id, projectId) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) => (t.id === id ? { ...t, projectId } : t)),
+        })),
+
+      clearTaskProject: (projectId) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) => (t.projectId === projectId ? { ...t, projectId: undefined } : t)),
+        })),
     }),
     {
       name: 'tt-tasks',
-      version: 6,
+      version: 7,
       migrate: (persisted: unknown, version: number) => {
         let state = persisted as PersistedTasksState;
         if (version < 3) {
@@ -263,7 +276,13 @@ export const useTasks = create<TasksState>()(
           state = { ...state, routines: migrateChecklists(state.tasks ?? []) };
         }
         if (version < 6) {
-          return { ...state, routineHistory: {} };
+          state = { ...state, routineHistory: {} };
+        }
+        if (version < 7) {
+          // `projectId` is optional, and its absence already means "no
+          // project" — there is nothing on an existing task to backfill. The
+          // bump exists only to declare the field as part of the shape.
+          state = { ...state };
         }
         return state;
       },
