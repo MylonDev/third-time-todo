@@ -1,8 +1,8 @@
-import { test, expect, addTask, startSession, readTimers } from './helpers';
+import { test, expect, addTask, startWork, readTimers } from './helpers';
 
 test.describe('the shared clock', () => {
   test('the session timer advances', async ({ app }) => {
-    await startSession(app);
+    await startWork(app);
     const before = await readTimers(app);
     expect(before.length, 'expected timer digits on the page').toBeGreaterThan(0);
     await expect
@@ -11,7 +11,7 @@ test.describe('the shared clock', () => {
   });
 
   test('every panel advances off the same tick', async ({ app }) => {
-    await startSession(app);
+    await startWork(app);
 
     // Sample faster than the clock, then look for a sample where some running
     // figures moved and others didn't. Independent intervals — which is what
@@ -49,7 +49,7 @@ test.describe('the shared clock', () => {
     await app.reload();
 
     for (const t of ['One', 'Two', 'Three']) await addTask(app, t);
-    await startSession(app);
+    await startWork(app);
     await app.getByRole('checkbox', { name: 'One' }).locator('..').click();
     await app.waitForTimeout(2500);
 
@@ -60,7 +60,7 @@ test.describe('the shared clock', () => {
 test.describe('focused time', () => {
   test('accrues while focused, stops when unfocused, survives a reload', async ({ app }) => {
     await addTask(app, 'Write the spec');
-    await startSession(app);
+    await startWork(app);
     const row = app.locator('li').filter({ hasText: 'Write the spec' }).first();
 
     await row.click();

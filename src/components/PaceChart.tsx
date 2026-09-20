@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { useSession } from '../store/session';
+import { useSettings } from '../store/settings';
 import { todayKey } from '../utils/thirdTime';
+import { workMsOf } from '../utils/ledger';
 import {
   currentRunStart,
   denseLoads,
@@ -66,14 +68,15 @@ const yFor = (ratio: number) => {
 
 export function PaceChart() {
   const { history, daily } = useSession();
+  const dayEndHour = useSettings((s) => s.dayEndHour);
 
   const { points, ready, daysShort, resuming } = useMemo(() => {
-    const today = todayKey();
+    const today = todayKey(dayEndHour);
 
     const byDate = new Map<string, number>();
     history.forEach((h) => byDate.set(h.date, h.totalWorkMs));
     // Today is live, so it comes from `daily` rather than the archive.
-    byDate.set(today, daily.sessions.reduce((a, s) => a + s.workMs, 0));
+    byDate.set(today, workMsOf(daily.entries));
 
     const dates = [...byDate.keys()].sort();
     if (dates.length === 0)
@@ -98,7 +101,7 @@ export function PaceChart() {
       daysShort: 0,
       resuming,
     };
-  }, [history, daily]);
+  }, [history, daily, dayEndHour]);
 
   if (!ready) {
     return (

@@ -1,12 +1,6 @@
 import { test, expect } from './helpers';
 import type { Page } from '@playwright/test';
 
-function key(daysAgo: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
-}
-
 /** A run of daily session history ending today, plus today's live `daily`. */
 async function seedSessions(page: Page, days: number, hoursFor: (daysAgo: number) => number) {
   await page.evaluate(
@@ -58,44 +52,6 @@ async function seedSessions(page: Page, days: number, hoursFor: (daysAgo: number
   await page.reload();
 }
 
-async function seedHabits(page: Page) {
-  await page.evaluate(
-    ({ createdAt, done }) => {
-      localStorage.setItem(
-        'tt-habits',
-        JSON.stringify({
-          state: {
-            habits: [
-              {
-                id: 'meditate',
-                name: 'Meditate',
-                freq: { kind: 'daily' },
-                createdAt,
-                order: 0,
-                completions: Object.fromEntries(done.map((k: string) => [k, true])),
-              },
-              {
-                id: 'strength',
-                name: 'Strength training',
-                freq: { kind: 'weekdays', days: [0, 2, 4] },
-                createdAt,
-                order: 1,
-                completions: {},
-              },
-            ],
-          },
-          version: 1,
-        })
-      );
-    },
-    {
-      createdAt: Date.now() - 20 * 86_400_000,
-      done: [key(1), key(2), key(3), key(5), key(6), key(8), key(9), key(10), key(12)],
-    }
-  );
-  await page.reload();
-}
-
 const openActivity = async (page: Page) => {
   await page.getByRole('tab', { name: 'Activity', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Activity', exact: true })).toHaveAttribute(
@@ -135,17 +91,6 @@ test.describe('the activity view', () => {
     await cols.nth(3).click();
     await expect(main).toContainText('Active');
     await expect(main).toContainText('Rest earned');
-  });
-
-  test('habit adherence rows show name, frequency and a percentage', async ({ app }) => {
-    await seedHabits(app);
-    const main = await openActivity(app);
-    await expect(main).toContainText('Habits');
-    await expect(main).toContainText('Meditate');
-    await expect(main).toContainText('Daily');
-    await expect(main).toContainText('Strength training');
-    await expect(main).toContainText('Mon · Wed · Fri');
-    await expect(main.locator('text=/%/').first()).toBeVisible();
   });
 
   test('keeps the wall-clock day strip in the selected-day detail', async ({ app }) => {

@@ -1,25 +1,23 @@
-import type { EffortTarget, GoalPeriod, Habit } from '../types';
-import { todayKey, daysSince } from './thirdTime';
+import type { GoalPeriod, PeriodTarget, Recurrence } from '../types';
+import { daysSince, dateKey, weekdayIndex, dayKeyOf } from './thirdTime';
+
+// `dateKey` and `weekdayIndex` actually live in `thirdTime.ts` now — it needs
+// `dateKey` for `dayKeyOf` and already had to import from here, so keeping
+// both ends of that dependency in one file avoids an import cycle. Re-export
+// them so everything that already imports them from `goalPeriod` keeps working.
+export { dateKey, weekdayIndex };
 
 // ── Date keys ─────────────────────────────────────────────────────────────────
 
-/** YYYY-MM-DD for a Date, in local time. */
-export function dateKey(d: Date): string {
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, '0'),
-    String(d.getDate()).padStart(2, '0'),
-  ].join('-');
-}
-
-/** Monday=0 … Sunday=6 for a Date (JS `getDay` has Sunday=0). */
-export function weekdayIndex(d: Date): number {
-  return (d.getDay() + 6) % 7;
-}
-
-/** The Monday of a date's ISO week, as a date key. */
-export function getWeekKey(date: Date): string {
-  const d = new Date(date);
+/**
+ * The Monday of a date's ISO week, as a date key. Goes through `dayKeyOf`
+ * rather than the raw date so the week boundary moves with the day boundary —
+ * a Monday session that runs past midnight but before `dayEndHour` is still
+ * Sunday's week.
+ */
+export function getWeekKey(date: Date, dayEndHour: number): string {
+  const key = dayKeyOf(date.getTime(), dayEndHour);
+  const d = new Date(key + 'T00:00:00');
   d.setDate(d.getDate() - weekdayIndex(d));
   return dateKey(d);
 }
@@ -36,20 +34,33 @@ export function lastNDays(n: number, end: Date = new Date()): string[] {
 
 // ── Period keys (goals' effort targets) ───────────────────────────────────────
 
+/**
+ * The period key a moment falls in. `at` defaults to now, which is what every
+ * live caller wants; a re-sum over past ledger entries passes each entry's own
+ * timestamp instead, so a session from three weeks ago lands in that week's
+ * bucket rather than this one's.
+ */
 export function getPeriodKey(
   period: GoalPeriod,
   periodDays: number | undefined,
-  anchor: number
+  anchor: number,
+  dayEndHour: number,
+  at: number = Date.now()
 ): string {
-  if (period === 'daily') return todayKey();
-  if (period === 'weekly') return getWeekKey(new Date());
-  const windows = Math.floor(daysSince(anchor) / (periodDays ?? 1));
+  if (period === 'daily') return dayKeyOf(at, dayEndHour);
+  if (period === 'weekly') return getWeekKey(new Date(at), dayEndHour);
+  const windows = Math.floor((at - anchor) / 86_400_000 / (periodDays ?? 1));
   return `custom-${windows}`;
 }
 
-/** The current period key for an effort target, counting custom windows from `anchor`. */
-export function effortPeriodKey(effort: EffortTarget, anchor: number): string {
-  return getPeriodKey(effort.period, effort.periodDays, anchor);
+/** The period key for a period target at `at` (defaults to now), counting custom windows from `anchor`. */
+export function targetPeriodKey(
+  target: PeriodTarget,
+  anchor: number,
+  dayEndHour: number,
+  at: number = Date.now()
+): string {
+  return getPeriodKey(target.period, target.periodDays, anchor, dayEndHour, at);
 }
 
 /**
@@ -60,7 +71,8 @@ export function pastPeriodKeys(
   period: GoalPeriod,
   periodDays: number | undefined,
   anchor: number,
-  count: number
+  count: number,
+  dayEndHour: number
 ): string[] {
   if (period === 'custom') {
     const current = Math.floor(daysSince(anchor) / (periodDays ?? 1));
@@ -71,7 +83,7 @@ export function pastPeriodKeys(
   return Array.from({ length: count }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (count - 1 - i) * step);
-    return period === 'weekly' ? getWeekKey(d) : dateKey(d);
+    return period === 'weekly' ? getWeekKey(d, dayEndHour) : dateKey(d);
   });
 }
 
@@ -94,63 +106,29 @@ export function prunePeriods(progress: Record<string, number>): Record<string, n
   return Object.fromEntries(ordered.slice(-MAX_PERIODS).map((k) => [k, progress[k]]));
 }
 
-// ── Habits: when is one due? ──────────────────────────────────────────────────
+// ── Recurrence: when is a rule due? ───────────────────────────────────────────
 
 /**
- * Whether a habit comes due on `date`, ignoring whether it has been completed.
- * `everyN` counts whole days from the habit's creation.
+ * Whether `rule` comes due on `date`, given the timestamp it's anchored to.
+ * `everyN` counts whole days from the anchor. Never due before the anchor's
+ * own day, so a rule that hasn't started yet can't appear due retroactively.
  */
-export function isHabitDueOn(habit: Habit, date: Date): boolean {
-  const f = habit.freq;
-  switch (f.kind) {
+export function isDueOn(rule: Recurrence, anchorCreatedAt: number, date: Date): boolean {
+  const start = new Date(anchorCreatedAt);
+  start.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  const days = Math.round((target.getTime() - start.getTime()) / 86_400_000);
+  if (days < 0) return false;
+
+  switch (rule.kind) {
     case 'daily':
       return true;
     case 'weekly':
-      return true; // "due this week" — the list layer checks completion
+      return true; // "due this week" — the caller checks completion
     case 'weekdays':
-      return f.days.includes(weekdayIndex(date));
-    case 'everyN': {
-      const start = new Date(habit.createdAt);
-      start.setHours(0, 0, 0, 0);
-      const target = new Date(date);
-      target.setHours(0, 0, 0, 0);
-      const days = Math.round((target.getTime() - start.getTime()) / 86_400_000);
-      return days >= 0 && days % Math.max(2, f.n) === 0;
-    }
+      return rule.days.includes(weekdayIndex(date));
+    case 'everyN':
+      return days % Math.max(2, rule.n) === 0;
   }
-}
-
-function midnight(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-/**
- * Whether a habit still needs doing — due for the current period and not yet
- * completed. `everyN` catches up: a missed occurrence stays outstanding until
- * its next scheduled day comes round, not only on the exact day.
- */
-export function isHabitOutstanding(habit: Habit, today: Date = new Date()): boolean {
-  if (habit.archivedAt) return false;
-  const f = habit.freq;
-
-  if (f.kind === 'weekly') {
-    const weekStart = getWeekKey(today);
-    return !Object.keys(habit.completions).some((k) => k >= weekStart && habit.completions[k]);
-  }
-
-  if (f.kind === 'everyN') {
-    const n = Math.max(2, f.n);
-    const start = midnight(new Date(habit.createdAt));
-    const days = Math.round((midnight(today).getTime() - start.getTime()) / 86_400_000);
-    if (days < 0) return false;
-    const lastDue = new Date(start);
-    lastDue.setDate(lastDue.getDate() + (days - (days % n)));
-    const lastDueKey = dateKey(lastDue);
-    return !Object.keys(habit.completions).some((k) => k >= lastDueKey && habit.completions[k]);
-  }
-
-  if (!isHabitDueOn(habit, today)) return false;
-  return !habit.completions[dateKey(today)];
 }

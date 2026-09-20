@@ -34,9 +34,9 @@ export async function addTask(page: Page, title: string) {
   await expect(page.getByRole('checkbox', { name: title })).toBeVisible();
 }
 
-export async function startSession(page: Page) {
+export async function startWork(page: Page) {
   await page.getByRole('button', { name: 'Start →' }).click();
-  await expect(page.getByRole('button', { name: 'End Session' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
 }
 
 export async function openTaskMenu(page: Page) {
@@ -53,7 +53,7 @@ export function readTimers(page: Page) {
   );
 }
 
-/** Switch to a top-level tab (Habits / Tasks / Goals / Activity). */
+/** Switch to a top-level tab (Projects / Tasks / Activity). */
 export async function switchTab(page: Page, name: string) {
   await page.getByRole('tab', { name, exact: true }).click();
   await expect(page.getByRole('tab', { name, exact: true })).toHaveAttribute('aria-selected', 'true');

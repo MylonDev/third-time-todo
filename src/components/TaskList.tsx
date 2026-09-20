@@ -18,14 +18,19 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTasks } from '../store/tasks';
+import { useSettings } from '../store/settings';
+import { useSession } from '../store/session';
+import { useProjects } from '../store/projects';
 import { todayKey, isStale, daysSince, formatTimeLong } from '../utils/thirdTime';
 import { ActionMenu } from './ActionMenu';
 import { InlineInput } from './InlineInput';
-import { useFocusable } from '../hooks/useFocusable';
-import type { Task } from '../types';
+import { useActiveTarget } from '../hooks/useFocusable';
+import { useElapsed } from '../hooks/useNow';
+import type { Project, Task } from '../types';
 
 function SortableTask({
   task,
+  projects,
   onUpdate,
   onDelete,
   onMoveToTomorrow,
@@ -34,8 +39,10 @@ function SortableTask({
   onDeleteSubtask,
   onEditSubtask,
   onAdjustTrackedMs,
+  onSetTaskProject,
 }: {
   task: Task;
+  projects: Project[];
   onUpdate: (id: string, patch: Partial<Task>) => void;
   onDelete: (id: string) => void;
   onMoveToTomorrow: (id: string) => void;
@@ -44,11 +51,27 @@ function SortableTask({
   onDeleteSubtask: (taskId: string, subtaskId: string) => void;
   onEditSubtask: (taskId: string, subtaskId: string, title: string) => void;
   onAdjustTrackedMs: (id: string, deltaMs: number) => void;
+  onSetTaskProject: (id: string, projectId?: string) => void;
 }) {
-  const { isFocused, tracking, segmentMs, toggleFocus } = useFocusable(
-    { kind: 'task', id: task.id },
-    task.status !== 'done'
-  );
+  const enabled = task.status !== 'done';
+  const { taskId: activeTaskId } = useActiveTarget();
+  const timerState = useSession((s) => s.timerState);
+  const timerStart = useSession((s) => s.timerStart);
+  const setActive = useSession((s) => s.setActive);
+
+  const isFocused = enabled && activeTaskId === task.id;
+  const tracking = isFocused && timerState === 'working';
+  const segmentMs = useElapsed(tracking ? timerStart : null, tracking);
+
+  /** Focusing the row that already holds the target clears it. */
+  const toggleFocus = () => {
+    if (!enabled) return;
+    setActive(undefined, isFocused ? undefined : task.id);
+  };
+
+  const taskProject = task.projectId ? projects.find((p) => p.id === task.projectId) : undefined;
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     disabled: task.status === 'done',
@@ -135,7 +158,11 @@ function SortableTask({
 
   const handleCardClick = (e: React.MouseEvent) => {
     if (isDone) return;
-    if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
+    // Anything interactive on the row — including a custom control that
+    // isn't a native form element, like the project-picker's `role="option"`
+    // rows below — has to opt out of the row's own click-to-focus, or
+    // picking one silently re-toggles the timer's target underneath it.
+    if ((e.target as HTMLElement).closest('button, input, textarea, a, [role="option"], [role="menuitem"]')) return;
     toggleFocus();
   };
 
@@ -236,6 +263,33 @@ function SortableTask({
                     Focused
                   </span>
                 )}
+                {taskProject && (
+                  <span
+                    className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full font-medium"
+                    style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-muted)' }}
+                  >
+                    {taskProject.color && (
+                      <span
+                        className="inline-block h-1.5 w-1.5 rounded-full"
+                        style={{ background: taskProject.color }}
+                        aria-hidden
+                      />
+                    )}
+                    {taskProject.name}
+                  </span>
+                )}
+                {!isDone && (
+                  <button
+                    onClick={toggleFocus}
+                    aria-label={`Track time on ${task.title}`}
+                    aria-pressed={isFocused}
+                    className="text-xs transition-opacity opacity-50 hover:opacity-100"
+                    style={{ color: isFocused ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
+                    title={isFocused ? 'Stop tracking this task' : 'Track time on this task'}
+                  >
+                    ▶
+                  </button>
+                )}
               </div>
               <div className="flex gap-1.5 mt-0.5 flex-wrap items-center">
                 {isStale(task.createdAt) && !isDone && (
@@ -290,6 +344,45 @@ function SortableTask({
                   )}
                 </div>
               )}
+
+              {showProjectPicker && !isDone && (
+                <div
+                  role="listbox"
+                  aria-label="Project"
+                  className="flex flex-col gap-0.5 mt-1.5 rounded-lg border p-1"
+                  style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}
+                >
+                  <div
+                    role="option"
+                    tabIndex={0}
+                    aria-selected={!task.projectId}
+                    onClick={() => {
+                      onSetTaskProject(task.id, undefined);
+                      setShowProjectPicker(false);
+                    }}
+                    className="text-xs px-2 py-1 rounded-md cursor-pointer hover:bg-[var(--color-surface)]"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    No project
+                  </div>
+                  {projects.map((p) => (
+                    <div
+                      key={p.id}
+                      role="option"
+                      tabIndex={0}
+                      aria-selected={task.projectId === p.id}
+                      onClick={() => {
+                        onSetTaskProject(task.id, p.id);
+                        setShowProjectPicker(false);
+                      }}
+                      className="text-xs px-2 py-1 rounded-md cursor-pointer hover:bg-[var(--color-surface)]"
+                      style={{ color: 'var(--color-text)' }}
+                    >
+                      {p.name}
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -312,6 +405,7 @@ function SortableTask({
                 label: 'Adjust tracked time',
                 onSelect: () => { setShowTimeEdit(true); setTimeEditMin(''); },
               },
+              { label: 'Project…', onSelect: () => setShowProjectPicker(true) },
               { label: 'Delete', onSelect: () => onDelete(task.id), danger: true },
             ]}
           />
@@ -412,8 +506,10 @@ export function TaskList() {
   const {
     tasks, addTask, updateTask, deleteTask, moveToTomorrow,
     reorderTasks, addSubtask, toggleSubtask, deleteSubtask, editSubtask,
-    adjustTrackedMs, restoreTask,
+    adjustTrackedMs, restoreTask, setTaskProject,
   } = useTasks();
+  const projects = useProjects((s) => s.projects);
+  const dayEndHour = useSettings((s) => s.dayEndHour);
   const [title, setTitle] = useState('');
   const [showDone, setShowDone] = useState(false);
 
@@ -457,7 +553,7 @@ export function TaskList() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const today = todayKey();
+  const today = todayKey(dayEndHour);
   const todayTasks = useMemo(
     () => tasks.filter((t) => t.scheduledDate === today),
     [tasks, today]
@@ -542,6 +638,7 @@ export function TaskList() {
               <SortableTask
                 key={task.id}
                 task={task}
+                projects={projects}
                 onUpdate={updateTask}
                 onDelete={handleDelete}
                 onMoveToTomorrow={moveToTomorrow}
@@ -550,6 +647,7 @@ export function TaskList() {
                 onDeleteSubtask={deleteSubtask}
                 onEditSubtask={editSubtask}
                 onAdjustTrackedMs={adjustTrackedMs}
+                onSetTaskProject={setTaskProject}
               />
             ))}
           </ul>
@@ -573,6 +671,7 @@ export function TaskList() {
                 <SortableTask
                   key={task.id}
                   task={task}
+                  projects={projects}
                   onUpdate={updateTask}
                   onDelete={handleDelete}
                   onMoveToTomorrow={moveToTomorrow}
@@ -581,6 +680,7 @@ export function TaskList() {
                   onDeleteSubtask={deleteSubtask}
                   onEditSubtask={editSubtask}
                   onAdjustTrackedMs={adjustTrackedMs}
+                  onSetTaskProject={setTaskProject}
                 />
               ))}
             </ul>

@@ -12,7 +12,7 @@ test.describe('the task menu', () => {
     await trigger.click();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
     expect(await items(app)).toEqual([
-      'Edit', 'Subtasks', 'Move to tomorrow', 'Adjust tracked time', 'Delete',
+      'Edit', 'Subtasks', 'Move to tomorrow', 'Adjust tracked time', 'Project…', 'Delete',
     ]);
   });
 
@@ -61,5 +61,5 @@ test('the subtask menu offers Edit and Delete', async ({ app }) => {
   expect(await items(app)).toEqual(['Edit', 'Delete']);
 });
 
-// The goal action menu is covered by the Goals thread's own spec against the
-// cumulative Time / Count / Open model.
+// The project action menu is covered by the Projects thread's own spec
+// against the period-target model.

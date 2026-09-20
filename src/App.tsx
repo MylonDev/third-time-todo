@@ -3,34 +3,38 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { BreakBank } from './components/BreakBank';
 import { SessionTimer } from './components/SessionTimer';
 import { TaskList } from './components/TaskList';
-import { HabitList } from './components/HabitList';
-import { GoalList } from './components/GoalList';
+import { ProjectList } from './components/ProjectList';
 import { Activity } from './components/Activity';
 import { ModeSelector } from './components/ModeSelector';
 import { OptionsPanel } from './components/OptionsPanel';
-import { EndSessionModal } from './components/EndSessionModal';
 import { RestoreSessionModal } from './components/RestoreSessionModal';
 import { CarriedOverModal } from './components/CarriedOverModal';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
 import { useTasks } from './store/tasks';
 import { requestNotificationPermission } from './utils/notifications';
-import { earnBreak, todayKey } from './utils/thirdTime';
+import { todayKey, dayEndOf } from './utils/thirdTime';
 import type { TabId } from './types';
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: 'habits', label: 'Habits' },
   { id: 'tasks', label: 'Tasks' },
-  { id: 'goals', label: 'Goals' },
+  { id: 'projects', label: 'Projects' },
   { id: 'activity', label: 'Activity' },
 ];
 
 export default function App() {
   const {
-    timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer,
-    focusedItem, setFocusSegmentStart, pruneFocus, maybeArchivePreviousDay,
+    timerState,
+    timerStart,
+    sessionClosedAt,
+    restorePrompt,
+    settleClosedSession,
+    continueRestoredSession,
+    resumeRestoredSession,
+    discardRestoredSession,
+    maybeArchivePreviousDay,
   } = useSession();
-  const { theme, mode, activeTab, setActiveTab, quotes, showQuote, setShowQuote } = useSettings();
+  const { theme, mode, activeTab, setActiveTab, quotes, showQuote, setShowQuote, dayEndHour } = useSettings();
   const { rolloverPastTasks } = useTasks();
 
   // Tasks that came over from a previous day on this open. Offered for triage
@@ -40,33 +44,20 @@ export default function App() {
   // Close out a day that ended while the app was away, then roll unfinished
   // tasks into today.
   useEffect(() => {
+    // First, close any timer that was still running when the app went away, at
+    // the moment it went away. Everything after that is a gap the restore
+    // prompt asks about on its own — and until it does, nothing below may read
+    // the open segment as though it had been running the whole time.
+    settleClosedSession();
     maybeArchivePreviousDay();
     // Only ever widen the list — under StrictMode this runs twice, and the
     // second pass finds nothing left to move.
     const carried = rolloverPastTasks();
     if (carried.length > 0) setCarriedOver(carried);
-    pruneFocus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [showOptions, setShowOptions] = useState(false);
-  const [showEndModal, setShowEndModal] = useState(false);
-  const [bankToClear, setBankToClear] = useState(0);
-
-  // Sample the bank as the modal opens so the summary can report the rest this
-  // session leaves unspent. Includes what the running timer has earned but not banked.
-  const handleOpenEndModal = () => {
-    const { daily, timerStart: start, timerState: state } = useSession.getState();
-    const elapsed = start ? Date.now() - start : 0;
-    setBankToClear(
-      state === 'working'
-        ? daily.bankMs + earnBreak(elapsed, mode)
-        : state === 'on-break'
-        ? daily.bankMs - elapsed
-        : daily.bankMs
-    );
-    setShowEndModal(true);
-  };
 
   // Show restore modal if a session was active when the page last closed
   const [showRestoreModal] = useState(() => useSession.getState().timerState !== 'idle');
@@ -75,7 +66,11 @@ export default function App() {
   // and `visibilitychange` fire reliably on mobile, where `beforeunload` does not.
   useEffect(() => {
     const record = () => {
-      if (useSession.getState().timerState !== 'idle') {
+      const { timerState, sessionClosedAt } = useSession.getState();
+      // Only the first stamp is honest: it is when the person actually left.
+      // Backgrounding the tab later — while the restore prompt is still up,
+      // say — would otherwise overwrite it with a moment nobody was here for.
+      if (timerState !== 'idle' && sessionClosedAt === null) {
         useSession.getState().setClosedAt(Date.now());
       }
     };
@@ -88,46 +83,45 @@ export default function App() {
     };
   }, []);
 
-  // A tab left open across midnight keeps yesterday's task list; re-run rollover
-  // as the day turns.
-  const [dayKey, setDayKey] = useState(() => todayKey());
+  // A tab left open across the day boundary keeps yesterday's task list;
+  // re-run rollover as the day turns. Re-scheduled whenever `dayEndHour`
+  // changes, since that moves when "the day turns" means.
+  const [dayKey, setDayKey] = useState(() => todayKey(dayEndHour));
   useEffect(() => {
-    const next = new Date();
-    next.setHours(24, 0, 0, 500);
+    const turnover = dayEndOf(todayKey(dayEndHour), dayEndHour);
     const id = setTimeout(() => {
       maybeArchivePreviousDay();
       const carried = rolloverPastTasks();
       if (carried.length > 0) setCarriedOver(carried);
-      setDayKey(todayKey());
-    }, next.getTime() - Date.now());
+      setDayKey(todayKey(dayEndHour));
+    }, turnover - Date.now());
     return () => clearTimeout(id);
-  }, [dayKey, rolloverPastTasks, maybeArchivePreviousDay]);
+  }, [dayKey, dayEndHour, rolloverPastTasks, maybeArchivePreviousDay]);
 
   // Restore handlers
   const [restoreModalDismissed, setRestoreModalDismissed] = useState(false);
 
   const handleRestoreReset = () => {
-    clearTimer();
+    discardRestoredSession();
     setRestoreModalDismissed(true);
   };
 
   const handleRestoreContinue = () => {
-    const closedAt = sessionClosedAt ?? Date.now();
-    const elapsedAtClose = timerStart ? closedAt - timerStart : 0;
-    const resumedStart = Date.now() - elapsedAtClose;
-    useSession.setState({ timerStart: resumedStart, sessionClosedAt: null });
-    if (focusedItem) setFocusSegmentStart(resumedStart);
+    continueRestoredSession();
     setRestoreModalDismissed(true);
   };
 
   const handleRestoreResume = () => {
-    setClosedAt(null);
-    if (focusedItem && timerStart) setFocusSegmentStart(timerStart);
+    resumeRestoredSession();
     setRestoreModalDismissed(true);
   };
 
+  // What the settle filed is what the prompt reports — by the time it is on
+  // screen the timer has already been rewound to the close stamp, so the live
+  // `timerStart` no longer knows how long the stint ran.
   const closedAt = sessionClosedAt ?? Date.now();
-  const elapsedAtClose = timerStart ? closedAt - timerStart : 0;
+  const elapsedAtClose =
+    restorePrompt?.settledMs ?? (timerStart ? Math.max(0, closedAt - timerStart) : 0);
   const timeAway = sessionClosedAt ? Date.now() - sessionClosedAt : 0;
 
   // Apply theme: dark is default, .light class overrides
@@ -182,27 +176,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            <AnimatePresence>
-              {sessionActive && (
-                <motion.button
-                  key="end-session"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.15 }}
-                  onClick={handleOpenEndModal}
-                  className="px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
-                  style={{
-                    background: 'var(--color-danger-dim)',
-                    color: 'var(--color-danger)',
-                    border: '1px solid var(--color-danger)',
-                    fontFamily: 'var(--font-display)',
-                  }}
-                >
-                  End Session
-                </motion.button>
-              )}
-            </AnimatePresence>
             <button
               onClick={() => setShowOptions(true)}
               className="p-2 rounded-xl border transition-opacity opacity-50 hover:opacity-100"
@@ -225,8 +198,11 @@ export default function App() {
         </header>
 
         {/* ── Pinned session zone ─────────────────────────────── */}
+        {/* The bank is a property of the day, not of a running timer — it stays
+            on screen whether or not one is running. Only the Start control and
+            the quote come and go. */}
         <section className="flex flex-col gap-3">
-          {!sessionActive ? (
+          {!sessionActive && (
             <>
               <div className="flex flex-col sm:flex-row gap-3 sm:items-start">
                 <div className="flex-1 min-w-0">
@@ -261,12 +237,11 @@ export default function App() {
                 </div>
               )}
             </>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SessionTimer />
-              <BreakBank />
-            </div>
           )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <SessionTimer />
+            <BreakBank />
+          </div>
         </section>
 
         {/* ── Tabs ────────────────────────────────────────────── */}
@@ -304,9 +279,8 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
         >
-          {activeTab === 'habits' && <HabitList />}
           {activeTab === 'tasks' && <TaskList />}
-          {activeTab === 'goals' && <GoalList />}
+          {activeTab === 'projects' && <ProjectList />}
           {activeTab === 'activity' && <Activity />}
         </motion.main>
       </motion.div>
@@ -328,17 +302,6 @@ export default function App() {
       <AnimatePresence>
         {carriedOver.length > 0 && (
           <CarriedOverModal taskIds={carriedOver} onClose={() => setCarriedOver([])} />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showEndModal && (
-          <EndSessionModal
-            isOpen={showEndModal}
-            onClose={() => setShowEndModal(false)}
-            mode={mode}
-            bankToClear={bankToClear}
-          />
         )}
       </AnimatePresence>
     </div>

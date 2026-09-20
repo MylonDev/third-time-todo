@@ -1,18 +1,22 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Task, TaskStatus, SubTask } from '../types';
+import type { SubTask, Task, TaskStatus, TimeEntry } from '../types';
 import { todayKey, tomorrowKey } from '../utils/thirdTime';
+import { useSettings } from './settings';
+import { reattributeActiveTask, resyncAggregates } from './sessionBridge';
 
 /**
- * Legacy routine data. Routines became habits (`store/habits.ts`); this data is
- * left in `tt-tasks` untouched so nothing is lost and `habits` can seed from it.
+ * Legacy routine data. Routines became habits, and habits are gone too now —
+ * nothing reads this any more. It stays in `tt-tasks` untouched anyway, on the
+ * same principle that kept it around for habits to seed from: a migration
+ * never deletes user data just because the feature that made sense of it did.
  */
 type LegacyRoutines = unknown[];
 type LegacyRoutineHistory = Record<string, unknown>;
 
 interface TasksState {
   tasks: Task[];
-  /** @deprecated kept only so the persisted key survives — see habits store */
+  /** @deprecated kept only so the persisted key survives */
   routines: LegacyRoutines;
   /** @deprecated */
   routineHistory: LegacyRoutineHistory;
@@ -29,6 +33,17 @@ interface TasksState {
   /** Moves unfinished tasks from past days into today, returning their ids. */
   rolloverPastTasks: () => string[];
   adjustTrackedMs: (id: string, deltaMs: number) => void;
+  setTaskProject: (id: string, projectId?: string) => void;
+  /** A deleted project untags itself from every task — the tasks stay, the tag doesn't. */
+  clearTaskProject: (projectId: string) => void;
+  /**
+   * Re-sum every task's `trackedMs` from the ledger. Same rationale as
+   * `useProjects.recomputeFrom`: once entries are editable, a delta patched
+   * onto `trackedMs` at commit time is only ever right until the entry that
+   * funded it is edited or removed — after that it's a number nothing will
+   * ever correct on its own.
+   */
+  recomputeFrom: (entries: TimeEntry[]) => void;
 }
 
 /**
@@ -50,7 +65,7 @@ interface PersistedTasksState {
 /**
  * Checklists used to be their own store, then routines. The old `tt-checklists`
  * key is left in place; this fills `routines` for a store old enough never to
- * have run the v5 migration, so the habits store can still seed from it.
+ * have run the v5 migration, so that legacy data still lands somewhere.
  */
 function migrateChecklists(existingTasks: PersistedTask[]): LegacyRoutines {
   try {
@@ -58,7 +73,7 @@ function migrateChecklists(existingTasks: PersistedTask[]): LegacyRoutines {
     if (!raw) return [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const lists: any[] = JSON.parse(raw)?.state?.checklists ?? [];
-    const today = todayKey();
+    const today = todayKey(useSettings.getState().dayEndHour);
     let order = existingTasks.filter((t) => t.scheduledDate === today).length;
     const spawned: Task[] = [];
 
@@ -135,12 +150,14 @@ export const useTasks = create<TasksState>()(
           s.tasks.some((t) => t.id === task.id) ? s : { tasks: [...s.tasks, task] }
         ),
 
-      moveToTomorrow: (id) =>
+      moveToTomorrow: (id) => {
+        const dayEndHour = useSettings.getState().dayEndHour;
         set((s) => ({
           tasks: s.tasks.map((t) =>
-            t.id === id ? { ...t, scheduledDate: tomorrowKey() } : t
+            t.id === id ? { ...t, scheduledDate: tomorrowKey(dayEndHour) } : t
           ),
-        })),
+        }));
+      },
 
       reorderTasks: (orderedIds) =>
         set((s) => ({
@@ -203,7 +220,7 @@ export const useTasks = create<TasksState>()(
         })),
 
       rolloverPastTasks: () => {
-        const today = todayKey();
+        const today = todayKey(useSettings.getState().dayEndHour);
         const carried = get()
           .tasks.filter(
             (t) => t.scheduledDate < today && t.status !== 'done' && !t.routineId
@@ -226,10 +243,39 @@ export const useTasks = create<TasksState>()(
               : t
           ),
         })),
+
+      setTaskProject: (id, projectId) => {
+        set((s) => ({
+          tasks: s.tasks.map((t) => (t.id === id ? { ...t, projectId } : t)),
+        }));
+        // A task's time is filed under whatever project the task belongs to,
+        // so retagging it moves all of that time at once. The stint running
+        // right now has to be closed under the old project and reopened under
+        // the new one before another second accrues to the wrong one; the
+        // entries already in the ledger follow from the re-sum, which reads
+        // each entry's project through its task.
+        reattributeActiveTask(id);
+        resyncAggregates();
+      },
+
+      clearTaskProject: (projectId) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) => (t.projectId === projectId ? { ...t, projectId: undefined } : t)),
+        })),
+
+      recomputeFrom: (entries) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) => {
+            const trackedMs = entries
+              .filter((e) => e.kind === 'work' && e.taskId === t.id)
+              .reduce((sum, e) => sum + Math.max(0, e.endedAt - e.startedAt), 0);
+            return { ...t, trackedMs };
+          }),
+        })),
     }),
     {
       name: 'tt-tasks',
-      version: 6,
+      version: 7,
       migrate: (persisted: unknown, version: number) => {
         let state = persisted as PersistedTasksState;
         if (version < 3) {
@@ -242,7 +288,7 @@ export const useTasks = create<TasksState>()(
                   ? 'todo'
                   : t.status ?? 'todo',
               createdAt: t.createdAt ?? Date.now(),
-              scheduledDate: t.scheduledDate ?? todayKey(),
+              scheduledDate: t.scheduledDate ?? todayKey(useSettings.getState().dayEndHour),
               order: t.order ?? i,
               subtasks: t.subtasks ?? [],
               trackedMs: 0,
@@ -258,7 +304,13 @@ export const useTasks = create<TasksState>()(
           state = { ...state, routines: migrateChecklists(state.tasks ?? []) };
         }
         if (version < 6) {
-          return { ...state, routineHistory: {} };
+          state = { ...state, routineHistory: {} };
+        }
+        if (version < 7) {
+          // `projectId` is optional, and its absence already means "no
+          // project" — there is nothing on an existing task to backfill. The
+          // bump exists only to declare the field as part of the shape.
+          state = { ...state };
         }
         return state;
       },

@@ -1,10 +1,10 @@
-import type { HabitFreq } from '../types';
+import type { Recurrence } from '../types';
 
 export const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export const WEEKDAY_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 /** Human-readable cadence, e.g. "Daily", "Every 3 days", "Mon · Wed · Fri". */
-export function freqLabel(freq: HabitFreq): string {
+export function recurrenceLabel(freq: Recurrence): string {
   switch (freq.kind) {
     case 'daily':
       return 'Daily';

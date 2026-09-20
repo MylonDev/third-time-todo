@@ -14,12 +14,20 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: 'dark', label: 'Dark' },
 ];
 
+const DAY_END_HOURS: { value: number; label: string }[] = [
+  { value: 0, label: 'Midnight' },
+  { value: 1, label: '1 AM' },
+  { value: 2, label: '2 AM' },
+  { value: 3, label: '3 AM' },
+  { value: 4, label: '4 AM' },
+];
+
 export function OptionsPanel({ isOpen, onClose }: Props) {
   const {
     longWorkReminderMin, soundsEnabled, theme,
-    breakIncrements,
+    breakIncrements, dayEndHour,
     setLongWorkReminderMin, setSoundsEnabled, setTheme,
-    setBreakIncrements,
+    setBreakIncrements, setDayEndHour,
   } = useSettings();
 
   const [newIncrement, setNewIncrement] = useState('');
@@ -93,6 +101,33 @@ export function OptionsPanel({ isOpen, onClose }: Props) {
                 </button>
               ))}
             </div>
+          </section>
+
+          {/* Day boundary */}
+          <section>
+            <label className="block mb-3" style={labelStyle} htmlFor="day-end-hour">
+              My day ends at
+            </label>
+            <select
+              id="day-end-hour"
+              value={dayEndHour}
+              onChange={(e) => setDayEndHour(Number(e.target.value))}
+              className="w-full rounded-lg px-2 py-1.5 text-sm outline-none transition-colors border"
+              style={{
+                background: 'var(--color-surface-2)',
+                color: 'var(--color-text)',
+                borderColor: 'var(--color-border)',
+              }}
+            >
+              {DAY_END_HOURS.map((h) => (
+                <option key={h.value} value={h.value}>
+                  {h.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+              Changing this does not rewrite past days.
+            </p>
           </section>
 
           {/* Sounds */}
