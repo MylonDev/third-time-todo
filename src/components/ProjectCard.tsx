@@ -1,6 +1,8 @@
 import { useSettings } from '../store/settings';
 import { useProjects } from '../store/projects';
+import { useSession } from '../store/session';
 import { ActionMenu } from './ActionMenu';
+import { useActiveTarget } from '../hooks/useFocusable';
 import type { Project } from '../types';
 import { formatProjectTotal, paceReading, targetReading, widthPct } from '../utils/project';
 
@@ -27,6 +29,12 @@ export function ProjectCard({
 }) {
   const dayEndHour = useSettings((s) => s.dayEndHour);
   const archiveProject = useProjects((s) => s.archiveProject);
+  const setActive = useSession((s) => s.setActive);
+  const { projectId: activeProjectId, taskId: activeTaskId } = useActiveTarget();
+
+  // Active only when this project is the target directly — a task tagged to
+  // it credits the project too, but the task row is where that toggle lives.
+  const isActive = activeProjectId === project.id && !activeTaskId;
 
   const target = targetReading(project, dayEndHour);
   const pace = project.deadline ? paceReading(project) : null;
@@ -55,13 +63,28 @@ export function ProjectCard({
           </span>
         </div>
 
-        <ActionMenu
-          label="Project actions"
-          actions={[
-            { label: 'Edit', onSelect: onEdit },
-            { label: 'Archive', onSelect: () => archiveProject(project.id) },
-          ]}
-        />
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={() => setActive(isActive ? undefined : project.id, undefined)}
+            aria-label={`Track time on ${project.name}`}
+            aria-pressed={isActive}
+            className="flex items-center justify-center w-7 h-7 rounded-lg text-sm transition-all"
+            style={{
+              color: isActive ? 'var(--color-accent)' : 'var(--color-text-muted)',
+              background: isActive ? 'var(--color-accent-dim)' : 'transparent',
+            }}
+            title={isActive ? 'Stop tracking this project' : 'Track time on this project'}
+          >
+            ▶
+          </button>
+          <ActionMenu
+            label="Project actions"
+            actions={[
+              { label: 'Edit', onSelect: onEdit },
+              { label: 'Archive', onSelect: () => archiveProject(project.id) },
+            ]}
+          />
+        </div>
       </div>
 
       {target && (

@@ -19,10 +19,12 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useTasks } from '../store/tasks';
 import { useSettings } from '../store/settings';
+import { useSession } from '../store/session';
 import { todayKey, isStale, daysSince, formatTimeLong } from '../utils/thirdTime';
 import { ActionMenu } from './ActionMenu';
 import { InlineInput } from './InlineInput';
-import { useFocusable } from '../hooks/useFocusable';
+import { useActiveTarget } from '../hooks/useFocusable';
+import { useElapsed } from '../hooks/useNow';
 import type { Task } from '../types';
 
 function SortableTask({
@@ -46,10 +48,22 @@ function SortableTask({
   onEditSubtask: (taskId: string, subtaskId: string, title: string) => void;
   onAdjustTrackedMs: (id: string, deltaMs: number) => void;
 }) {
-  const { isFocused, tracking, segmentMs, toggleFocus } = useFocusable(
-    { kind: 'task', id: task.id },
-    task.status !== 'done'
-  );
+  const enabled = task.status !== 'done';
+  const { taskId: activeTaskId } = useActiveTarget();
+  const timerState = useSession((s) => s.timerState);
+  const timerStart = useSession((s) => s.timerStart);
+  const setActive = useSession((s) => s.setActive);
+
+  const isFocused = enabled && activeTaskId === task.id;
+  const tracking = isFocused && timerState === 'working';
+  const segmentMs = useElapsed(tracking ? timerStart : null, tracking);
+
+  /** Focusing the row that already holds the target clears it. */
+  const toggleFocus = () => {
+    if (!enabled) return;
+    setActive(undefined, isFocused ? undefined : task.id);
+  };
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     disabled: task.status === 'done',
@@ -236,6 +250,18 @@ function SortableTask({
                   >
                     Focused
                   </span>
+                )}
+                {!isDone && (
+                  <button
+                    onClick={toggleFocus}
+                    aria-label={`Track time on ${task.title}`}
+                    aria-pressed={isFocused}
+                    className="text-xs transition-opacity opacity-50 hover:opacity-100"
+                    style={{ color: isFocused ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
+                    title={isFocused ? 'Stop tracking this task' : 'Track time on this task'}
+                  >
+                    ▶
+                  </button>
                 )}
               </div>
               <div className="flex gap-1.5 mt-0.5 flex-wrap items-center">

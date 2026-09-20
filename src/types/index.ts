@@ -17,6 +17,8 @@ export interface Task {
   order: number;
   subtasks: SubTask[];
   trackedMs: number; // cumulative milliseconds focused while timer was running
+  /** The project this task's tracked time is credited to, if any. */
+  projectId?: string;
   /**
    * Legacy — tasks spawned by the old routines feature carried these. Routines
    * are gone; such tasks stay filtered out of the list. New tasks never set them.
@@ -56,12 +58,6 @@ export type TaskDisposition = 'keep' | 'mark-done' | 'discard';
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
 export type TabId = 'tasks' | 'projects' | 'activity';
-
-// ── Focus ─────────────────────────────────────────────────────────────────────
-
-export type FocusTarget =
-  | { kind: 'task'; id: string }
-  | { kind: 'goal'; id: string };
 
 // ── Periods (shared by goals) ─────────────────────────────────────────────────
 
