@@ -3,11 +3,12 @@ import { motion } from 'framer-motion';
 import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
 import { useTasks } from '../store/tasks';
-import { useGoals } from '../store/goals';
+import { useProjects } from '../store/projects';
 import { formatTimeLong, MODE_CONFIG, MODE_BADGE_CLASSES } from '../utils/thirdTime';
 import { playSound } from '../utils/sounds';
 import { sendNotification } from '../utils/notifications';
 import { useElapsed } from '../hooks/useNow';
+import { useActiveTarget } from '../hooks/useFocusable';
 import type { Mode } from '../types';
 
 const MODE_COLOR: Record<Mode, string> = {
@@ -22,15 +23,19 @@ const MODE_COLOR_DIM: Record<Mode, string> = {
 };
 
 export function SessionTimer() {
-  const { timerState, timerStart, stopBreak, startWork, focusedItem } = useSession();
+  const { timerState, timerStart, stopWork, stopBreak, startWork } = useSession();
   const { mode, longWorkReminderMin, soundsEnabled } = useSettings();
   const { tasks } = useTasks();
-  const { goals } = useGoals();
+  const { projects } = useProjects();
+  const { projectId: activeProjectId, taskId: activeTaskId } = useActiveTarget();
 
-  const focusLabel = focusedItem
-    ? focusedItem.kind === 'task'
-      ? tasks.find((t) => t.id === focusedItem.id)?.title
-      : goals.find((g) => g.id === focusedItem.id)?.title
+  // A task's own project always wins the label — that is what the entry will
+  // actually be credited to — so only fall back to a bare project name when
+  // no task is the target.
+  const focusLabel = activeTaskId
+    ? tasks.find((t) => t.id === activeTaskId)?.title
+    : activeProjectId
+    ? projects.find((p) => p.id === activeProjectId)?.name
     : null;
   const [reminderDismissedAt, setReminderDismissedAt] = useState<number | null>(null);
   const firedReminder = useRef(false);
@@ -57,6 +62,11 @@ export function SessionTimer() {
   const handleResumeWork = () => {
     stopBreak();
     startWork();
+  };
+
+  const handleStop = () => {
+    if (timerState === 'working') stopWork(mode as Mode);
+    else if (timerState === 'on-break') stopBreak();
   };
 
   const isWorking = timerState === 'working';
@@ -156,19 +166,35 @@ export function SessionTimer() {
         )}
       </div>
 
-      {/* Resume button (on-break only) */}
-      {isOnBreak && (
-        <button
-          onClick={handleResumeWork}
-          className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all"
-          style={{
-            background: MODE_COLOR[mode as Mode],
-            color: 'var(--color-bg)',
-            fontFamily: 'var(--font-display)',
-          }}
-        >
-          Resume
-        </button>
+      {/* Timer controls */}
+      {(isWorking || isOnBreak) && (
+        <div className="flex gap-2">
+          {isOnBreak && (
+            <button
+              onClick={handleResumeWork}
+              className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all"
+              style={{
+                background: MODE_COLOR[mode as Mode],
+                color: 'var(--color-bg)',
+                fontFamily: 'var(--font-display)',
+              }}
+            >
+              Resume
+            </button>
+          )}
+          <button
+            onClick={handleStop}
+            className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all border"
+            style={{
+              background: 'var(--color-surface-2)',
+              color: 'var(--color-text)',
+              borderColor: 'var(--color-border)',
+              fontFamily: 'var(--font-display)',
+            }}
+          >
+            Stop
+          </button>
+        </div>
       )}
     </motion.div>
   );

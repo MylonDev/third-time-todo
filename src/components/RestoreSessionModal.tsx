@@ -79,7 +79,7 @@ export function RestoreSessionModal({
               borderColor: 'var(--color-border)',
             }}
           >
-            Continue — pick up at {formatTimeLong(elapsedAtClose)}
+            Continue — keep the {formatTimeLong(elapsedAtClose)} already logged
           </button>
           <button
             onClick={onReset}
@@ -90,7 +90,7 @@ export function RestoreSessionModal({
               borderColor: 'var(--color-danger)',
             }}
           >
-            Reset — start a new session
+            Discard it
           </button>
         </div>
     </Modal>
