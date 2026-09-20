@@ -35,7 +35,7 @@ Sequential — each phase depends on the stores the one before it migrates.
 
 | Phase | Scope | Stores touched |
 | --- | --- | --- |
-| 1 | Projects + the time-entry ledger + derived bank | `tt-goals`, `tt-session`, `tt-tasks`, `tt-habits` (orphaned) |
+| 1 | The day boundary + projects + the time-entry ledger + derived bank | `tt-goals`, `tt-session`, `tt-tasks`, `tt-settings`, `tt-habits` (orphaned) |
 | 2 | The editable day timeline | none (built on phase 1) |
 | 3 | Weekly schedule: recurrence, views, project filter | `tt-tasks` |
 | 4 | Per-day difficulty with a reduction quota | `tt-session`, `tt-settings` |
@@ -47,6 +47,49 @@ Every phase ends green on `npm run lint`, `npm run build`, `npm test`.
 ---
 
 # Phase 1 — Projects and the time-entry ledger
+
+## 1.0 The day boundary is a setting (`tt-settings`, v8 → v9)
+
+Every date key in the app comes from `todayKey()` / `dateKey()`, which cut the
+day at midnight. Someone who works past midnight then has one evening split
+across two days: the bank clears under them, the timeline breaks in half, and
+the work lands on a day they were asleep for.
+
+```ts
+// tt-settings
+dayEndHour: number;   // 0–4, local time. Default 0 (midnight).
+```
+
+Offered as midnight / 1 AM / 2 AM / 3 AM / 4 AM — a short list, not a free
+field. Past 4 AM the notion of "yesterday" stops being useful and the pace
+series would start folding two real days into one.
+
+The whole app routes through one function:
+
+```ts
+// utils/thirdTime.ts
+export function dayKeyOf(t: number, dayEndHour: number): string  // dateKey(t - dayEndHour hours)
+export function todayKey(dayEndHour: number): string             // dayKeyOf(Date.now(), …)
+```
+
+`dayKeyOf` shifts the timestamp back by `dayEndHour` hours and then takes the
+calendar date. At `dayEndHour: 2`, 01:30 on the 21st returns `2026-09-20` —
+still last night.
+
+Consequences, all in phase 1:
+
+- `todayKey` and `tomorrowKey` gain the parameter. Every caller reads it from
+  the settings store. They are not left with a midnight default: a silent
+  fallback is how half the app would keep cutting at midnight.
+- `dateKey(d)` in `goalPeriod.ts` stays a pure calendar helper — it is what
+  `dayKeyOf` is built from — but nothing outside `dayKeyOf` may call it to ask
+  "what day is it now".
+- `getWeekKey` derives from the shifted key, so the week boundary moves with the
+  day boundary.
+- The day-turnover check in `App.tsx` fires at `dayEndHour`, not at 00:00.
+- Changing the setting does **not** rewrite history. Archived entries keep the
+  keys they were filed under; only days from that point on are cut the new way.
+  A one-line note says so in Options.
 
 ## 1.1 `Project` replaces `Goal` (`store/goals.ts` → `store/projects.ts`, key `tt-goals`, v2 → v3)
 
@@ -185,16 +228,17 @@ never rewrites what you already earned.
 - `endSession`, `SessionReport`, `EndSessionModal.tsx`, `sessionClosedAt`,
   `RestoreSessionModal`'s "start a new session" wording, and
   `daily.sessionStartedAt` are all removed.
-- **The bank clears at day turnover**, in `maybeArchivePreviousDay`.
+- **The bank clears at day turnover** — at `dayEndHour`, not necessarily
+  midnight — in `maybeArchivePreviousDay`.
 - `unusedRestMs` is computed once, at archive time, as
   `max(0, bankOf(daily.entries))`. It stops being a running total.
 - The archive guard relaxes: it currently refuses while `timerState !== 'idle'`,
   which with no End Session button would let a forgotten overnight timer pin the
   app to yesterday indefinitely. New rule: **if a timer has been running across
-  a day boundary, close its entry at midnight of the day it started**, archive
-  that day, and open a fresh entry of the same kind and project for today. The
-  timeline then shows an honest (if long) block on each day, which the user can
-  trim in phase 2.
+  a day boundary, close its entry at the boundary of the day it started**,
+  archive that day, and open a fresh entry of the same kind and project for
+  today. The timeline then shows an honest (if long) block on each day, which
+  the user can trim in phase 2.
 - The day summary that `EndSessionModal` used to show has no trigger left. It is
   not replaced: `Activity`'s selected-day card already shows the same numbers.
 
@@ -264,7 +308,10 @@ The `tt-habits` localStorage key is left untouched.
 | Live bank | bank advances every second while a work timer runs |
 | Attribution | starting a timer on a task credits the task's project |
 | Day turnover | bank is 0 after rollover; unused rest recorded on the archived entry |
-| Timer across midnight | yesterday archived; a fresh entry continues today |
+| Timer across the boundary | yesterday archived; a fresh entry continues today |
+| `dayEndHour: 2` | work logged at 01:30 files under the previous day |
+| `dayEndHour: 2` | the turnover fires at 02:00, not 00:00 |
+| Changing `dayEndHour` | archived days keep the keys they were filed under |
 | No sessions | no End Session control anywhere in the UI |
 
 ---
