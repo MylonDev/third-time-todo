@@ -1,4 +1,4 @@
-import { test, expect, addTask, startSession } from './helpers';
+import { test, expect, addTask, startWork } from './helpers';
 import type { Page } from '@playwright/test';
 
 /** Read the persisted session store straight out of localStorage. */
@@ -18,98 +18,32 @@ async function setClockDaysAhead(page: Page, days: number) {
   await page.clock.setSystemTime(new Date(Date.now() + days * 86_400_000));
 }
 
-const endSession = async (page: Page) => {
-  await page.getByRole('button', { name: 'End Session' }).click();
-  await page.getByRole('button', { name: 'End the Session' }).click();
-  await expect(page.getByText('Session complete')).toBeVisible();
-  await page.getByRole('button', { name: 'Done' }).click();
-};
-
-test.describe('ending a session', () => {
-  test('clears the bank but does not archive the day', async ({ app }) => {
-    await startSession(app);
-    await app.waitForTimeout(2200);
-    await endSession(app);
-
-    const s = await store(app);
-    expect(s.daily.bankMs, 'bank not cleared').toBe(0);
-    expect(s.daily.sessionStartedAt ?? null, 'session left open').toBeNull();
-    expect(s.history, 'the day was archived by End Session').toEqual([]);
-    expect(s.daily.sessions.length, 'the stint was lost').toBeGreaterThan(0);
-  });
-
-  test('a second session adds to the day rather than replacing it', async ({ app }) => {
-    // The second session is deliberately much shorter than the first. If the
-    // day's unused rest were overwritten rather than accumulated, the total
-    // would go *down* here — with two equal sessions it would not, and the
-    // assertion would pass against the bug.
-    await startSession(app);
-    await app.waitForTimeout(4000);
-    await endSession(app);
-    const first = await store(app);
-    expect(first.daily.unusedRestMs).toBeGreaterThan(0);
-
-    await startSession(app);
-    await app.waitForTimeout(1000);
-    await endSession(app);
-    const second = await store(app);
-
-    expect(second.daily.sessions.length).toBeGreaterThan(first.daily.sessions.length);
-    expect(second.daily.unusedRestMs, "the day's unused rest was overwritten")
-      .toBeGreaterThan(first.daily.unusedRestMs);
-  });
-
-  test('the summary reports the session, with the day underneath', async ({ app }) => {
-    await startSession(app);
-    await app.waitForTimeout(2200);
-    await endSession(app);
-
-    await startSession(app);
-    await app.waitForTimeout(2200);
-    await app.getByRole('button', { name: 'End Session' }).click();
-    await app.getByRole('button', { name: 'End the Session' }).click();
-    await expect(app.getByText('Today so far:')).toBeVisible();
-  });
-
-  test('the confirm step does not warn in the debt colour', async ({ app }) => {
-    await startSession(app);
-    await app.waitForTimeout(2200);
-    await app.getByRole('button', { name: 'End Session' }).click();
-
-    const debt = await app.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue('--color-debt').trim()
-    );
-    const reds = await app.getByRole('dialog').evaluate((d, want) =>
-      [...d.querySelectorAll<HTMLElement>('p')]
-        .filter((e) => (e.getAttribute('style') ?? '').includes(want))
-        .map((e) => e.textContent),
-      debt
-    );
-    expect(reds, 'end-of-session copy still painted as a loss').toEqual([]);
-  });
+test('there is no session ceremony', async ({ app }) => {
+  await startWork(app);
+  await expect(app.getByRole('button', { name: 'End Session' })).toHaveCount(0);
 });
 
-test('resetting from the restore prompt closes the abandoned session', async ({ app }) => {
-  await startSession(app);
-  await app.waitForTimeout(1500);
-  expect((await store(app)).daily.sessionStartedAt, 'no session was opened').toBeTruthy();
-
-  // Come back to a session that was still running when the page went away.
+test('the bank is rebuilt from the ledger after a reload', async ({ app }) => {
+  await startWork(app);
+  await app.waitForTimeout(2500);
+  await app.getByRole('button', { name: 'Stop' }).click();
+  const before = await app.getByTestId('bank-balance').textContent();
   await app.reload();
-  await expect(app.getByRole('dialog')).toHaveAttribute('aria-label', 'Pick up your session');
-  await app.getByRole('button', { name: /Reset/ }).click();
-  await app.waitForTimeout(300);
+  await expect(app.getByTestId('bank-balance')).toHaveText(before!);
+});
 
-  // Left open, the next session's summary would cover this one's stints too.
-  expect((await store(app)).daily.sessionStartedAt ?? null,
-    'the abandoned session is still open').toBeNull();
+test('the bank advances while working', async ({ app }) => {
+  await startWork(app);
+  const first = await app.getByTestId('bank-balance').textContent();
+  await app.waitForTimeout(4000);
+  expect(await app.getByTestId('bank-balance').textContent()).not.toBe(first);
 });
 
 test.describe('the day ends by itself', () => {
   test('a finished day is archived on the next open, exactly once', async ({ app }) => {
-    await startSession(app);
+    await startWork(app);
     await app.waitForTimeout(2200);
-    await endSession(app);
+    await app.getByRole('button', { name: 'Stop' }).click();
 
     await setClockDaysAhead(app, 1);
     await app.reload();
@@ -117,15 +51,15 @@ test.describe('the day ends by itself', () => {
 
     let s = await store(app);
     expect(s.history.length, 'yesterday was not archived').toBe(1);
-    expect(s.daily.sessions, 'today did not start clean').toEqual([]);
+    expect(s.daily.entries, 'today did not start clean').toEqual([]);
 
     await app.reload();
     s = await store(app);
     expect(s.history.length, 'archived twice').toBe(1);
   });
 
-  test('a session running across midnight is not split', async ({ app }) => {
-    await startSession(app);
+  test('a timer running across midnight is not split', async ({ app }) => {
+    await startWork(app);
     await app.waitForTimeout(2200);
 
     // Still working when the date turns over.
@@ -133,47 +67,45 @@ test.describe('the day ends by itself', () => {
     await app.waitForTimeout(1500);
 
     let s = await store(app);
-    expect(s.history, 'archived while a session was running').toEqual([]);
+    expect(s.history, 'archived while a timer was running').toEqual([]);
 
-    await endSession(app);
+    await app.getByRole('button', { name: 'Stop' }).click();
     s = await store(app);
-    expect(s.history.length, 'not archived once the session ended').toBe(1);
+    expect(s.history.length, 'not archived once the timer stopped').toBe(1);
   });
 
   test('work before midnight survives a stint that ends after it', async ({ app }) => {
-    // One completed session, so the day already holds a stint.
-    await startSession(app);
+    // One completed entry, so the day already holds a stint.
+    await startWork(app);
     await app.waitForTimeout(2200);
-    await endSession(app);
+    await app.getByRole('button', { name: 'Stop' }).click();
     const before = await store(app);
-    expect(before.daily.sessions.length).toBe(1);
+    expect(before.daily.entries.length).toBe(1);
 
-    // A second session that is still running when the date turns over.
-    await startSession(app);
+    // A second stint that is still running when the date turns over.
+    await startWork(app);
     await app.waitForTimeout(2200);
     await setClockDaysAhead(app, 1);
     await app.waitForTimeout(1200);
-    await endSession(app);
+    await app.getByRole('button', { name: 'Stop' }).click();
 
     // The defect this replaces: stopWork and stopBreak reset the day whenever
-    // the date had changed, discarding every earlier stint unarchived.
+    // the date had changed, discarding every earlier entry unarchived.
     const after = await store(app);
     expect(after.history.length, 'the day was not archived').toBe(1);
-    expect(after.history[0].sessions.length, "the earlier stint was discarded").toBe(2);
+    expect(after.history[0].entries.length, 'the earlier stint was discarded').toBe(2);
   });
 });
 
 test.describe('tasks carried over', () => {
-  test('are triaged on the new day, not at the end of a session', async ({ app }) => {
+  test('are triaged on the new day, not by ending a timer', async ({ app }) => {
     await addTask(app, 'Yesterday task');
-    await startSession(app);
+    await startWork(app);
     await app.waitForTimeout(1200);
 
-    // Ending a session must not ask the day-scoped question.
-    await app.getByRole('button', { name: 'End Session' }).click();
-    await app.getByRole('button', { name: 'End the Session' }).click();
+    // Stopping the timer must not ask the day-scoped question.
+    await app.getByRole('button', { name: 'Stop' }).click();
     await expect(app.getByText('came with you')).toBeHidden();
-    await app.getByRole('button', { name: 'Done' }).click();
 
     await setClockDaysAhead(app, 1);
     await app.reload();
@@ -223,7 +155,7 @@ test.describe('modes', () => {
   });
 
   test('the stored keys are untouched by the renaming', async ({ app }) => {
-    // Every archived SessionLog.mode and the saved setting hold these keys.
+    // Every archived TimeEntry.mode and the saved setting hold these keys.
     // Renaming what you read must not rename what is written.
     for (const [key, label] of MODES) {
       await app.evaluate((k) => {

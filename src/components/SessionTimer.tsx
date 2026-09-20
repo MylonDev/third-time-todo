@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
 import { useTasks } from '../store/tasks';
-import { useGoals } from '../store/goals';
 import { formatTimeLong, MODE_CONFIG, MODE_BADGE_CLASSES } from '../utils/thirdTime';
 import { playSound } from '../utils/sounds';
 import { sendNotification } from '../utils/notifications';
@@ -22,16 +21,11 @@ const MODE_COLOR_DIM: Record<Mode, string> = {
 };
 
 export function SessionTimer() {
-  const { timerState, timerStart, stopBreak, startWork, focusedItem } = useSession();
+  const { timerState, timerStart, stopWork, stopBreak, startWork, activeTaskId } = useSession();
   const { mode, longWorkReminderMin, soundsEnabled } = useSettings();
   const { tasks } = useTasks();
-  const { goals } = useGoals();
 
-  const focusLabel = focusedItem
-    ? focusedItem.kind === 'task'
-      ? tasks.find((t) => t.id === focusedItem.id)?.title
-      : goals.find((g) => g.id === focusedItem.id)?.title
-    : null;
+  const focusLabel = activeTaskId ? tasks.find((t) => t.id === activeTaskId)?.title : null;
   const [reminderDismissedAt, setReminderDismissedAt] = useState<number | null>(null);
   const firedReminder = useRef(false);
 
@@ -57,6 +51,11 @@ export function SessionTimer() {
   const handleResumeWork = () => {
     stopBreak();
     startWork();
+  };
+
+  const handleStop = () => {
+    if (timerState === 'working') stopWork(mode as Mode);
+    else if (timerState === 'on-break') stopBreak();
   };
 
   const isWorking = timerState === 'working';
@@ -156,19 +155,35 @@ export function SessionTimer() {
         )}
       </div>
 
-      {/* Resume button (on-break only) */}
-      {isOnBreak && (
-        <button
-          onClick={handleResumeWork}
-          className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all"
-          style={{
-            background: MODE_COLOR[mode as Mode],
-            color: 'var(--color-bg)',
-            fontFamily: 'var(--font-display)',
-          }}
-        >
-          Resume
-        </button>
+      {/* Timer controls */}
+      {(isWorking || isOnBreak) && (
+        <div className="flex gap-2">
+          {isOnBreak && (
+            <button
+              onClick={handleResumeWork}
+              className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all"
+              style={{
+                background: MODE_COLOR[mode as Mode],
+                color: 'var(--color-bg)',
+                fontFamily: 'var(--font-display)',
+              }}
+            >
+              Resume
+            </button>
+          )}
+          <button
+            onClick={handleStop}
+            className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all border"
+            style={{
+              background: 'var(--color-surface-2)',
+              color: 'var(--color-text)',
+              borderColor: 'var(--color-border)',
+              fontFamily: 'var(--font-display)',
+            }}
+          >
+            Stop
+          </button>
+        </div>
       )}
     </motion.div>
   );

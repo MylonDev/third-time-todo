@@ -25,14 +25,6 @@ export interface Task {
   routinePeriodKey?: string;
 }
 
-export interface SessionLog {
-  id: string;
-  workMs: number;
-  breakMs: number;
-  mode: Mode;
-  startedAt: number;
-}
-
 export interface TimeEntry {
   id: string;
   kind: 'work' | 'break';
@@ -48,18 +40,6 @@ export interface TimeEntry {
 export interface DailyState {
   date: string; // day key, per `dayKeyOf`
   entries: TimeEntry[];
-}
-
-/** What the session that just ended did, plus where that leaves the day. */
-export interface SessionReport {
-  totalWorkMs: number;
-  totalBreakMs: number;
-  unusedRestMs: number;
-  dayWorkMs: number;
-  dayBreakMs: number;
-  mode: Mode;
-  completedTasks: number;
-  totalTasks: number;
 }
 
 export interface HistoryEntry {
