@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { BreakBank } from './components/BreakBank';
 import { SessionTimer } from './components/SessionTimer';
 import { TaskList } from './components/TaskList';
-import { HabitList } from './components/HabitList';
 import { GoalList } from './components/GoalList';
 import { Activity } from './components/Activity';
 import { ModeSelector } from './components/ModeSelector';
@@ -19,7 +18,6 @@ import { earnBreak, todayKey, dayEndOf } from './utils/thirdTime';
 import type { TabId } from './types';
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: 'habits', label: 'Habits' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'goals', label: 'Goals' },
   { id: 'activity', label: 'Activity' },
@@ -304,7 +302,6 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
         >
-          {activeTab === 'habits' && <HabitList />}
           {activeTab === 'tasks' && <TaskList />}
           {activeTab === 'goals' && <GoalList />}
           {activeTab === 'activity' && <Activity />}

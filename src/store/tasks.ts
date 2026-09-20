@@ -5,15 +5,17 @@ import { todayKey, tomorrowKey } from '../utils/thirdTime';
 import { useSettings } from './settings';
 
 /**
- * Legacy routine data. Routines became habits (`store/habits.ts`); this data is
- * left in `tt-tasks` untouched so nothing is lost and `habits` can seed from it.
+ * Legacy routine data. Routines became habits, and habits are gone too now —
+ * nothing reads this any more. It stays in `tt-tasks` untouched anyway, on the
+ * same principle that kept it around for habits to seed from: a migration
+ * never deletes user data just because the feature that made sense of it did.
  */
 type LegacyRoutines = unknown[];
 type LegacyRoutineHistory = Record<string, unknown>;
 
 interface TasksState {
   tasks: Task[];
-  /** @deprecated kept only so the persisted key survives — see habits store */
+  /** @deprecated kept only so the persisted key survives */
   routines: LegacyRoutines;
   /** @deprecated */
   routineHistory: LegacyRoutineHistory;
@@ -51,7 +53,7 @@ interface PersistedTasksState {
 /**
  * Checklists used to be their own store, then routines. The old `tt-checklists`
  * key is left in place; this fills `routines` for a store old enough never to
- * have run the v5 migration, so the habits store can still seed from it.
+ * have run the v5 migration, so that legacy data still lands somewhere.
  */
 function migrateChecklists(existingTasks: PersistedTask[]): LegacyRoutines {
   try {

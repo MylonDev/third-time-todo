@@ -62,7 +62,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'tt-settings',
-      version: 9,
+      version: 10,
       migrate: (persisted: unknown, version: number) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const state = persisted as any;
@@ -95,6 +95,18 @@ export const useSettings = create<SettingsState>()(
         }
         if (version < 9) {
           return { ...state, dayEndHour: 0 };
+        }
+        if (version < 10) {
+          // Habits are gone; a saved 'habits' tab has nowhere to land. 'goals'
+          // is mid-rename to 'projects' in a later task, so it isn't a stable
+          // landing spot either — send both to Tasks.
+          return {
+            ...state,
+            activeTab:
+              state.activeTab === 'habits' || state.activeTab === 'goals'
+                ? 'tasks'
+                : state.activeTab,
+          };
         }
         return state;
       },

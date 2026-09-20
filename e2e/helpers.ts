@@ -53,7 +53,7 @@ export function readTimers(page: Page) {
   );
 }
 
-/** Switch to a top-level tab (Habits / Tasks / Goals / Activity). */
+/** Switch to a top-level tab (Tasks / Goals / Activity). */
 export async function switchTab(page: Page, name: string) {
   await page.getByRole('tab', { name, exact: true }).click();
   await expect(page.getByRole('tab', { name, exact: true })).toHaveAttribute('aria-selected', 'true');

@@ -1,4 +1,4 @@
-import type { EffortTarget, GoalPeriod, Habit } from '../types';
+import type { EffortTarget, GoalPeriod, Recurrence } from '../types';
 import { todayKey, daysSince, dateKey, weekdayIndex, dayKeyOf } from './thirdTime';
 
 // `dateKey` and `weekdayIndex` actually live in `thirdTime.ts` now — it needs
@@ -94,67 +94,29 @@ export function prunePeriods(progress: Record<string, number>): Record<string, n
   return Object.fromEntries(ordered.slice(-MAX_PERIODS).map((k) => [k, progress[k]]));
 }
 
-// ── Habits: when is one due? ──────────────────────────────────────────────────
+// ── Recurrence: when is a rule due? ───────────────────────────────────────────
 
 /**
- * Whether a habit comes due on `date`, ignoring whether it has been completed.
- * `everyN` counts whole days from the habit's creation.
+ * Whether `rule` comes due on `date`, given the timestamp it's anchored to.
+ * `everyN` counts whole days from the anchor. Never due before the anchor's
+ * own day, so a rule that hasn't started yet can't appear due retroactively.
  */
-export function isHabitDueOn(habit: Habit, date: Date): boolean {
-  const f = habit.freq;
-  switch (f.kind) {
+export function isDueOn(rule: Recurrence, anchorCreatedAt: number, date: Date): boolean {
+  const start = new Date(anchorCreatedAt);
+  start.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  const days = Math.round((target.getTime() - start.getTime()) / 86_400_000);
+  if (days < 0) return false;
+
+  switch (rule.kind) {
     case 'daily':
       return true;
     case 'weekly':
-      return true; // "due this week" — the list layer checks completion
+      return true; // "due this week" — the caller checks completion
     case 'weekdays':
-      return f.days.includes(weekdayIndex(date));
-    case 'everyN': {
-      const start = new Date(habit.createdAt);
-      start.setHours(0, 0, 0, 0);
-      const target = new Date(date);
-      target.setHours(0, 0, 0, 0);
-      const days = Math.round((target.getTime() - start.getTime()) / 86_400_000);
-      return days >= 0 && days % Math.max(2, f.n) === 0;
-    }
+      return rule.days.includes(weekdayIndex(date));
+    case 'everyN':
+      return days % Math.max(2, rule.n) === 0;
   }
-}
-
-function midnight(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-/**
- * Whether a habit still needs doing — due for the current period and not yet
- * completed. `everyN` catches up: a missed occurrence stays outstanding until
- * its next scheduled day comes round, not only on the exact day.
- */
-export function isHabitOutstanding(
-  habit: Habit,
-  dayEndHour: number,
-  today: Date = new Date()
-): boolean {
-  if (habit.archivedAt) return false;
-  const f = habit.freq;
-
-  if (f.kind === 'weekly') {
-    const weekStart = getWeekKey(today, dayEndHour);
-    return !Object.keys(habit.completions).some((k) => k >= weekStart && habit.completions[k]);
-  }
-
-  if (f.kind === 'everyN') {
-    const n = Math.max(2, f.n);
-    const start = midnight(new Date(habit.createdAt));
-    const days = Math.round((midnight(today).getTime() - start.getTime()) / 86_400_000);
-    if (days < 0) return false;
-    const lastDue = new Date(start);
-    lastDue.setDate(lastDue.getDate() + (days - (days % n)));
-    const lastDueKey = dateKey(lastDue);
-    return !Object.keys(habit.completions).some((k) => k >= lastDueKey && habit.completions[k]);
-  }
-
-  if (!isHabitDueOn(habit, today)) return false;
-  return !habit.completions[dateKey(today)];
 }
