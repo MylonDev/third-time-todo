@@ -55,7 +55,7 @@ export type TaskDisposition = 'keep' | 'mark-done' | 'discard';
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
-export type TabId = 'tasks' | 'goals' | 'activity';
+export type TabId = 'tasks' | 'projects' | 'activity';
 
 // ── Focus ─────────────────────────────────────────────────────────────────────
 

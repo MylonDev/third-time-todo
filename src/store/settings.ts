@@ -62,17 +62,24 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'tt-settings',
-      version: 10,
+      version: 11,
       migrate: (persisted: unknown, version: number) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const state = persisted as any;
+        let state = persisted as any;
+        // Every leg below used to `return` the instant it matched, which
+        // skipped every leg after it — fine while each leg was written the
+        // version right after the last, fatal once two legs needed to fire
+        // for the same stored version (v10's habits cleanup and v11's goals
+        // rename both apply to someone stuck on v9). Falling through and
+        // returning once at the end is what the sibling `tt-goals` chain had
+        // to be restored to as well, for the identical reason.
         if (version < 2) {
-          return {
+          state = {
             ...state,
             theme: state.darkMode ? 'dark' : 'light',
             breakIncrements: state.breakIncrements ?? [5, 10],
             lastBreakMs: state.lastBreakMs ?? null,
-                };
+          };
         }
         if (version < 5) {
           // Checklists became routines; the collapse flag has no section to hide.
@@ -86,7 +93,7 @@ export const useSettings = create<SettingsState>()(
           state.collapsedSections = {};
         }
         if (version < 8) {
-          return {
+          state = {
             ...state,
             activeTab: 'tasks',
             quotes: state.quotes ?? [],
@@ -94,18 +101,23 @@ export const useSettings = create<SettingsState>()(
           };
         }
         if (version < 9) {
-          return { ...state, dayEndHour: 0 };
+          state = { ...state, dayEndHour: 0 };
         }
         if (version < 10) {
-          // Habits are gone; a saved 'habits' tab has nowhere to land. 'goals'
-          // is mid-rename to 'projects' in a later task, so it isn't a stable
-          // landing spot either — send both to Tasks.
-          return {
+          // Habits are gone; a saved 'habits' tab has nowhere to land.
+          // 'goals' is handled on its own below, since it has a real landing
+          // spot now and must not get swept up in this one.
+          state = {
             ...state,
-            activeTab:
-              state.activeTab === 'habits' || state.activeTab === 'goals'
-                ? 'tasks'
-                : state.activeTab,
+            activeTab: state.activeTab === 'habits' ? 'tasks' : state.activeTab,
+          };
+        }
+        if (version < 11) {
+          // Goals were renamed to Projects; a stored 'goals' tab must land on
+          // the renamed id, not fall through to Tasks.
+          state = {
+            ...state,
+            activeTab: state.activeTab === 'goals' ? 'projects' : state.activeTab,
           };
         }
         return state;

@@ -97,7 +97,7 @@ function migrateGoal(g: any): Project {
  */
 export function migrateGoalsV3(persisted: unknown): { projects: Project[] } {
   const s = (persisted ?? {}) as { goals?: unknown[] };
-  return { projects: ((s.goals ?? []) as any[]).map(migrateGoal) };
+  return { projects: (s.goals ?? []).map(migrateGoal) };
 }
 
 /**
@@ -108,7 +108,7 @@ export function migrateGoalsV3(persisted: unknown): { projects: Project[] } {
  * a v1 blob has no `outcome` for the time-flavoured check to key off of.
  */
 export function migrateGoalsChain(persisted: unknown, version: number): { projects: Project[] } {
-  let s = (persisted ?? {}) as { goals?: any[] };
+  let s = (persisted ?? {}) as { goals?: unknown[] };
   if (version < 2) {
     s = { goals: (s.goals ?? []).map(migrateV1Goal) };
   }
@@ -116,10 +116,10 @@ export function migrateGoalsChain(persisted: unknown, version: number): { projec
     // `total` becomes the authoritative cumulative figure; seed it from
     // whatever `progress` buckets currently hold.
     s = {
-      goals: (s.goals ?? []).map((g) => ({
-        ...g,
-        total: g.total ?? sumProgress(g.progress),
-      })),
+      goals: (s.goals ?? []).map((raw) => {
+        const g = raw as { total?: number; progress?: Record<string, number> };
+        return { ...g, total: g.total ?? sumProgress(g.progress) };
+      }),
     };
   }
   return migrateGoalsV3(s);
