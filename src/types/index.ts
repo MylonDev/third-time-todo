@@ -81,51 +81,32 @@ export type Recurrence =
   | { kind: 'everyN'; n: number }
   | { kind: 'weekdays'; days: number[] };
 
-// ── Goals ─────────────────────────────────────────────────────────────────────
-
-export type GoalOutcome =
-  | { kind: 'count'; unit: string; target: number } // 1,000 km · 12 books
-  | { kind: 'time'; targetHours: number }
-  | { kind: 'open' };
+// ── Projects ──────────────────────────────────────────────────────────────────
 
 /**
  * A recurring commitment that resets each period, e.g. "10 hours / week".
- * For `metric: 'time'`, `amount` and the matching `progress` values are in
- * milliseconds (what the session store commits). For `metric: 'count'`, they
- * are in the outcome's unit.
+ * Count targets aren't offered yet — every project is time-trackable, but the
+ * `progress`/`total` maps below are already keyed by metric so a count target
+ * can be added later without a second migration.
  */
-export interface EffortTarget {
-  metric: 'time' | 'count';
-  amount: number;
+export interface PeriodTarget {
+  metric: 'time';
+  amount: number; // ms
   period: GoalPeriod;
   periodDays?: number; // custom only
 }
 
-export interface GoalMilestone {
+export interface Project {
   id: string;
-  label: string;
-  doneAt?: number;
-}
-
-export interface Goal {
-  id: string;
-  title: string;
-  outcome: GoalOutcome;
-  milestones: GoalMilestone[];
-  effort?: EffortTarget;
+  name: string;
+  color?: string; // swatch for the timeline and task tags
+  target?: PeriodTarget;
   deadline?: string; // YYYY-MM-DD; absent = no pace readout
-  doneWhen?: string; // free-text criterion
-  evolvesFromId?: string;
   createdAt: number;
   order: number;
-  /** periodKey → amount logged that period. Used for the current-period effort reading. */
-  progress: Record<string, number>;
-  /**
-   * Running cumulative total, in the same unit as `progress` values. Mirrors the
-   * sum of `progress` but is maintained on every write, so it stays correct even
-   * after `prunePeriods` drops old buckets on a years-long goal.
-   */
-  total: number;
+  /** metric → periodKey → amount. Time values are ms. */
+  progress: { time: Record<string, number> };
+  /** metric → running cumulative total, immune to `prunePeriods`. */
+  total: { time: number };
   archivedAt?: number;
-  completedAt?: number;
 }
