@@ -4,7 +4,7 @@ import type { PeriodTarget, Project, TimeEntry } from '../types';
 import { targetPeriodKey, prunePeriods } from '../utils/goalPeriod';
 import { dayKeyOf, todayKey } from '../utils/thirdTime';
 import { useSettings } from './settings';
-import { migrateGoalsV3 } from './projectsMigrate';
+import { migrateGoalsChain } from './projectsMigrate';
 
 interface AddProjectParams {
   name: string;
@@ -136,12 +136,20 @@ export const useProjects = create<ProjectsState>()(
     {
       name: 'tt-goals',
       version: 4,
-      migrate: (persisted: unknown, version: number) => {
-        if (version < 4) {
-          return migrateGoalsV3(persisted);
-        }
-        return persisted as { projects: Project[] };
-      },
+      migrate: migrateTtGoals,
     }
   )
 );
+
+/**
+ * The store's actual `migrate`, pulled out so the version chain itself
+ * (v1/v2/v3 → v4, in order) is what tests exercise — not just the final leg
+ * in isolation, which is exactly the gap that let the v1/v2 legs go missing
+ * unnoticed.
+ */
+export function migrateTtGoals(persisted: unknown, version: number): { projects: Project[] } {
+  if (version < 4) {
+    return migrateGoalsChain(persisted, version);
+  }
+  return persisted as { projects: Project[] };
+}
