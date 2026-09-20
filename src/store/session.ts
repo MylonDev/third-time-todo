@@ -232,6 +232,7 @@ export const useSession = create<SessionStore>()(
         history: s.history,
         timerState: s.timerState,
         timerStart: s.timerStart,
+        sessionClosedAt: s.sessionClosedAt,
         activeProjectId: s.activeProjectId,
         activeTaskId: s.activeTaskId,
       }),
