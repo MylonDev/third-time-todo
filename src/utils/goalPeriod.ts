@@ -1,21 +1,13 @@
 import type { EffortTarget, GoalPeriod, Habit } from '../types';
-import { todayKey, daysSince } from './thirdTime';
+import { todayKey, daysSince, dateKey, weekdayIndex } from './thirdTime';
+
+// `dateKey` and `weekdayIndex` actually live in `thirdTime.ts` now — it needs
+// `dateKey` for `dayKeyOf` and already had to import from here, so keeping
+// both ends of that dependency in one file avoids an import cycle. Re-export
+// them so everything that already imports them from `goalPeriod` keeps working.
+export { dateKey, weekdayIndex };
 
 // ── Date keys ─────────────────────────────────────────────────────────────────
-
-/** YYYY-MM-DD for a Date, in local time. */
-export function dateKey(d: Date): string {
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, '0'),
-    String(d.getDate()).padStart(2, '0'),
-  ].join('-');
-}
-
-/** Monday=0 … Sunday=6 for a Date (JS `getDay` has Sunday=0). */
-export function weekdayIndex(d: Date): number {
-  return (d.getDay() + 6) % 7;
-}
 
 /** The Monday of a date's ISO week, as a date key. */
 export function getWeekKey(date: Date): string {
