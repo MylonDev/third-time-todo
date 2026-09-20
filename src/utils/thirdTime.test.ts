@@ -36,4 +36,13 @@ describe('dayStartOf / dayEndOf', () => {
     expect(dayKeyOf(dayStartOf(key, 3), 3)).toBe(key);
     expect(dayKeyOf(dayEndOf(key, 3) - 1, 3)).toBe(key);
   });
+
+  it('lands on the next boundary across a DST fall-back', () => {
+    // A fixed 24h step undershoots on the day local clocks fall back an
+    // hour — it lands back inside the day it started from rather than at
+    // the next day's start. In a zone with no such transition this is
+    // trivially the same instant as a plain +24h step, so it passes there
+    // too; it only discriminates in a zone that observes one on this date.
+    expect(dayEndOf('2020-10-25', 0)).toBe(at(2020, 10, 26, 0));
+  });
 });

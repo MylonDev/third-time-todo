@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Mode, TimeEntry, DailyState, HistoryEntry } from '../types';
-import { todayKey } from '../utils/thirdTime';
-import { bankOf, workMsOf, breakMsOf, entriesOverlap, type OpenSegment } from '../utils/ledger';
+import { todayKey, dayEndOf } from '../utils/thirdTime';
+import { bankOf, workMsOf, breakMsOf, entriesOverlap, splitAtBoundary, type OpenSegment } from '../utils/ledger';
 import { migrateSessionV3 } from './sessionMigrate';
 import { useSettings } from './settings';
 
@@ -98,15 +98,44 @@ export const useSession = create<SessionStore>()(
        * boundary is decided — the stop handlers used to decide it too, and
        * discarded the previous day's entries doing it.
        *
-       * A timer running across midnight is left alone here: it keeps accruing
-       * to the day it started on, and that day is archived once it stops.
-       * (The refusal that used to guard that case moved out — Task 6 owns it.)
+       * With no End Session button, a timer left running across the boundary
+       * is the ordinary case, not the exception — so it isn't left alone. If
+       * one is still open when the stored day ends, it is split at that day's
+       * own boundary: the near side closes into the day being archived, and
+       * an identical segment reopens on the far side. That keeps `timerStart`
+       * truthful — it never points at a day that's already been archived —
+       * so a stint that spans the boundary files each part under the day it
+       * actually happened on, wherever this runs: on mount, at the scheduled
+       * turnover, or at the top of a stop handler.
+       *
+       * This only ever resolves one boundary, then jumps straight to today —
+       * the same way the plain archive-and-reset below always has. A timer
+       * left running for several days still gets its first day split out
+       * correctly; the rest lands as one long block on today's side, for the
+       * user to trim. Walking every intervening day instead would mean
+       * archiving days that were never opened and have nothing in them —
+       * pure overhead for a case ("forgot for a week") the split already
+       * degrades gracefully on.
        */
       maybeArchivePreviousDay: () => {
         const { daily } = get();
-        if (daily.date === todayKey(useSettings.getState().dayEndHour)) return;
-        if (daily.entries.length > 0) get().archiveDay();
-        set({ daily: freshDay() });
+        const dayEndHour = useSettings.getState().dayEndHour;
+        if (daily.date === todayKey(dayEndHour)) return;
+
+        const boundary = dayEndOf(daily.date, dayEndHour);
+        const open = get().openSegment();
+        if (open && open.startedAt < boundary) {
+          const { closed, reopened } = splitAtBoundary(open, boundary, Date.now());
+          set({
+            daily: {
+              ...daily,
+              entries: [...daily.entries, closed].sort((a, b) => a.startedAt - b.startedAt),
+            },
+            timerStart: reopened.startedAt,
+          });
+        }
+        if (get().daily.entries.length > 0) get().archiveDay();
+        set({ daily: { date: todayKey(dayEndHour), entries: [] } });
       },
 
       startWork: () => {
@@ -115,6 +144,11 @@ export const useSession = create<SessionStore>()(
       },
 
       stopWork: (mode: Mode) => {
+        // Before anything else — the timer may still be open from a day
+        // that already ended, and that's only detectable (and splittable)
+        // while it's still open. Read `timerStart`/`daily` fresh afterward,
+        // since a split rewrites both.
+        get().maybeArchivePreviousDay();
         const { timerStart, daily, activeProjectId, activeTaskId } = get();
         if (!timerStart) return;
         const entry: TimeEntry = {
@@ -131,8 +165,6 @@ export const useSession = create<SessionStore>()(
           timerStart: null,
           daily: { ...daily, entries: [...daily.entries, entry].sort((a, b) => a.startedAt - b.startedAt) },
         });
-        // The day may have rolled over while the timer was running.
-        get().maybeArchivePreviousDay();
       },
 
       startBreak: (mode: Mode) => {
@@ -142,6 +174,8 @@ export const useSession = create<SessionStore>()(
       },
 
       stopBreak: () => {
+        // Same reasoning as stopWork: check while the segment is still open.
+        get().maybeArchivePreviousDay();
         const { timerStart, daily } = get();
         if (!timerStart) return;
         const entry: TimeEntry = {
@@ -156,8 +190,6 @@ export const useSession = create<SessionStore>()(
           timerStart: null,
           daily: { ...daily, entries: [...daily.entries, entry].sort((a, b) => a.startedAt - b.startedAt) },
         });
-        // The day may have rolled over while the break was running.
-        get().maybeArchivePreviousDay();
       },
 
       setActive: (projectId, taskId) => set({ activeProjectId: projectId, activeTaskId: taskId }),
