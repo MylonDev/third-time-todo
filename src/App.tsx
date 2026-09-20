@@ -23,8 +23,17 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 export default function App() {
-  const { timerState, timerStart, sessionClosedAt, setClosedAt, clearTimer, maybeArchivePreviousDay } =
-    useSession();
+  const {
+    timerState,
+    timerStart,
+    sessionClosedAt,
+    restorePrompt,
+    settleClosedSession,
+    continueRestoredSession,
+    resumeRestoredSession,
+    discardRestoredSession,
+    maybeArchivePreviousDay,
+  } = useSession();
   const { theme, mode, activeTab, setActiveTab, quotes, showQuote, setShowQuote, dayEndHour } = useSettings();
   const { rolloverPastTasks } = useTasks();
 
@@ -35,6 +44,11 @@ export default function App() {
   // Close out a day that ended while the app was away, then roll unfinished
   // tasks into today.
   useEffect(() => {
+    // First, close any timer that was still running when the app went away, at
+    // the moment it went away. Everything after that is a gap the restore
+    // prompt asks about on its own — and until it does, nothing below may read
+    // the open segment as though it had been running the whole time.
+    settleClosedSession();
     maybeArchivePreviousDay();
     // Only ever widen the list — under StrictMode this runs twice, and the
     // second pass finds nothing left to move.
@@ -52,7 +66,11 @@ export default function App() {
   // and `visibilitychange` fire reliably on mobile, where `beforeunload` does not.
   useEffect(() => {
     const record = () => {
-      if (useSession.getState().timerState !== 'idle') {
+      const { timerState, sessionClosedAt } = useSession.getState();
+      // Only the first stamp is honest: it is when the person actually left.
+      // Backgrounding the tab later — while the restore prompt is still up,
+      // say — would otherwise overwrite it with a moment nobody was here for.
+      if (timerState !== 'idle' && sessionClosedAt === null) {
         useSession.getState().setClosedAt(Date.now());
       }
     };
@@ -84,25 +102,26 @@ export default function App() {
   const [restoreModalDismissed, setRestoreModalDismissed] = useState(false);
 
   const handleRestoreReset = () => {
-    clearTimer();
+    discardRestoredSession();
     setRestoreModalDismissed(true);
   };
 
   const handleRestoreContinue = () => {
-    const closedAt = sessionClosedAt ?? Date.now();
-    const elapsedAtClose = timerStart ? closedAt - timerStart : 0;
-    const resumedStart = Date.now() - elapsedAtClose;
-    useSession.setState({ timerStart: resumedStart, sessionClosedAt: null });
+    continueRestoredSession();
     setRestoreModalDismissed(true);
   };
 
   const handleRestoreResume = () => {
-    setClosedAt(null);
+    resumeRestoredSession();
     setRestoreModalDismissed(true);
   };
 
+  // What the settle filed is what the prompt reports — by the time it is on
+  // screen the timer has already been rewound to the close stamp, so the live
+  // `timerStart` no longer knows how long the stint ran.
   const closedAt = sessionClosedAt ?? Date.now();
-  const elapsedAtClose = timerStart ? closedAt - timerStart : 0;
+  const elapsedAtClose =
+    restorePrompt?.settledMs ?? (timerStart ? Math.max(0, closedAt - timerStart) : 0);
   const timeAway = sessionClosedAt ? Date.now() - sessionClosedAt : 0;
 
   // Apply theme: dark is default, .light class overrides
