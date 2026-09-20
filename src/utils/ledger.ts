@@ -42,6 +42,36 @@ export function bankOf(entries: TimeEntry[], open?: OpenSegment | null, now = Da
   );
 }
 
+/**
+ * A timer left running across the end of the day. With no End Session button,
+ * this is the ordinary case for anyone who forgets to stop — so the day is not
+ * allowed to stall on it. The entry is closed at the boundary and an identical
+ * one opens on the far side; the timeline then shows an honest (if long) block
+ * on each day, which the user can trim.
+ */
+export function splitAtBoundary(
+  open: OpenSegment,
+  boundary: number,
+  now: number
+): { closed: TimeEntry; reopened: OpenSegment } {
+  // `now` isn't needed to compute the split — both halves are dated off
+  // `boundary` — but it's part of the call's contract for callers, so it's
+  // named rather than dropped.
+  void now;
+  return {
+    closed: {
+      id: crypto.randomUUID(),
+      kind: open.kind,
+      startedAt: open.startedAt,
+      endedAt: boundary,
+      projectId: open.projectId,
+      taskId: open.taskId,
+      mode: open.mode,
+    },
+    reopened: { ...open, startedAt: boundary },
+  };
+}
+
 /** Entries are a partition of the day: they may touch, never overlap. */
 export function entriesOverlap(
   a: { startedAt: number; endedAt: number },

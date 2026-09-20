@@ -157,11 +157,12 @@ test.describe('the day ends by itself', () => {
     expect(s.history.length, 'archived twice').toBe(1);
   });
 
-  test('a timer running across midnight is not split', async ({ app }) => {
+  test('a timer running across midnight is split once it stops', async ({ app }) => {
     await startWork(app);
     await app.waitForTimeout(2200);
 
-    // Still working when the date turns over.
+    // Still working when the date turns over. Nothing archives yet — the
+    // segment is still open, and mount/turnover aren't what's driving this.
     await setClockDaysAhead(app, 1);
     await app.waitForTimeout(1500);
 
@@ -170,7 +171,10 @@ test.describe('the day ends by itself', () => {
 
     await app.getByRole('button', { name: 'Stop' }).click();
     s = await store(app);
-    expect(s.history.length, 'not archived once the timer stopped').toBe(1);
+    expect(s.history.length, 'yesterday was not archived once the timer stopped').toBe(1);
+    // The part of the stint that ran on the new day belongs to today, not
+    // to whatever got archived under yesterday.
+    expect(s.daily.entries.length, "today's half of the split stint is missing").toBe(1);
   });
 
   test('work before midnight survives a stint that ends after it', async ({ app }) => {
@@ -193,6 +197,36 @@ test.describe('the day ends by itself', () => {
     const after = await store(app);
     expect(after.history.length, 'the day was not archived').toBe(1);
     expect(after.history[0].entries.length, 'the earlier stint was discarded').toBe(2);
+  });
+
+  test('a timer left running across the boundary does not stall the day', async ({ app }) => {
+    // Seeded directly rather than starting a real timer and rewriting
+    // localStorage underneath it: the live page's own `pagehide` handler
+    // would re-persist its (unmodified) in-memory state over these edits
+    // as soon as `reload()` navigates away, since that page never went
+    // through the timer this state describes. See `seedClosedTimer` above
+    // for the same caveat — the fixture leaves the page idle, so the
+    // handler's `timerState !== 'idle'` guard skips it here.
+    await app.evaluate(() => {
+      localStorage.setItem(
+        'tt-session',
+        JSON.stringify({
+          state: {
+            daily: { date: '2020-01-01', entries: [] },
+            history: [],
+            timerState: 'working',
+            timerStart: new Date('2020-01-01T23:00:00').getTime(),
+            sessionClosedAt: null,
+          },
+          version: 4,
+        })
+      );
+    });
+    await app.reload();
+
+    const state = await app.evaluate(() => JSON.parse(localStorage.getItem('tt-session')!).state);
+    expect(state.daily.date).not.toBe('2020-01-01');
+    expect(state.history.some((h: { date: string }) => h.date === '2020-01-01')).toBe(true);
   });
 });
 
