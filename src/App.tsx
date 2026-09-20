@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { BreakBank } from './components/BreakBank';
 import { SessionTimer } from './components/SessionTimer';
 import { TaskList } from './components/TaskList';
-import { GoalList } from './components/GoalList';
+import { ProjectList } from './components/ProjectList';
 import { Activity } from './components/Activity';
 import { ModeSelector } from './components/ModeSelector';
 import { OptionsPanel } from './components/OptionsPanel';
@@ -18,7 +18,7 @@ import type { TabId } from './types';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'tasks', label: 'Tasks' },
-  { id: 'goals', label: 'Goals' },
+  { id: 'projects', label: 'Projects' },
   { id: 'activity', label: 'Activity' },
 ];
 
@@ -261,7 +261,7 @@ export default function App() {
           transition={{ duration: 0.2, ease: 'easeOut' }}
         >
           {activeTab === 'tasks' && <TaskList />}
-          {activeTab === 'goals' && <GoalList />}
+          {activeTab === 'projects' && <ProjectList />}
           {activeTab === 'activity' && <Activity />}
         </motion.main>
       </motion.div>
