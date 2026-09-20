@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Task, TaskStatus, SubTask } from '../types';
+import type { SubTask, Task, TaskStatus, TimeEntry } from '../types';
 import { todayKey, tomorrowKey } from '../utils/thirdTime';
 import { useSettings } from './settings';
 
@@ -35,6 +35,14 @@ interface TasksState {
   setTaskProject: (id: string, projectId?: string) => void;
   /** A deleted project untags itself from every task — the tasks stay, the tag doesn't. */
   clearTaskProject: (projectId: string) => void;
+  /**
+   * Re-sum every task's `trackedMs` from the ledger. Same rationale as
+   * `useProjects.recomputeFrom`: once entries are editable, a delta patched
+   * onto `trackedMs` at commit time is only ever right until the entry that
+   * funded it is edited or removed — after that it's a number nothing will
+   * ever correct on its own.
+   */
+  recomputeFrom: (entries: TimeEntry[]) => void;
 }
 
 /**
@@ -243,6 +251,16 @@ export const useTasks = create<TasksState>()(
       clearTaskProject: (projectId) =>
         set((s) => ({
           tasks: s.tasks.map((t) => (t.projectId === projectId ? { ...t, projectId: undefined } : t)),
+        })),
+
+      recomputeFrom: (entries) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) => {
+            const trackedMs = entries
+              .filter((e) => e.kind === 'work' && e.taskId === t.id)
+              .reduce((sum, e) => sum + Math.max(0, e.endedAt - e.startedAt), 0);
+            return { ...t, trackedMs };
+          }),
         })),
     }),
     {

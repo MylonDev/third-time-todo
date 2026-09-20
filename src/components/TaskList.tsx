@@ -158,7 +158,11 @@ function SortableTask({
 
   const handleCardClick = (e: React.MouseEvent) => {
     if (isDone) return;
-    if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
+    // Anything interactive on the row — including a custom control that
+    // isn't a native form element, like the project-picker's `role="option"`
+    // rows below — has to opt out of the row's own click-to-focus, or
+    // picking one silently re-toggles the timer's target underneath it.
+    if ((e.target as HTMLElement).closest('button, input, textarea, a, [role="option"], [role="menuitem"]')) return;
     toggleFocus();
   };
 
@@ -352,8 +356,7 @@ function SortableTask({
                     role="option"
                     tabIndex={0}
                     aria-selected={!task.projectId}
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={() => {
                       onSetTaskProject(task.id, undefined);
                       setShowProjectPicker(false);
                     }}
@@ -368,8 +371,7 @@ function SortableTask({
                       role="option"
                       tabIndex={0}
                       aria-selected={task.projectId === p.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={() => {
                         onSetTaskProject(task.id, p.id);
                         setShowProjectPicker(false);
                       }}

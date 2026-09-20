@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useProjects } from './projects';
-import type { Project, TimeEntry } from '../types';
+import { useSession } from './session';
+import { useTasks } from './tasks';
+import type { Project, Task, TimeEntry } from '../types';
 import { dayKeyOf } from '../utils/thirdTime';
 
 const HOUR = 3_600_000;
@@ -97,5 +99,71 @@ describe('recomputeFrom', () => {
     const [p1] = useProjects.getState().projects;
     expect(p1.progress.time).toEqual({});
     expect(p1.total.time).toBe(0);
+  });
+});
+
+// Regression coverage for the session store's `addEntry`/`updateEntry`/
+// `removeEntry` — they own the timeline's only editable doors into the
+// ledger, and each one has to re-sum the project's and task's totals from
+// scratch rather than patch a delta onto whatever was there before. A delta
+// is only ever right until the same entry is touched again.
+describe('editing the timeline re-sums project and task totals', () => {
+  function task(overrides: Partial<Task>): Task {
+    return {
+      id: 't1',
+      title: 'Task',
+      status: 'todo',
+      createdAt: 0,
+      scheduledDate: '2026-09-10',
+      order: 0,
+      subtasks: [],
+      trackedMs: 0,
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    useTasks.setState({ tasks: [task({ id: 't1' })] });
+    useSession.setState({
+      daily: { date: '2026-09-10', entries: [] },
+      history: [],
+      timerState: 'idle',
+      timerStart: null,
+      activeProjectId: undefined,
+      activeTaskId: undefined,
+    });
+  });
+
+  it('updateEntry tracks a changed duration instead of accumulating on top of the old one', () => {
+    const start = new Date('2026-09-10T10:00:00').getTime();
+    useSession.getState().addEntry(
+      workEntry({ id: 'e1', projectId: 'p1', taskId: 't1', startedAt: start, endedAt: start + HOUR })
+    );
+
+    expect(useProjects.getState().projects[0].total.time).toBe(HOUR);
+    expect(useTasks.getState().tasks[0].trackedMs).toBe(HOUR);
+
+    // Shrink the entry to 15 minutes — a delta-based commit would have added
+    // 15 minutes on top of the hour already there; a re-sum lands on 15
+    // minutes flat, because that's what the ledger now says happened.
+    useSession.getState().updateEntry('e1', { endedAt: start + 15 * 60_000 });
+
+    expect(useProjects.getState().projects[0].total.time).toBe(15 * 60_000);
+    expect(useTasks.getState().tasks[0].trackedMs).toBe(15 * 60_000);
+  });
+
+  it('removeEntry drops the totals back down', () => {
+    const start = new Date('2026-09-10T10:00:00').getTime();
+    useSession.getState().addEntry(
+      workEntry({ id: 'e1', projectId: 'p1', taskId: 't1', startedAt: start, endedAt: start + HOUR })
+    );
+
+    expect(useProjects.getState().projects[0].total.time).toBe(HOUR);
+    expect(useTasks.getState().tasks[0].trackedMs).toBe(HOUR);
+
+    useSession.getState().removeEntry('e1');
+
+    expect(useProjects.getState().projects[0].total.time).toBe(0);
+    expect(useTasks.getState().tasks[0].trackedMs).toBe(0);
   });
 });
