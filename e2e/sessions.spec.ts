@@ -89,9 +89,43 @@ test.describe('restoring a timer that survived a reload', () => {
     await app.getByRole('button', { name: /Continue/ }).click();
     await app.getByRole('button', { name: 'Stop' }).click();
 
+    // The stint before the close is settled as its own entry and the picked-up
+    // one starts fresh, so the honest reading is the day's work total.
     const s = await store(app);
-    const entry = s.daily.entries[s.daily.entries.length - 1];
-    const loggedMs = entry.endedAt - entry.startedAt;
+    const loggedMs = s.daily.entries
+      .filter((e: { kind: string }) => e.kind === 'work')
+      .reduce((sum: number, e: { startedAt: number; endedAt: number }) => sum + (e.endedAt - e.startedAt), 0);
+    expect(loggedMs, 'the closed-tab gap leaked into the ledger as active time').toBeLessThan(gapMs / 2);
+    expect(loggedMs, 'the work actually done before closing was dropped').toBeGreaterThan(500);
+  });
+
+  // The close stamp is written on every `visibilitychange: hidden` while a
+  // timer runs. Backgrounding the tab while the prompt is still up used to
+  // restamp it to that moment, which is hours after the person actually left
+  // — and then Continue would pick up from a close that never happened.
+  test('backgrounding the tab while the prompt is up does not move the close stamp', async ({ app }) => {
+    const workedMs = 1_500;
+    const gapMs = 2 * 3_600_000;
+    const closedAt = Date.now();
+
+    await seedClosedTimer(app, workedMs, closedAt);
+    await app.clock.install();
+    await app.clock.setSystemTime(new Date(closedAt + gapMs));
+    await app.reload();
+
+    await expect(app.getByRole('dialog')).toHaveAttribute('aria-label', 'Pick up your session');
+    await app.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await app.getByRole('button', { name: /Continue/ }).click();
+    await app.getByRole('button', { name: 'Stop' }).click();
+
+    const s = await store(app);
+    const loggedMs = s.daily.entries
+      .filter((e: { kind: string }) => e.kind === 'work')
+      .reduce((sum: number, e: { startedAt: number; endedAt: number }) => sum + (e.endedAt - e.startedAt), 0);
     expect(loggedMs, 'the closed-tab gap leaked into the ledger as active time').toBeLessThan(gapMs / 2);
     expect(loggedMs, 'the work actually done before closing was dropped').toBeGreaterThan(500);
   });
