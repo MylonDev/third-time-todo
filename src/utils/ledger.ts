@@ -79,3 +79,41 @@ export function entriesOverlap(
 ): boolean {
   return a.startedAt < b.endedAt && b.startedAt < a.endedAt;
 }
+
+function clock(t: number): string {
+  return new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+/**
+ * Why an entry can't go into a day as drawn, or null if it can. The timeline's
+ * rules, in one place so the store enforces exactly what the editor explains:
+ *
+ * - it ends after it starts;
+ * - it stays inside its own day — crossing the boundary means splitting;
+ * - it claims nothing past `claimableUntil` (now, or where the running timer
+ *   began — that stretch belongs to the open segment);
+ * - it overlaps no other entry. An edit that would swallow a neighbour is
+ *   refused, never resolved by quietly trimming the neighbour.
+ */
+export function refusalFor(
+  candidate: { startedAt: number; endedAt: number },
+  others: TimeEntry[],
+  day: { start: number; end: number },
+  claimableUntil: number
+): string | null {
+  if (!(candidate.endedAt > candidate.startedAt)) return 'An entry has to end after it starts.';
+  if (candidate.startedAt < day.start || candidate.endedAt > day.end) {
+    return 'An entry can’t cross into another day. Split it at the boundary instead.';
+  }
+  if (candidate.endedAt > claimableUntil) {
+    return claimableUntil < Date.now()
+      ? 'That runs into the timer that’s going now.'
+      : 'That ends in the future.';
+  }
+  const clash = others.find((o) => entriesOverlap(o, candidate));
+  if (clash) {
+    const what = clash.kind === 'work' ? 'active' : 'rest';
+    return `That overlaps the ${what} block from ${clock(clash.startedAt)} to ${clock(clash.endedAt)}.`;
+  }
+  return null;
+}
