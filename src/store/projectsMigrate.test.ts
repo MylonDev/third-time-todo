@@ -130,13 +130,42 @@ describe('migrateTtGoals (the full tt-goals version chain)', () => {
     expect(p.target).toEqual({ metric: 'time', amount: 10 * HOUR, period: 'weekly' });
   });
 
-  it('passes v4-shaped state straight through unchanged', () => {
-    const v4State = {
+  it('passes v5-shaped state straight through unchanged', () => {
+    const v5State = {
       projects: [{
         id: 'p1', name: 'Already a project', createdAt: 1, order: 0,
         progress: { time: { '2026-09-14': HOUR } }, total: { time: HOUR },
+        carried: { time: {}, total: 0 },
       }],
     };
-    expect(migrateTtGoals(v4State, 4)).toEqual(v4State);
+    expect(migrateTtGoals(v5State, 5)).toEqual(v5State);
+  });
+
+  // v4 → v5: every hour a project holds that the ledger can't account for
+  // has to survive the next re-sum, so it becomes `carried`.
+  it('carries all of a v4 project’s time when the ledger holds none of it', () => {
+    const v4State = {
+      projects: [{
+        id: 'p1', name: 'Migrated goal', createdAt: 1, order: 0,
+        progress: { time: { '2026-09-14': HOUR } }, total: { time: 3 * HOUR },
+      }],
+    };
+    const { projects } = migrateTtGoals(v4State, 4, [], new Map());
+    expect(projects[0].carried).toEqual({ time: { '2026-09-14': HOUR }, total: 3 * HOUR });
+  });
+
+  it('carries only what the ledger does not already account for', () => {
+    const at = new Date(2026, 8, 14, 10).getTime();
+    const v4State = {
+      projects: [{
+        id: 'p1', name: 'Half and half', createdAt: 1, order: 0,
+        progress: { time: { '2026-09-14': 2 * HOUR } }, total: { time: 2 * HOUR },
+      }],
+    };
+    const ledger = [
+      { id: 'e', kind: 'work' as const, startedAt: at, endedAt: at + HOUR, taskId: 't1', mode: 'third' as const },
+    ];
+    const { projects } = migrateTtGoals(v4State, 4, ledger, new Map([['t1', 'p1']]));
+    expect(projects[0].carried).toEqual({ time: { '2026-09-14': HOUR }, total: HOUR });
   });
 });
