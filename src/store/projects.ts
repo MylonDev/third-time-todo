@@ -7,6 +7,7 @@ import { useSettings } from './settings';
 import { useTasks } from './tasks';
 import { forgetProject, resyncAggregates } from './sessionBridge';
 import { migrateGoalsChain } from './projectsMigrate';
+import { readPersistedLedger, readPersistedTaskProjects } from './persistedLedger';
 
 interface AddProjectParams {
   name: string;
@@ -50,12 +51,56 @@ interface ProjectsState {
    * a stale entry is a wrong total that nothing will ever correct.
    */
   recomputeFrom: (entries: TimeEntry[]) => void;
+  /**
+   * Entries about to leave the ledger for good (history ages out) hand their
+   * time to `carried`, so the next re-sum still counts it. Totals don't move.
+   */
+  carryForward: (entries: TimeEntry[]) => void;
 }
 
 function periodKeyFor(project: Project, dayEndHour: number, at: number = Date.now()): string {
   return project.target
     ? targetPeriodKey(project.target, project.createdAt, dayEndHour, at)
     : dayKeyOf(at, dayEndHour);
+}
+
+/**
+ * What the ledger alone says a project has: its period buckets and running
+ * total. An entry that names only a task still belongs to that task's project
+ * — `stopWork` writes exactly that shape whenever the timer is aimed at a task
+ * — so ownership is read through `projectOfTask`.
+ */
+export function ledgerRollup(
+  project: Project,
+  entries: TimeEntry[],
+  projectOfTask: Map<string, string | undefined>,
+  dayEndHour: number
+): { time: Record<string, number>; total: number } {
+  const time: Record<string, number> = {};
+  let total = 0;
+  for (const entry of entries) {
+    if (entry.kind !== 'work') continue;
+    const owner = entry.projectId ?? (entry.taskId ? projectOfTask.get(entry.taskId) : undefined);
+    if (owner !== project.id) continue;
+    const duration = entry.endedAt - entry.startedAt;
+    if (duration <= 0) continue;
+    // Bucket by when the work actually happened, not by today's date — a
+    // re-sum runs long after the fact.
+    const key = periodKeyFor(project, dayEndHour, entry.startedAt);
+    time[key] = (time[key] ?? 0) + duration;
+    total += duration;
+  }
+  return { time, total };
+}
+
+function addBuckets(a: Record<string, number>, b: Record<string, number>): Record<string, number> {
+  const out = { ...a };
+  for (const [k, v] of Object.entries(b)) out[k] = (out[k] ?? 0) + v;
+  return out;
+}
+
+function taskProjectMap(): Map<string, string | undefined> {
+  return new Map(useTasks.getState().tasks.map((t) => [t.id, t.projectId]));
 }
 
 export const useProjects = create<ProjectsState>()(
@@ -147,40 +192,43 @@ export const useProjects = create<ProjectsState>()(
 
       recomputeFrom: (entries) => {
         const dayEndHour = useSettings.getState().dayEndHour;
-        const projectOfTask = new Map(
-          useTasks.getState().tasks.map((t) => [t.id, t.projectId])
-        );
-        /**
-         * The project an entry counts toward. An entry that names only a task
-         * still belongs to that task's project — `stopWork` writes exactly
-         * that shape whenever the timer is aimed at a task — and reading it
-         * through the task is what keeps the ledger, rather than the totals
-         * riding alongside it, the record of where time went.
-         */
-        const ownerOf = (entry: TimeEntry): string | undefined =>
-          entry.projectId ?? (entry.taskId ? projectOfTask.get(entry.taskId) : undefined);
+        const projectOfTask = taskProjectMap();
         set((s) => ({
           projects: s.projects.map((p) => {
-            const time: Record<string, number> = {};
-            let total = 0;
-            for (const entry of entries) {
-              if (entry.kind !== 'work' || ownerOf(entry) !== p.id) continue;
-              const duration = entry.endedAt - entry.startedAt;
-              if (duration <= 0) continue;
-              // Bucket by when the work actually happened, not by today's date —
-              // a re-sum runs long after the fact.
-              const key = periodKeyFor(p, dayEndHour, entry.startedAt);
-              time[key] = (time[key] ?? 0) + duration;
-              total += duration;
-            }
-            return { ...p, progress: { time: prunePeriods(time) }, total: { time: total } };
+            const ledger = ledgerRollup(p, entries, projectOfTask, dayEndHour);
+            const carried = p.carried ?? { time: {}, total: 0 };
+            return {
+              ...p,
+              progress: { time: prunePeriods(addBuckets(carried.time, ledger.time)) },
+              total: { time: carried.total + ledger.total },
+            };
+          }),
+        }));
+      },
+
+      carryForward: (entries) => {
+        if (entries.length === 0) return;
+        const dayEndHour = useSettings.getState().dayEndHour;
+        const projectOfTask = taskProjectMap();
+        set((s) => ({
+          projects: s.projects.map((p) => {
+            const leaving = ledgerRollup(p, entries, projectOfTask, dayEndHour);
+            if (leaving.total === 0) return p;
+            const carried = p.carried ?? { time: {}, total: 0 };
+            return {
+              ...p,
+              carried: {
+                time: prunePeriods(addBuckets(carried.time, leaving.time)),
+                total: carried.total + leaving.total,
+              },
+            };
           }),
         }));
       },
     }),
     {
       name: 'tt-goals',
-      version: 4,
+      version: 5,
       migrate: migrateTtGoals,
     }
   )
@@ -192,9 +240,42 @@ export const useProjects = create<ProjectsState>()(
  * in isolation, which is exactly the gap that let the v1/v2 legs go missing
  * unnoticed.
  */
-export function migrateTtGoals(persisted: unknown, version: number): { projects: Project[] } {
+export function migrateTtGoals(
+  persisted: unknown,
+  version: number,
+  ledger: TimeEntry[] = readPersistedLedger(),
+  projectOfTask: Map<string, string | undefined> = readPersistedTaskProjects()
+): { projects: Project[] } {
+  let state = persisted as { projects: Project[] };
   if (version < 4) {
-    return migrateGoalsChain(persisted, version);
+    state = migrateGoalsChain(persisted, version);
   }
-  return persisted as { projects: Project[] };
+  if (version < 5) {
+    state = { ...state, projects: state.projects.map((p) => withCarried(p, ledger, projectOfTask)) };
+  }
+  return state;
+}
+
+/**
+ * v4 → v5. Whatever a project holds beyond what the ledger can account for is
+ * time the ledger will never see again — every hour logged against a goal
+ * before entries existed — and becomes `carried`, so re-sums keep it.
+ *
+ * The day boundary isn't readable from here (settings may not have hydrated),
+ * so buckets are keyed at midnight. At worst an entry logged between midnight
+ * and a later `dayEndHour` is attributed to the neighbouring bucket in this
+ * one subtraction; the total is exact either way.
+ */
+function withCarried(
+  p: Project,
+  ledger: TimeEntry[],
+  projectOfTask: Map<string, string | undefined>
+): Project {
+  const fromLedger = ledgerRollup(p, ledger, projectOfTask, 0);
+  const time: Record<string, number> = {};
+  for (const [k, v] of Object.entries(p.progress?.time ?? {})) {
+    const rest = v - (fromLedger.time[k] ?? 0);
+    if (rest > 0) time[k] = rest;
+  }
+  return { ...p, carried: { time, total: Math.max(0, (p.total?.time ?? 0) - fromLedger.total) } };
 }

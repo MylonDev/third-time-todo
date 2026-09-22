@@ -11,6 +11,8 @@ import { provideSessionBridge } from './sessionBridge';
 
 type TimerState = 'idle' | 'working' | 'on-break';
 
+const HISTORY_DAYS = 120;
+
 /**
  * What a settled close left for the restore prompt to ask about. It is
  * deliberately not persisted: a reload before the prompt is answered settles
@@ -208,17 +210,31 @@ export const useSession = create<SessionStore>()(
         archiveDay: () => {
           const { daily, history } = get();
           if (daily.entries.length === 0) return;
+          // A day can come round twice — moving `dayEndHour` later just after
+          // midnight steps "today" back onto a day already archived. Its
+          // earlier entries are merged in, never replaced.
+          const earlier = history.find((h) => h.date === daily.date)?.entries ?? [];
+          const entries = [...earlier, ...daily.entries].sort((a, b) => a.startedAt - b.startedAt);
           const entry: HistoryEntry = {
             date: daily.date,
-            totalWorkMs: workMsOf(daily.entries),
-            totalBreakMs: breakMsOf(daily.entries),
-            unusedRestMs: Math.max(0, bankOf(daily.entries)),
-            entries: daily.entries,
+            totalWorkMs: workMsOf(entries),
+            totalBreakMs: breakMsOf(entries),
+            unusedRestMs: Math.max(0, bankOf(entries)),
+            entries,
           };
           // Four months. The pace band needs 28 days behind the earliest day it
           // plots, and entries are small.
-          const updated = [entry, ...history.filter((h) => h.date !== entry.date)].slice(0, 120);
-          set({ history: updated });
+          const all = [entry, ...history.filter((h) => h.date !== entry.date)].sort((a, b) =>
+            b.date.localeCompare(a.date)
+          );
+          const kept = all.slice(0, HISTORY_DAYS);
+          // What ages out stops being ledger, but the time it credited is
+          // still real. Hand it to the carried balances before it goes, or
+          // the next re-sum drops it from every project and task total.
+          const leaving = all.slice(HISTORY_DAYS).flatMap((h) => h.entries);
+          useProjects.getState().carryForward(leaving);
+          useTasks.getState().carryForward(leaving);
+          set({ history: kept });
         },
 
         maybeArchivePreviousDay: () => {

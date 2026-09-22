@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayKeyOf, dayStartOf, dayEndOf } from './thirdTime';
+import { dayKeyOf, dayStartOf, dayEndOf, shiftDayKey } from './thirdTime';
 
 /** Local-time timestamp helper, so these tests don't depend on the TZ. */
 function at(y: number, m: number, d: number, h: number, min = 0): number {
@@ -44,5 +44,20 @@ describe('dayStartOf / dayEndOf', () => {
     // trivially the same instant as a plain +24h step, so it passes there
     // too; it only discriminates in a zone that observes one on this date.
     expect(dayEndOf('2020-10-25', 0)).toBe(at(2020, 10, 26, 0));
+  });
+});
+
+describe('shiftDayKey', () => {
+  it('steps whole calendar days across months and years', () => {
+    expect(shiftDayKey('2026-09-30', 1)).toBe('2026-10-01');
+    expect(shiftDayKey('2026-01-01', -1)).toBe('2025-12-31');
+    expect(shiftDayKey('2026-09-22', -13)).toBe('2026-09-09');
+  });
+
+  // `now + 24h` from 23:30 on the eve of spring-forward lands at 00:30 two
+  // days on, skipping tomorrow entirely.
+  it('does not skip a day across a DST change', () => {
+    expect(shiftDayKey('2026-03-28', 1)).toBe('2026-03-29');
+    expect(shiftDayKey('2026-03-29', 1)).toBe('2026-03-30');
   });
 });

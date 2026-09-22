@@ -17,6 +17,12 @@ export interface Task {
   order: number;
   subtasks: SubTask[];
   trackedMs: number; // cumulative milliseconds focused while timer was running
+  /**
+   * The part of `trackedMs` no ledger entry carries: tracking from before the
+   * ledger existed, manual adjustments, and days aged out of history. A re-sum
+   * adds this back rather than zeroing it. Absent means 0.
+   */
+  carriedMs?: number;
   /** The project this task's tracked time is credited to, if any. */
   projectId?: string;
   /**
@@ -104,5 +110,12 @@ export interface Project {
   progress: { time: Record<string, number> };
   /** metric → running cumulative total, immune to `prunePeriods`. */
   total: { time: number };
+  /**
+   * Time credited to this project that no entry in the ledger backs — goal
+   * time logged before the ledger existed, and days aged out of history. A
+   * re-sum from the ledger adds this back on top; without it, the first edit
+   * anywhere would zero every hour the ledger cannot see. Absent means none.
+   */
+  carried?: { time: Record<string, number>; total: number };
   archivedAt?: number;
 }
