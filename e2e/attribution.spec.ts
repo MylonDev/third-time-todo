@@ -42,8 +42,8 @@ test('a task tagged to a project credits that project', async ({ app }) => {
   await addTask(app, 'Write the parser');
   await app.getByRole('button', { name: 'Task actions' }).first().click();
   await app.getByRole('menuitem', { name: 'Project…' }).click();
-  await app.getByRole('option', { name: 'Learn to code' }).click();
-  await expect(app.getByText('Learn to code')).toBeVisible();
+  await app.getByRole('listbox', { name: 'Project' }).getByRole('option', { name: 'Learn to code' }).click();
+  await expect(app.getByRole('listitem').getByText('Learn to code')).toBeVisible();
 
   await app.getByRole('button', { name: 'Track time on Write the parser' }).click();
   await startWork(app);
