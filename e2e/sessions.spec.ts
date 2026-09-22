@@ -10,6 +10,18 @@ async function store(page: Page) {
 }
 
 /**
+ * A close stamp that leaves room for a two-hour gap on the same day. Anchored
+ * to `Date.now()` instead, any run after 22:00 crossed midnight during the gap,
+ * the settled stint was (correctly) archived into yesterday, and a test reading
+ * today's entries found nothing there.
+ */
+function middayToday(): number {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  return d.getTime();
+}
+
+/**
  * Move the whole app to a later date. `todayKey()` reads the system clock, so
  * shifting the clock is how a day rollover gets exercised.
  */
@@ -76,7 +88,7 @@ test.describe('restoring a timer that survived a reload', () => {
   test('Continue logs the time actually worked, not the time the tab was closed', async ({ app }) => {
     const workedMs = 1_500;
     const gapMs = 2 * 3_600_000; // two hours with the tab closed — well past the 30-minute Resume cutoff
-    const closedAt = Date.now();
+    const closedAt = middayToday();
 
     await seedClosedTimer(app, workedMs, closedAt);
     await app.clock.install();
@@ -106,7 +118,7 @@ test.describe('restoring a timer that survived a reload', () => {
   test('backgrounding the tab while the prompt is up does not move the close stamp', async ({ app }) => {
     const workedMs = 1_500;
     const gapMs = 2 * 3_600_000;
-    const closedAt = Date.now();
+    const closedAt = middayToday();
 
     await seedClosedTimer(app, workedMs, closedAt);
     await app.clock.install();
@@ -133,7 +145,7 @@ test.describe('restoring a timer that survived a reload', () => {
   test('Continue logs actual rest taken on a break, not the time the tab was closed', async ({ app }) => {
     const restedMs = 1_500;
     const gapMs = 2 * 3_600_000;
-    const closedAt = Date.now();
+    const closedAt = middayToday();
 
     await app.evaluate(
       ({ restedMs, closedAt, date }) => {
