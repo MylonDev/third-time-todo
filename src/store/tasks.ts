@@ -4,6 +4,7 @@ import type { SubTask, Task, TaskStatus, TimeEntry } from '../types';
 import { todayKey, tomorrowKey } from '../utils/thirdTime';
 import { useSettings } from './settings';
 import { reattributeActiveTask, resyncAggregates } from './sessionBridge';
+import { readPersistedLedger } from './persistedLedger';
 
 /**
  * Legacy routine data. Routines became habits, and habits are gone too now —
@@ -32,7 +33,13 @@ interface TasksState {
   editSubtask: (taskId: string, subtaskId: string, title: string) => void;
   /** Moves unfinished tasks from past days into today, returning their ids. */
   rolloverPastTasks: () => string[];
+  /** Ledger credit from a closing entry. The session store's to call. */
   adjustTrackedMs: (id: string, deltaMs: number) => void;
+  /**
+   * A hand correction ("I forgot to track 20 minutes"). There's no entry
+   * behind it, so it lands in `carriedMs` where a re-sum can't undo it.
+   */
+  adjustManualMs: (id: string, deltaMs: number) => void;
   setTaskProject: (id: string, projectId?: string) => void;
   /** A deleted project untags itself from every task — the tasks stay, the tag doesn't. */
   clearTaskProject: (projectId: string) => void;
@@ -44,6 +51,18 @@ interface TasksState {
    * ever correct on its own.
    */
   recomputeFrom: (entries: TimeEntry[]) => void;
+  /** Entries aging out of history move their time into `carriedMs`. */
+  carryForward: (entries: TimeEntry[]) => void;
+}
+
+/** Work time the ledger credits to each task. */
+function ledgerMsByTask(entries: TimeEntry[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const e of entries) {
+    if (e.kind !== 'work' || !e.taskId) continue;
+    out.set(e.taskId, (out.get(e.taskId) ?? 0) + Math.max(0, e.endedAt - e.startedAt));
+  }
+  return out;
 }
 
 /**
@@ -244,6 +263,17 @@ export const useTasks = create<TasksState>()(
           ),
         })),
 
+      adjustManualMs: (id, deltaMs) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) => {
+            if (t.id !== id) return t;
+            const trackedMs = Math.max(0, (t.trackedMs ?? 0) + deltaMs);
+            // Only what actually moved `trackedMs` is carried, so a subtraction
+            // clamped at zero can't leave a hidden debt behind.
+            return { ...t, trackedMs, carriedMs: (t.carriedMs ?? 0) + trackedMs - (t.trackedMs ?? 0) };
+          }),
+        })),
+
       setTaskProject: (id, projectId) => {
         set((s) => ({
           tasks: s.tasks.map((t) => (t.id === id ? { ...t, projectId } : t)),
@@ -263,57 +293,91 @@ export const useTasks = create<TasksState>()(
           tasks: s.tasks.map((t) => (t.projectId === projectId ? { ...t, projectId: undefined } : t)),
         })),
 
-      recomputeFrom: (entries) =>
+      recomputeFrom: (entries) => {
+        const byTask = ledgerMsByTask(entries);
         set((s) => ({
-          tasks: s.tasks.map((t) => {
-            const trackedMs = entries
-              .filter((e) => e.kind === 'work' && e.taskId === t.id)
-              .reduce((sum, e) => sum + Math.max(0, e.endedAt - e.startedAt), 0);
-            return { ...t, trackedMs };
-          }),
-        })),
+          tasks: s.tasks.map((t) => ({
+            ...t,
+            trackedMs: Math.max(0, (t.carriedMs ?? 0) + (byTask.get(t.id) ?? 0)),
+          })),
+        }));
+      },
+
+      carryForward: (entries) => {
+        const byTask = ledgerMsByTask(entries);
+        if (byTask.size === 0) return;
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            byTask.has(t.id) ? { ...t, carriedMs: (t.carriedMs ?? 0) + byTask.get(t.id)! } : t
+          ),
+        }));
+      },
     }),
     {
       name: 'tt-tasks',
-      version: 7,
-      migrate: (persisted: unknown, version: number) => {
-        let state = persisted as PersistedTasksState;
-        if (version < 3) {
-          return {
-            tasks: (state.tasks ?? []).map((t, i) => ({
-              id: t.id,
-              title: t.title,
-              status:
-                t.status === 'in-progress' || t.status === 'parked'
-                  ? 'todo'
-                  : t.status ?? 'todo',
-              createdAt: t.createdAt ?? Date.now(),
-              scheduledDate: t.scheduledDate ?? todayKey(useSettings.getState().dayEndHour),
-              order: t.order ?? i,
-              subtasks: t.subtasks ?? [],
-              trackedMs: 0,
-            })),
-          };
-        }
-        if (version < 4) {
-          state = {
-            tasks: (state.tasks ?? []).map((t) => ({ ...t, trackedMs: t.trackedMs ?? 0 })),
-          };
-        }
-        if (version < 5) {
-          state = { ...state, routines: migrateChecklists(state.tasks ?? []) };
-        }
-        if (version < 6) {
-          state = { ...state, routineHistory: {} };
-        }
-        if (version < 7) {
-          // `projectId` is optional, and its absence already means "no
-          // project" — there is nothing on an existing task to backfill. The
-          // bump exists only to declare the field as part of the shape.
-          state = { ...state };
-        }
-        return state;
-      },
+      version: 8,
+      migrate: (persisted: unknown, version: number) => migrateTtTasks(persisted, version),
     }
   )
 );
+
+/**
+ * The store's `migrate`, exported so the chain is what tests exercise. `ledger`
+ * defaults to what `tt-session` holds on disk.
+ */
+export function migrateTtTasks(
+  persisted: unknown,
+  version: number,
+  ledger: TimeEntry[] = readPersistedLedger()
+) {
+  let state = persisted as PersistedTasksState;
+  if (version < 3) {
+    // Falls through: every later leg still applies to a store this old.
+    state = {
+      tasks: (state.tasks ?? []).map((t, i) => ({
+        id: t.id,
+        title: t.title,
+        status:
+          t.status === 'in-progress' || t.status === 'parked'
+            ? 'todo'
+            : t.status ?? 'todo',
+        createdAt: t.createdAt ?? Date.now(),
+        scheduledDate: t.scheduledDate ?? todayKey(useSettings.getState().dayEndHour),
+        order: t.order ?? i,
+        subtasks: t.subtasks ?? [],
+        trackedMs: 0,
+      })),
+    };
+  }
+  if (version < 4) {
+    state = {
+      tasks: (state.tasks ?? []).map((t) => ({ ...t, trackedMs: t.trackedMs ?? 0 })),
+    };
+  }
+  if (version < 5) {
+    state = { ...state, routines: migrateChecklists(state.tasks ?? []) };
+  }
+  if (version < 6) {
+    state = { ...state, routineHistory: {} };
+  }
+  if (version < 7) {
+    // `projectId` is optional, and its absence already means "no
+    // project" — there is nothing on an existing task to backfill. The
+    // bump exists only to declare the field as part of the shape.
+    state = { ...state };
+  }
+  if (version < 8) {
+    // Whatever a task has tracked beyond what the ledger holds for it —
+    // everything from before entries named tasks, plus any manual
+    // adjustments — would be zeroed by the next re-sum. Carry it.
+    const byTask = ledgerMsByTask(ledger);
+    state = {
+      ...state,
+      tasks: (state.tasks ?? []).map((t) => ({
+        ...t,
+        carriedMs: Math.max(0, (t.trackedMs ?? 0) - (byTask.get(t.id ?? '') ?? 0)),
+      })),
+    };
+  }
+  return state;
+}

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
-import { earnBreak, formatDuration, todayKey } from '../utils/thirdTime';
+import { earnBreak, formatDuration, todayKey, shiftDayKey } from '../utils/thirdTime';
 import { durationOf, workMsOf, breakMsOf } from '../utils/ledger';
 import { PaceChart } from './PaceChart';
 import type { HistoryEntry, TimeEntry } from '../types';
@@ -22,16 +22,6 @@ type Day = {
 
 function parseDate(dateStr: string): Date {
   return new Date(dateStr + 'T00:00:00');
-}
-
-function shiftKey(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, '0'),
-    String(d.getDate()).padStart(2, '0'),
-  ].join('-');
 }
 
 /** Rest the day's work actually earned — summed per block, since mode can change. */
@@ -130,7 +120,10 @@ export function Activity() {
     });
 
     return Array.from({ length: DAYS }, (_, i) => {
-      const date = shiftKey(DAYS - 1 - i);
+      // Counted back from today's day key, not the calendar date — between
+      // midnight and a later `dayEndHour` they differ, and the calendar
+      // version drew an empty bar for a "today" that hasn't started.
+      const date = shiftDayKey(today, -(DAYS - 1 - i));
       const entry = byDate.get(date);
       const entries = entry?.entries ?? [];
       const d = parseDate(date);

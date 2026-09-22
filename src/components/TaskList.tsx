@@ -506,7 +506,7 @@ export function TaskList() {
   const {
     tasks, addTask, updateTask, deleteTask, moveToTomorrow,
     reorderTasks, addSubtask, toggleSubtask, deleteSubtask, editSubtask,
-    adjustTrackedMs, restoreTask, setTaskProject,
+    adjustManualMs, restoreTask, setTaskProject,
   } = useTasks();
   const projects = useProjects((s) => s.projects);
   const dayEndHour = useSettings((s) => s.dayEndHour);
@@ -646,7 +646,7 @@ export function TaskList() {
                 onToggleSubtask={toggleSubtask}
                 onDeleteSubtask={deleteSubtask}
                 onEditSubtask={editSubtask}
-                onAdjustTrackedMs={adjustTrackedMs}
+                onAdjustTrackedMs={adjustManualMs}
                 onSetTaskProject={setTaskProject}
               />
             ))}
@@ -679,7 +679,7 @@ export function TaskList() {
                   onToggleSubtask={toggleSubtask}
                   onDeleteSubtask={deleteSubtask}
                   onEditSubtask={editSubtask}
-                  onAdjustTrackedMs={adjustTrackedMs}
+                  onAdjustTrackedMs={adjustManualMs}
                   onSetTaskProject={setTaskProject}
                 />
               ))}
