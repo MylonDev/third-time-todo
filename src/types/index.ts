@@ -48,7 +48,17 @@ export interface TimeEntry {
 export interface DailyState {
   date: string; // day key, per `dayKeyOf`
   entries: TimeEntry[];
+  /**
+   * The ratio today is worked at. Absent until chosen — the settings default
+   * applies until then, and the day's first timer start locks it in.
+   */
+  mode?: Mode;
+  /** Downward difficulty changes made after work started today. */
+  reductionsUsed?: number;
 }
+
+/** How often a day's difficulty may be eased once work has started. */
+export type DifficultyPolicy = { kind: 'free' } | { kind: 'quota'; perDay: number };
 
 export interface HistoryEntry {
   date: string; // YYYY-MM-DD
@@ -56,6 +66,9 @@ export interface HistoryEntry {
   totalBreakMs: number;
   unusedRestMs: number;
   entries: TimeEntry[];
+  /** What the day was worked at, and how often it was eased. Absent before v5. */
+  mode?: Mode;
+  reductionsUsed?: number;
 }
 
 /** What to do with a task carried over from a previous day. */

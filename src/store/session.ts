@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Mode, TimeEntry, DailyState, HistoryEntry } from '../types';
-import { dayKeyOf, todayKey, dayStartOf, dayEndOf } from '../utils/thirdTime';
+import { dayKeyOf, todayKey, dayStartOf, dayEndOf, MODE_CONFIG } from '../utils/thirdTime';
 import { bankOf, workMsOf, breakMsOf, splitAtBoundary, refusalFor, type OpenSegment } from '../utils/ledger';
 import { migrateSessionV3 } from './sessionMigrate';
 import { useSettings } from './settings';
@@ -39,9 +39,18 @@ interface SessionStore {
   openSegment: () => OpenSegment | null;
   bank: () => number;
 
+  /** The ratio today is worked at: the day's own choice, else the settings default. */
+  dayMode: () => Mode;
+  /**
+   * Change today's difficulty. Easing off once work has started is a
+   * reduction, and under a quota policy reductions run out; raising never
+   * does. Returns why it refused, or null.
+   */
+  setDayMode: (mode: Mode) => string | null;
+
   startWork: () => void;
-  stopWork: (mode: Mode) => void;
-  startBreak: (mode: Mode) => void;
+  stopWork: () => void;
+  startBreak: () => void;
   stopBreak: () => void;
   setActive: (projectId?: string, taskId?: string) => void;
 
@@ -182,7 +191,17 @@ export const useSession = create<SessionStore>()(
           set({ timerStart: reopened.startedAt });
         }
         if (get().daily.entries.length > 0) get().archiveDay();
-        set({ daily: { date: day, entries: [] } });
+        // A new day starts at the default difficulty. If a stint is carrying
+        // over into it, that is the day's first timer start — lock it in, so
+        // the reopened segment keeps its rate whatever the default does next.
+        const carrying = get().timerState !== 'idle' && get().timerStart !== null;
+        set({
+          daily: {
+            date: day,
+            entries: [],
+            ...(carrying ? { mode: useSettings.getState().mode } : {}),
+          },
+        });
       };
 
       /** The entries filed under `date` — today's live list, or an archived day's. */
@@ -232,6 +251,7 @@ export const useSession = create<SessionStore>()(
         } else {
           const existing = history.find((h) => h.date === date);
           const updated: HistoryEntry = {
+            ...existing,
             date,
             unusedRestMs: existing?.unusedRestMs ?? 0,
             totalWorkMs: workMsOf(entries),
@@ -270,10 +290,34 @@ export const useSession = create<SessionStore>()(
           return {
             kind: timerState === 'working' ? 'work' : 'break',
             startedAt: timerStart,
-            mode: useSettings.getState().mode,
+            mode: get().dayMode(),
             projectId: activeProjectId,
             taskId: activeTaskId,
           };
+        },
+
+        dayMode: () => get().daily.mode ?? useSettings.getState().mode,
+
+        setDayMode: (mode) => {
+          const { daily, timerState } = get();
+          const current = get().dayMode();
+          if (mode === current) return null;
+          // The open segment is rated at the mode in force; changing it now
+          // would rewrite what the running stint has already earned.
+          if (timerState !== 'idle') return 'Stop the timer to change difficulty.';
+          const started = daily.entries.length > 0;
+          const easing = MODE_CONFIG[mode].ratio < MODE_CONFIG[current].ratio;
+          const used = daily.reductionsUsed ?? 0;
+          const policy = useSettings.getState().difficultyPolicy;
+          if (started && easing && policy.kind === 'quota' && used >= policy.perDay) {
+            return policy.perDay === 0
+              ? 'Easing off isn’t allowed once you’ve started — your settings allow no reductions.'
+              : `You’ve used today’s ${policy.perDay === 1 ? 'one reduction' : `${policy.perDay} reductions`}.`;
+          }
+          set({
+            daily: { ...daily, mode, reductionsUsed: used + (started && easing ? 1 : 0) },
+          });
+          return null;
         },
 
         bank: () => {
@@ -295,6 +339,8 @@ export const useSession = create<SessionStore>()(
             totalBreakMs: breakMsOf(entries),
             unusedRestMs: Math.max(0, bankOf(entries)),
             entries,
+            mode: daily.mode ?? history.find((h) => h.date === daily.date)?.mode,
+            reductionsUsed: daily.reductionsUsed ?? 0,
           };
           // Four months. The pace band needs 28 days behind the earliest day it
           // plots, and entries are small.
@@ -417,10 +463,18 @@ export const useSession = create<SessionStore>()(
 
         startWork: () => {
           get().maybeArchivePreviousDay();
-          set({ timerState: 'working', timerStart: Date.now() });
+          // The day's first timer start is where its difficulty is chosen: an
+          // unset day takes the default now, and a later change to the default
+          // no longer reaches it.
+          const { daily } = get();
+          set({
+            daily: daily.mode ? daily : { ...daily, mode: get().dayMode() },
+            timerState: 'working',
+            timerStart: Date.now(),
+          });
         },
 
-        stopWork: (mode: Mode) => {
+        stopWork: () => {
           // Before anything else — the timer may still be open from a day
           // that already ended, and that's only detectable (and splittable)
           // while it's still open. Read `timerStart`/`daily` fresh afterward,
@@ -435,7 +489,7 @@ export const useSession = create<SessionStore>()(
             endedAt: Date.now(),
             projectId: activeProjectId,
             taskId: activeTaskId,
-            mode,
+            mode: get().dayMode(),
           };
           // Credit whatever the entry actually names — a project directly, or a
           // task (which is itself only ever tagged with its own project, kept in
@@ -446,9 +500,9 @@ export const useSession = create<SessionStore>()(
           set({ timerState: 'idle', timerStart: null });
         },
 
-        startBreak: (mode: Mode) => {
+        startBreak: () => {
           const { timerState } = get();
-          if (timerState === 'working') get().stopWork(mode);
+          if (timerState === 'working') get().stopWork();
           set({ timerState: 'on-break', timerStart: Date.now() });
         },
 
@@ -462,7 +516,7 @@ export const useSession = create<SessionStore>()(
             kind: 'break',
             startedAt: timerStart,
             endedAt: Date.now(),
-            mode: useSettings.getState().mode,
+            mode: get().dayMode(),
           };
           fileEntry(entry);
           set({ timerState: 'idle', timerStart: null });
@@ -500,7 +554,7 @@ export const useSession = create<SessionStore>()(
             endedAt: now,
             projectId: activeProjectId,
             taskId: activeTaskId,
-            mode: useSettings.getState().mode,
+            mode: get().dayMode(),
           };
           creditWork(entry);
           fileEntry(entry);
@@ -578,7 +632,7 @@ export const useSession = create<SessionStore>()(
     },
     {
       name: 'tt-session',
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
         let s = persisted as Record<string, unknown>;
         if (version < 2) {
@@ -597,6 +651,10 @@ export const useSession = create<SessionStore>()(
         if (version < 4) {
           s = { ...s, ...migrateSessionV3(s) };
         }
+        // v5: `daily.mode`/`reductionsUsed` are optional and their absence
+        // means "the default, never eased" — nothing to backfill. A day
+        // already under way keeps rating at whatever the default says, as it
+        // did before, until it is changed or rolls over.
         return s;
       },
       partialize: (s) => ({

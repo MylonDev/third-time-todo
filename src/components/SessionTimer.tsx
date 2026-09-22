@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
+import { useDayMode } from '../hooks/useDayMode';
 import { useTasks } from '../store/tasks';
 import { useProjects } from '../store/projects';
 import { formatTimeLong, MODE_CONFIG, MODE_BADGE_CLASSES } from '../utils/thirdTime';
@@ -24,7 +25,8 @@ const MODE_COLOR_DIM: Record<Mode, string> = {
 
 export function SessionTimer() {
   const { timerState, timerStart, stopWork, stopBreak, startWork } = useSession();
-  const { mode, longWorkReminderMin, soundsEnabled } = useSettings();
+  const { longWorkReminderMin, soundsEnabled } = useSettings();
+  const mode = useDayMode();
   const { tasks } = useTasks();
   const { projects } = useProjects();
   const { projectId: activeProjectId, taskId: activeTaskId } = useActiveTarget();
@@ -65,7 +67,7 @@ export function SessionTimer() {
   };
 
   const handleStop = () => {
-    if (timerState === 'working') stopWork(mode as Mode);
+    if (timerState === 'working') stopWork();
     else if (timerState === 'on-break') stopBreak();
   };
 

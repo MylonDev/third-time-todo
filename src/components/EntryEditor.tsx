@@ -33,7 +33,11 @@ interface Props {
 export function EntryEditor({ date, entry, onClose }: Props) {
   const isNew = !entry.id;
   const dayEndHour = useSettings((s) => s.dayEndHour);
-  const defaultMode = useSettings((s) => s.mode);
+  // A block added by hand is rated at the mode its own day was worked at.
+  const dayModeFallback = useSettings((s) => s.mode);
+  const defaultMode = useSession((s) =>
+    s.daily.date === date ? s.daily.mode : s.history.find((h) => h.date === date)?.mode
+  ) ?? dayModeFallback;
   const projects = useProjects((s) => s.projects);
   const tasks = useTasks((s) => s.tasks);
   const { addEntry, updateEntry, removeEntry, splitEntry } = useSession();

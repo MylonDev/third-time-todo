@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Mode, TabId } from '../types';
+import type { DifficultyPolicy, Mode, TabId } from '../types';
 
 export type Theme = 'dark' | 'light' | 'system';
 
 interface SettingsState {
+  /** The difficulty a new day starts at. Each day then keeps its own (session store). */
   mode: Mode;
+  difficultyPolicy: DifficultyPolicy;
   longWorkReminderMin: number;
   soundsEnabled: boolean;
   theme: Theme;
@@ -19,6 +21,7 @@ interface SettingsState {
   /** Local hour (0–4) after midnight at which "today" turns into "tomorrow". */
   dayEndHour: number;
   setMode: (mode: Mode) => void;
+  setDifficultyPolicy: (policy: DifficultyPolicy) => void;
   setLongWorkReminderMin: (min: number) => void;
   setSoundsEnabled: (enabled: boolean) => void;
   setTheme: (theme: Theme) => void;
@@ -35,6 +38,7 @@ export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
       mode: 'third',
+      difficultyPolicy: { kind: 'quota', perDay: 1 },
       longWorkReminderMin: 90,
       soundsEnabled: true,
       theme: 'system',
@@ -46,6 +50,7 @@ export const useSettings = create<SettingsState>()(
       showQuote: true,
       dayEndHour: 0,
       setMode: (mode) => set({ mode }),
+      setDifficultyPolicy: (difficultyPolicy) => set({ difficultyPolicy }),
       setActiveTab: (activeTab) => set({ activeTab }),
       setQuotes: (quotes) => set({ quotes }),
       setShowQuote: (showQuote) => set({ showQuote }),
@@ -62,7 +67,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'tt-settings',
-      version: 11,
+      version: 12,
       migrate: migrateTtSettings,
     }
   )
@@ -135,6 +140,10 @@ export function migrateTtSettings(persisted: unknown, version: number) {
       ...state,
       activeTab: state.activeTab === 'goals' ? 'projects' : state.activeTab,
     };
+  }
+  if (version < 12) {
+    // Difficulty became per-day; `mode` stays as the default for a new day.
+    state = { ...state, difficultyPolicy: state.difficultyPolicy ?? { kind: 'quota', perDay: 1 } };
   }
   return state;
 }
