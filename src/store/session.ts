@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Mode, TimeEntry, DailyState, HistoryEntry } from '../types';
-import { dayKeyOf, todayKey, dayEndOf } from '../utils/thirdTime';
-import { bankOf, workMsOf, breakMsOf, entriesOverlap, splitAtBoundary, type OpenSegment } from '../utils/ledger';
+import { dayKeyOf, todayKey, dayStartOf, dayEndOf } from '../utils/thirdTime';
+import { bankOf, workMsOf, breakMsOf, splitAtBoundary, refusalFor, type OpenSegment } from '../utils/ledger';
 import { migrateSessionV3 } from './sessionMigrate';
 import { useSettings } from './settings';
 import { useProjects } from './projects';
@@ -45,9 +45,15 @@ interface SessionStore {
   stopBreak: () => void;
   setActive: (projectId?: string, taskId?: string) => void;
 
-  addEntry: (e: TimeEntry) => void;
-  updateEntry: (id: string, patch: Partial<TimeEntry>) => void;
+  /*
+   * The timeline's doors into the ledger, for today and any archived day.
+   * Each returns why it refused, or null once the edit is in. See `refusalFor`.
+   */
+  addEntry: (e: TimeEntry) => string | null;
+  updateEntry: (id: string, patch: Partial<Omit<TimeEntry, 'id'>>) => string | null;
   removeEntry: (id: string) => void;
+  /** Cut one entry in two at `at`; both halves keep kind, project, task and mode. */
+  splitEntry: (id: string, at: number) => string | null;
 
   archiveDay: () => void;
   maybeArchivePreviousDay: () => void;
@@ -86,6 +92,11 @@ function recomputeAggregates(daily: DailyState, history: HistoryEntry[]): void {
   const entries = allEntries(daily, history);
   useProjects.getState().recomputeFrom(entries);
   useTasks.getState().recomputeFrom(entries);
+}
+
+/** A break credits nothing, so it names nothing. */
+function withoutBreakTargets(e: TimeEntry): TimeEntry {
+  return e.kind === 'break' ? { ...e, projectId: undefined, taskId: undefined } : e;
 }
 
 export const useSession = create<SessionStore>()(
@@ -172,6 +183,69 @@ export const useSession = create<SessionStore>()(
         }
         if (get().daily.entries.length > 0) get().archiveDay();
         set({ daily: { date: day, entries: [] } });
+      };
+
+      /** The entries filed under `date` — today's live list, or an archived day's. */
+      const entriesOn = (date: string): TimeEntry[] => {
+        const { daily, history } = get();
+        if (daily.date === date) return daily.entries;
+        return history.find((h) => h.date === date)?.entries ?? [];
+      };
+
+      const dayOfEntry = (id: string): string | null => {
+        const { daily, history } = get();
+        if (daily.entries.some((e) => e.id === id)) return daily.date;
+        return history.find((h) => h.entries.some((e) => e.id === id))?.date ?? null;
+      };
+
+      const refuse = (date: string, candidate: TimeEntry, others: TimeEntry[]): string | null => {
+        const { daily, timerStart, timerState } = get();
+        if (date > daily.date) return 'That day hasn’t happened yet.';
+        const dayEndHour = useSettings.getState().dayEndHour;
+        // Only today has a running timer to stay clear of; past days are
+        // claimable right up to their end.
+        const claimableUntil =
+          date === daily.date
+            ? timerState !== 'idle' && timerStart !== null
+              ? Math.min(timerStart, Date.now())
+              : Date.now()
+            : Infinity;
+        return refusalFor(
+          candidate,
+          others,
+          { start: dayStartOf(date, dayEndHour), end: dayEndOf(date, dayEndHour) },
+          claimableUntil
+        );
+      };
+
+      /**
+       * Replace a day's entries and re-derive everything summed from them
+       * (spec 2.3): an archived day's totals, then every project and task.
+       * `unusedRestMs` stays as archived — it records what the bank held at
+       * turnover, which an edit made afterwards can't rewind.
+       */
+      const writeDay = (date: string, next: TimeEntry[]) => {
+        const entries = [...next].sort((a, b) => a.startedAt - b.startedAt);
+        const { daily, history } = get();
+        if (daily.date === date) {
+          set({ daily: { ...daily, entries } });
+        } else {
+          const existing = history.find((h) => h.date === date);
+          const updated: HistoryEntry = {
+            date,
+            unusedRestMs: existing?.unusedRestMs ?? 0,
+            totalWorkMs: workMsOf(entries),
+            totalBreakMs: breakMsOf(entries),
+            entries,
+          };
+          set({
+            history: [updated, ...history.filter((h) => h.date !== date)].sort((a, b) =>
+              b.date.localeCompare(a.date)
+            ),
+          });
+        }
+        const s = get();
+        recomputeAggregates(s.daily, s.history);
       };
 
       return {
@@ -438,31 +512,56 @@ export const useSession = create<SessionStore>()(
         },
 
         addEntry: (e) => {
-          const { daily, history } = get();
-          if (daily.entries.some((existing) => entriesOverlap(existing, e))) return;
-          const entries = [...daily.entries, e].sort((a, b) => a.startedAt - b.startedAt);
-          set({ daily: { ...daily, entries } });
-          recomputeAggregates({ ...daily, entries }, history);
+          const date = dayKeyOf(e.startedAt, useSettings.getState().dayEndHour);
+          const clean = withoutBreakTargets(e);
+          const refusal = refuse(date, clean, entriesOn(date));
+          if (refusal) return refusal;
+          writeDay(date, [...entriesOn(date), clean]);
+          return null;
         },
 
         updateEntry: (id, patch) => {
-          const { daily, history } = get();
-          const current = daily.entries.find((e) => e.id === id);
-          if (!current) return;
-          const updated = { ...current, ...patch };
-          if (daily.entries.some((e) => e.id !== id && entriesOverlap(e, updated))) return;
-          const entries = daily.entries
-            .map((e) => (e.id === id ? updated : e))
-            .sort((a, b) => a.startedAt - b.startedAt);
-          set({ daily: { ...daily, entries } });
-          recomputeAggregates({ ...daily, entries }, history);
+          const date = dayOfEntry(id);
+          if (!date) return 'That entry no longer exists.';
+          const entries = entriesOn(date);
+          const current = entries.find((e) => e.id === id)!;
+          const updated = withoutBreakTargets({ ...current, ...patch, id });
+          // Trimmed to nothing is a deletion, not an error.
+          if (updated.endedAt === updated.startedAt) {
+            get().removeEntry(id);
+            return null;
+          }
+          const others = entries.filter((e) => e.id !== id);
+          const refusal = refuse(date, updated, others);
+          if (refusal) return refusal;
+          writeDay(date, [...others, updated]);
+          return null;
         },
 
         removeEntry: (id) => {
-          const { daily, history } = get();
-          const entries = daily.entries.filter((e) => e.id !== id);
-          set({ daily: { ...daily, entries } });
-          recomputeAggregates({ ...daily, entries }, history);
+          const date = dayOfEntry(id);
+          if (!date) {
+            // Nothing to remove, but callers rely on this to settle the
+            // totals against the ledger as it stands.
+            const { daily, history } = get();
+            recomputeAggregates(daily, history);
+            return;
+          }
+          writeDay(date, entriesOn(date).filter((e) => e.id !== id));
+        },
+
+        splitEntry: (id, at) => {
+          const date = dayOfEntry(id);
+          if (!date) return 'That entry no longer exists.';
+          const entries = entriesOn(date);
+          const current = entries.find((e) => e.id === id)!;
+          if (!(at > current.startedAt && at < current.endedAt)) {
+            return 'Pick a time inside the block to split it.';
+          }
+          const first = { ...current, endedAt: at };
+          const second = { ...current, id: crypto.randomUUID(), startedAt: at };
+          writeDay(date, [...entries.filter((e) => e.id !== id), first, second]);
+          return null;
         },
 
         resetDay: () =>
