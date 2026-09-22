@@ -39,11 +39,16 @@ test.describe('the task menu', () => {
     await expect(app.getByRole('checkbox', { name: 'Beta' })).toBeVisible();
   });
 
-  test('Move to tomorrow takes it out of today', async ({ app }) => {
+  test('Move to tomorrow takes it out of today and into tomorrow', async ({ app }) => {
     await addTask(app, 'Alpha');
     await openTaskMenu(app);
     await menu(app).getByRole('menuitem', { name: 'Move to tomorrow' }).click();
-    await expect(app.getByRole('checkbox', { name: 'Alpha' })).toBeHidden();
+    await expect(
+      app.getByRole('region', { name: /^Today/ }).getByRole('checkbox', { name: 'Alpha' })
+    ).toBeHidden();
+    await expect(
+      app.getByRole('region', { name: /^Tomorrow/ }).getByRole('checkbox', { name: 'Alpha' })
+    ).toBeVisible();
   });
 });
 

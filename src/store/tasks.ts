@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { SubTask, Task, TaskStatus, TimeEntry } from '../types';
+import type { Recurrence, RecurringTask, SubTask, Task, TaskStatus, TimeEntry } from '../types';
 import { todayKey, tomorrowKey } from '../utils/thirdTime';
+import { pruneDateKeys } from '../utils/schedule';
 import { useSettings } from './settings';
 import { reattributeActiveTask, resyncAggregates } from './sessionBridge';
 import { readPersistedLedger } from './persistedLedger';
@@ -17,22 +18,30 @@ type LegacyRoutineHistory = Record<string, unknown>;
 
 interface TasksState {
   tasks: Task[];
+  recurring: RecurringTask[];
   /** @deprecated kept only so the persisted key survives */
   routines: LegacyRoutines;
   /** @deprecated */
   routineHistory: LegacyRoutineHistory;
-  addTask: (title: string, scheduledDate: string) => void;
+  addTask: (title: string, scheduledDate: string, projectId?: string) => void;
   updateTask: (id: string, patch: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
   deleteTask: (id: string) => void;
   restoreTask: (task: Task) => void;
   moveToTomorrow: (id: string) => void;
+  moveToDate: (id: string, scheduledDate: string) => void;
   reorderTasks: (orderedIds: string[]) => void;
   addSubtask: (taskId: string, title: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   deleteSubtask: (taskId: string, subtaskId: string) => void;
   editSubtask: (taskId: string, subtaskId: string, title: string) => void;
-  /** Moves unfinished tasks from past days into today, returning their ids. */
-  rolloverPastTasks: () => string[];
+
+  /** A recurring task anchored at `anchor` (its first possible day). */
+  addRecurring: (title: string, rule: Recurrence, anchor: number, projectId?: string) => void;
+  updateRecurring: (id: string, patch: Partial<Pick<RecurringTask, 'title' | 'projectId' | 'rule'>>) => void;
+  toggleOccurrence: (id: string, day: string) => void;
+  skipOccurrence: (id: string, day: string) => void;
+  endRecurring: (id: string) => void;
+  deleteRecurring: (id: string) => void;
   /** Ledger credit from a closing entry. The session store's to call. */
   adjustTrackedMs: (id: string, deltaMs: number) => void;
   /**
@@ -77,6 +86,7 @@ type PersistedTask = Partial<Omit<Task, 'status'>> & {
 /** The persisted root, at whatever version it was last written. */
 interface PersistedTasksState {
   tasks?: PersistedTask[];
+  recurring?: RecurringTask[];
   routines?: LegacyRoutines;
   routineHistory?: LegacyRoutineHistory;
 }
@@ -133,12 +143,13 @@ function migrateChecklists(existingTasks: PersistedTask[]): LegacyRoutines {
 
 export const useTasks = create<TasksState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       tasks: [],
+      recurring: [],
       routines: [],
       routineHistory: {},
 
-      addTask: (title, scheduledDate) =>
+      addTask: (title, scheduledDate, projectId) =>
         set((s) => ({
           tasks: [
             ...s.tasks,
@@ -151,6 +162,7 @@ export const useTasks = create<TasksState>()(
               order: s.tasks.filter((t) => t.scheduledDate === scheduledDate).length,
               subtasks: [],
               trackedMs: 0,
+              projectId,
             },
           ],
         })),
@@ -177,6 +189,20 @@ export const useTasks = create<TasksState>()(
           ),
         }));
       },
+
+      moveToDate: (id, scheduledDate) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === id
+              ? {
+                  ...t,
+                  scheduledDate,
+                  // To the bottom of its new day, not wherever its old order lands.
+                  order: s.tasks.filter((o) => o.scheduledDate === scheduledDate).length,
+                }
+              : t
+          ),
+        })),
 
       reorderTasks: (orderedIds) =>
         set((s) => ({
@@ -238,21 +264,49 @@ export const useTasks = create<TasksState>()(
           ),
         })),
 
-      rolloverPastTasks: () => {
-        const today = todayKey(useSettings.getState().dayEndHour);
-        const carried = get()
-          .tasks.filter(
-            (t) => t.scheduledDate < today && t.status !== 'done' && !t.routineId
-          )
-          .map((t) => t.id);
-        if (carried.length === 0) return [];
+      addRecurring: (title, rule, anchor, projectId) =>
         set((s) => ({
-          tasks: s.tasks.map((t) =>
-            carried.includes(t.id) ? { ...t, scheduledDate: today } : t
+          recurring: [
+            ...s.recurring,
+            {
+              id: crypto.randomUUID(),
+              title,
+              projectId,
+              rule,
+              createdAt: anchor,
+              order: s.recurring.length,
+              completions: {},
+            },
+          ],
+        })),
+
+      updateRecurring: (id, patch) =>
+        set((s) => ({ recurring: s.recurring.map((r) => (r.id === id ? { ...r, ...patch } : r)) })),
+
+      toggleOccurrence: (id, day) =>
+        set((s) => ({
+          recurring: s.recurring.map((r) => {
+            if (r.id !== id) return r;
+            const completions = { ...r.completions };
+            if (completions[day]) delete completions[day];
+            else completions[day] = true;
+            return { ...r, completions: pruneDateKeys(completions) };
+          }),
+        })),
+
+      skipOccurrence: (id, day) =>
+        set((s) => ({
+          recurring: s.recurring.map((r) =>
+            r.id === id ? { ...r, skipped: pruneDateKeys({ ...(r.skipped ?? {}), [day]: true }) } : r
           ),
-        }));
-        return carried;
-      },
+        })),
+
+      endRecurring: (id) =>
+        set((s) => ({
+          recurring: s.recurring.map((r) => (r.id === id ? { ...r, endedAt: Date.now() } : r)),
+        })),
+
+      deleteRecurring: (id) => set((s) => ({ recurring: s.recurring.filter((r) => r.id !== id) })),
 
       adjustTrackedMs: (id, deltaMs) =>
         set((s) => ({
@@ -291,6 +345,9 @@ export const useTasks = create<TasksState>()(
       clearTaskProject: (projectId) =>
         set((s) => ({
           tasks: s.tasks.map((t) => (t.projectId === projectId ? { ...t, projectId: undefined } : t)),
+          recurring: s.recurring.map((r) =>
+            r.projectId === projectId ? { ...r, projectId: undefined } : r
+          ),
         })),
 
       recomputeFrom: (entries) => {
@@ -315,7 +372,7 @@ export const useTasks = create<TasksState>()(
     }),
     {
       name: 'tt-tasks',
-      version: 8,
+      version: 9,
       migrate: (persisted: unknown, version: number) => migrateTtTasks(persisted, version),
     }
   )
@@ -378,6 +435,9 @@ export function migrateTtTasks(
         carriedMs: Math.max(0, (t.trackedMs ?? 0) - (byTask.get(t.id ?? '') ?? 0)),
       })),
     };
+  }
+  if (version < 9) {
+    state = { ...state, recurring: state.recurring ?? [] };
   }
   return state;
 }

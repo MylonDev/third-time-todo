@@ -83,6 +83,27 @@ export type Recurrence =
   | { kind: 'everyN'; n: number }
   | { kind: 'weekdays'; days: number[] };
 
+/**
+ * A task that comes back. It is a rule, not a row: the week view draws its
+ * occurrences on the fly, including days that haven't happened yet, and ticking
+ * one records that date only. Spec phase 3.2.
+ */
+export interface RecurringTask {
+  id: string;
+  title: string;
+  projectId?: string;
+  rule: Recurrence;
+  /** The anchor: `everyN` counts from this day, `weekly` repeats on its weekday. */
+  createdAt: number;
+  order: number;
+  /** dayKey → true when that occurrence was completed. */
+  completions: Record<string, true>;
+  /** dayKey → true when that occurrence was skipped, for that date only. */
+  skipped?: Record<string, true>;
+  /** No occurrences after the day this falls on. */
+  endedAt?: number;
+}
+
 // ── Projects ──────────────────────────────────────────────────────────────────
 
 /**
