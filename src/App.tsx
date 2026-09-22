@@ -10,6 +10,7 @@ import { OptionsPanel } from './components/OptionsPanel';
 import { RestoreSessionModal } from './components/RestoreSessionModal';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
+import { useDayMode } from './hooks/useDayMode';
 import { requestNotificationPermission } from './utils/notifications';
 import { todayKey, dayEndOf } from './utils/thirdTime';
 import type { TabId } from './types';
@@ -32,7 +33,8 @@ export default function App() {
     discardRestoredSession,
     maybeArchivePreviousDay,
   } = useSession();
-  const { theme, mode, activeTab, setActiveTab, quotes, showQuote, setShowQuote, dayEndHour } = useSettings();
+  const { theme, activeTab, setActiveTab, quotes, showQuote, setShowQuote, dayEndHour } = useSettings();
+  const mode = useDayMode();
   // Close out a day that ended while the app was away. Unfinished tasks are
   // not moved: they stay on the day they were planned for, and today's
   // Overdue strip offers them back.

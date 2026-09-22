@@ -12,7 +12,7 @@ type BreakMode = null | 'picker' | 'open' | 'timed';
 
 export function BreakBank() {
   const { timerState, timerStart, daily, startBreak, openSegment } = useSession();
-  const { mode, soundsEnabled, breakIncrements, lastBreakMs, setLastBreakMs } = useSettings();
+  const { soundsEnabled, breakIncrements, lastBreakMs, setLastBreakMs } = useSettings();
   const [breakMode, setBreakMode] = useState<BreakMode>(null);
   const [timedBreakMs, setTimedBreakMs] = useState<number | null>(null);
   const [showDebtPrompt, setShowDebtPrompt] = useState(false);
@@ -80,14 +80,14 @@ export function BreakBank() {
 
   const handleStartOpenBreak = () => {
     setBreakMode('open');
-    startBreak(mode);
+    startBreak();
   };
 
   const handleStartTimedBreak = (ms: number) => {
     setTimedBreakMs(ms);
     setBreakMode('timed');
     setLastBreakMs(ms);
-    startBreak(mode);
+    startBreak();
   };
 
   const bankForPicker = liveBank > 0 ? liveBank : 0;
@@ -196,7 +196,7 @@ export function BreakBank() {
               onClick={() => {
                 setShowDebtPrompt(false);
                 setBreakMode('open');
-                startBreak(mode);
+                startBreak();
               }}
               className="flex-1 py-1.5 text-sm font-semibold rounded-lg transition-colors"
               style={{ background: 'var(--color-debt)', color: 'var(--color-on-accent)' }}
