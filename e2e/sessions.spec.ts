@@ -276,44 +276,20 @@ test.describe('the day ends by itself', () => {
   });
 });
 
-test.describe('tasks carried over', () => {
-  test('are triaged on the new day, not by ending a timer', async ({ app }) => {
+// Unfinished tasks used to be carried into the new day behind a triage modal.
+// They now stay on the day they were planned for; the Overdue strip in
+// today's column is how they come back (see schedule.spec.ts).
+test.describe('a new day with unfinished tasks', () => {
+  test('asks nothing, and leaves them where they were planned', async ({ app }) => {
     await addTask(app, 'Yesterday task');
     await startWork(app);
     await app.waitForTimeout(1200);
-
-    // Stopping the timer must not ask the day-scoped question.
     await app.getByRole('button', { name: 'Stop' }).click();
-    await expect(app.getByText('came with you')).toBeHidden();
 
     await setClockDaysAhead(app, 1);
     await app.reload();
-    await expect(app.getByText('came with you')).toBeVisible();
-    await expect(app.getByRole('dialog')).toHaveAttribute('aria-label', 'Tasks carried over');
-  });
-
-  test('dismissing keeps them, and it does not ask twice', async ({ app }) => {
-    await addTask(app, 'Yesterday task');
-    await setClockDaysAhead(app, 1);
-    await app.reload();
-
-    await expect(app.getByRole('dialog')).toBeVisible();
-    await app.keyboard.press('Escape');
-    await expect(app.getByRole('checkbox', { name: 'Yesterday task' })).toBeVisible();
-
-    await app.reload();
-    await expect(app.getByRole('dialog'), 'asked again on the same day').toBeHidden();
-    await expect(app.getByRole('checkbox', { name: 'Yesterday task' })).toBeVisible();
-  });
-
-  test('Discard drops the task', async ({ app }) => {
-    await addTask(app, 'Yesterday task');
-    await setClockDaysAhead(app, 1);
-    await app.reload();
-
-    await app.getByRole('button', { name: 'Discard' }).click();
-    await app.getByRole('button', { name: 'Start the day' }).click();
-    await expect(app.getByRole('checkbox', { name: 'Yesterday task' })).toBeHidden();
+    await expect(app.getByRole('dialog')).toHaveCount(0);
+    await expect(app.getByTestId('overdue')).toContainText('Yesterday task');
   });
 });
 
