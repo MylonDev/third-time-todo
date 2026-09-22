@@ -104,7 +104,7 @@ describe('a timer that was still running when the app went away', () => {
     expect(useSession.getState().timerStart).toBeLessThanOrEqual(Date.now());
 
     vi.setSystemTime(reopenedAt + 10 * MINUTE);
-    useSession.getState().stopWork('third');
+    useSession.getState().stopWork();
 
     for (const entry of everyEntry()) {
       expect(entry.endedAt).toBeGreaterThanOrEqual(entry.startedAt);
@@ -131,7 +131,7 @@ describe('a timer that was still running when the app went away', () => {
     useSession.getState().resumeRestoredSession();
 
     vi.setSystemTime(reopenedAt + 10 * MINUTE);
-    useSession.getState().stopWork('third');
+    useSession.getState().stopWork();
 
     // Resume is the one path that credits the gap, and it is offered only
     // inside the half-hour cutoff the modal enforces.

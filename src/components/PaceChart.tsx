@@ -3,19 +3,7 @@ import { useSession } from '../store/session';
 import { useSettings } from '../store/settings';
 import { todayKey } from '../utils/thirdTime';
 import { workMsOf } from '../utils/ledger';
-import {
-  currentRunStart,
-  denseLoads,
-  pacePoints,
-  verdict,
-  BAND_HIGH,
-  BAND_LOW,
-  MIN_DAYS,
-  type PacePoint,
-} from '../utils/pace';
-
-const PLOT_DAYS = 56; // eight weeks
-const LOOKBACK = 28; // what chronic needs behind the first plotted point
+import { paceSeries, verdict, BAND_HIGH, BAND_LOW, type PacePoint } from '../utils/pace';
 const H = 184;
 const W = 720;
 const PAD_T = 12;
@@ -35,11 +23,6 @@ function edgeLabel(dateStr: string): string {
     month: 'short',
     day: 'numeric',
   });
-}
-
-function daysBetween(a: string, b: string): number {
-  const ms = new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime();
-  return Math.round(ms / 86_400_000);
 }
 
 const VERDICT_COPY = {
@@ -71,36 +54,11 @@ export function PaceChart() {
   const dayEndHour = useSettings((s) => s.dayEndHour);
 
   const { points, ready, daysShort, resuming } = useMemo(() => {
-    const today = todayKey(dayEndHour);
-
     const byDate = new Map<string, number>();
     history.forEach((h) => byDate.set(h.date, h.totalWorkMs));
     // Today is live, so it comes from `daily` rather than the archive.
-    byDate.set(today, workMsOf(daily.entries));
-
-    const dates = [...byDate.keys()].sort();
-    if (dates.length === 0)
-      return { points: [], ready: false, daysShort: MIN_DAYS, resuming: false };
-
-    // Start from the current run of use, not the first record ever. A long gap
-    // leaves a baseline that no longer describes you.
-    const first = currentRunStart(dates) as string;
-    const resuming = first !== dates[0];
-    const span = daysBetween(first, today) + 1;
-    if (span < MIN_DAYS) {
-      return { points: [], ready: false, daysShort: MIN_DAYS - span, resuming };
-    }
-
-    const window = Math.min(span, PLOT_DAYS + LOOKBACK);
-    const series = pacePoints(denseLoads(byDate, today, window));
-
-    // The first six points have a partial 7-day window, so they understate.
-    return {
-      points: series.slice(6).slice(-PLOT_DAYS),
-      ready: true,
-      daysShort: 0,
-      resuming,
-    };
+    byDate.set(todayKey(dayEndHour), workMsOf(daily.entries));
+    return paceSeries(byDate, todayKey(dayEndHour));
   }, [history, daily, dayEndHour]);
 
   if (!ready) {

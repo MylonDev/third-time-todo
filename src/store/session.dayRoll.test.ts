@@ -112,7 +112,7 @@ describe('maybeArchivePreviousDay — a stint spanning the boundary', () => {
     vi.useFakeTimers();
     vi.setSystemTime(stopAt);
 
-    useSession.getState().stopWork('third');
+    useSession.getState().stopWork();
 
     const state = useSession.getState();
 
@@ -181,7 +181,7 @@ describe('maybeArchivePreviousDay — a stint spanning the boundary', () => {
     // The boundary split runs first (inside stopWork), crediting the
     // pre-boundary half; stopWork itself credits the reopened, post-boundary
     // half when it closes.
-    useSession.getState().stopWork('third');
+    useSession.getState().stopWork();
 
     expect(useProjects.getState().projects[0].total.time).toBe(fullDurationMs);
     expect(useTasks.getState().tasks[0].trackedMs).toBe(fullDurationMs);
@@ -226,7 +226,7 @@ describe('maybeArchivePreviousDay — a stint spanning the boundary', () => {
     vi.useFakeTimers();
     vi.setSystemTime(stopAt);
 
-    useSession.getState().stopWork('third');
+    useSession.getState().stopWork();
 
     const [p1] = useProjects.getState().projects;
     // Pre-boundary half (10pm–midnight, day A) and post-boundary half
