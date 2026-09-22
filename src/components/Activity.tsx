@@ -5,6 +5,7 @@ import { useSettings } from '../store/settings';
 import { earnBreak, formatDuration, todayKey, shiftDayKey } from '../utils/thirdTime';
 import { durationOf, workMsOf, breakMsOf } from '../utils/ledger';
 import { PaceChart } from './PaceChart';
+import { DayTimeline } from './DayTimeline';
 import type { HistoryEntry, TimeEntry } from '../types';
 
 const DAYS = 14;
@@ -42,63 +43,6 @@ function fullDayLabel(dateStr: string, isToday: boolean): string {
     month: 'short',
     day: 'numeric',
   });
-}
-
-function clockLabel(ms: number): string {
-  return new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-}
-
-/**
- * The shape of one day: every entry laid out on a wall-clock axis, work and
- * the rest that followed it. Turns "4h 12m" into "three long blocks and a
- * fragmented afternoon".
- */
-function DayShape({ entries }: { entries: TimeEntry[] }) {
-  const blocks = [...entries].sort((a, b) => a.startedAt - b.startedAt);
-  if (blocks.length === 0) return null;
-
-  const workBlocks = blocks.filter((e) => e.kind === 'work');
-  const start = blocks[0].startedAt;
-  const end = Math.max(...blocks.map((e) => e.endedAt));
-  const span = Math.max(end - start, 60_000);
-  const longest = workBlocks.length > 0 ? Math.max(...workBlocks.map((e) => durationOf(e))) : 0;
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div
-        className="relative h-6 rounded-md overflow-hidden"
-        style={{ background: 'var(--color-surface-2)' }}
-      >
-        <div className="absolute inset-0">
-          {blocks.map((e) => {
-            const left = ((e.startedAt - start) / span) * 100;
-            const width = (durationOf(e) / span) * 100;
-            return (
-              <div
-                key={e.id}
-                className="absolute inset-y-0 rounded-sm"
-                style={{
-                  left: `${left}%`,
-                  width: `${Math.max(width, e.kind === 'work' ? 0.6 : 0.4)}%`,
-                  background: e.kind === 'work' ? 'var(--color-accent)' : 'var(--color-rest)',
-                  opacity: e.kind === 'work' ? 1 : 0.75,
-                }}
-                title={`${e.kind === 'work' ? 'Active' : 'Rest'} ${formatDuration(durationOf(e))} from ${clockLabel(e.startedAt)}`}
-              />
-            );
-          })}
-        </div>
-      </div>
-      <div className="flex justify-between text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-        <span className="num">{clockLabel(start)}</span>
-        <span>
-          {workBlocks.length} block{workBlocks.length === 1 ? '' : 's'} · longest{' '}
-          <span className="num">{formatDuration(longest)}</span>
-        </span>
-        <span className="num">{clockLabel(end)}</span>
-      </div>
-    </div>
-  );
 }
 
 export function Activity() {
@@ -290,55 +234,58 @@ export function Activity() {
         )}
       </section>
 
-      {hasData && (
-        <section
-          className="rounded-xl border p-3 flex flex-col gap-3"
-          style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)' }}
-        >
-          <div className="flex items-baseline justify-between gap-2 flex-wrap">
-            <span className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
-              {fullDayLabel(selectedDay.date, selectedDay.isToday)}
+      {/* Always drawn — an empty day is where a forgotten block gets added. */}
+      <section
+        className="rounded-xl border p-3 flex flex-col gap-3"
+        style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)' }}
+      >
+        <div className="flex items-baseline justify-between gap-2 flex-wrap">
+          <span className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+            {fullDayLabel(selectedDay.date, selectedDay.isToday)}
+          </span>
+          {selectedDay.restEarnedMs > 0 && (
+            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              Took{' '}
+              <span
+                className="num font-semibold"
+                style={{ color: restAdherence > 1 ? 'var(--color-debt)' : 'var(--color-rest)' }}
+              >
+                {Math.round(restAdherence * 100)}%
+              </span>{' '}
+              of the rest it earned
             </span>
-            {selectedDay.restEarnedMs > 0 && (
-              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Took{' '}
-                <span
-                  className="num font-semibold"
-                  style={{ color: restAdherence > 1 ? 'var(--color-debt)' : 'var(--color-rest)' }}
-                >
-                  {Math.round(restAdherence * 100)}%
-                </span>{' '}
-                of the rest it earned
-              </span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Active', value: formatDuration(selectedDay.activeMs), color: 'var(--color-text)' },
-              { label: 'Rest taken', value: formatDuration(selectedDay.restTakenMs), color: 'var(--color-rest)' },
-              { label: 'Rest earned', value: formatDuration(selectedDay.restEarnedMs), color: 'var(--color-text-muted)' },
-            ].map(({ label, value, color }) => (
-              <div key={label}>
-                <div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                  {label}
-                </div>
-                <div className="num text-sm font-semibold" style={{ color }}>
-                  {value}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {selectedDay.entries.length > 0 ? (
-            <DayShape entries={selectedDay.entries} />
-          ) : (
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              Nothing recorded on this day.
-            </p>
           )}
-        </section>
-      )}
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: 'Active', value: formatDuration(selectedDay.activeMs), color: 'var(--color-text)' },
+            { label: 'Rest taken', value: formatDuration(selectedDay.restTakenMs), color: 'var(--color-rest)' },
+            { label: 'Rest earned', value: formatDuration(selectedDay.restEarnedMs), color: 'var(--color-text-muted)' },
+          ].map(({ label, value, color }) => (
+            <div key={label}>
+              <div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                {label}
+              </div>
+              <div className="num text-sm font-semibold" style={{ color }}>
+                {value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {selectedDay.entries.length === 0 && !selectedDay.isToday && (
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            Nothing recorded on this day.
+          </p>
+        )}
+        <DayTimeline
+          key={selectedDay.date}
+          date={selectedDay.date}
+          entries={selectedDay.entries}
+          isToday={selectedDay.isToday}
+        />
+      </section>
     </div>
   );
 }
