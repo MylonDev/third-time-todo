@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Mode, TimeEntry, DailyState, HistoryEntry } from '../types';
-import { dayKeyOf, todayKey, dayEndOf } from '../utils/thirdTime';
-import { bankOf, workMsOf, breakMsOf, entriesOverlap, splitAtBoundary, type OpenSegment } from '../utils/ledger';
+import { dayKeyOf, todayKey, dayStartOf, dayEndOf, MODE_CONFIG } from '../utils/thirdTime';
+import { bankOf, workMsOf, breakMsOf, splitAtBoundary, refusalFor, type OpenSegment } from '../utils/ledger';
 import { migrateSessionV3 } from './sessionMigrate';
 import { useSettings } from './settings';
 import { useProjects } from './projects';
@@ -10,6 +10,8 @@ import { useTasks } from './tasks';
 import { provideSessionBridge } from './sessionBridge';
 
 type TimerState = 'idle' | 'working' | 'on-break';
+
+const HISTORY_DAYS = 120;
 
 /**
  * What a settled close left for the restore prompt to ask about. It is
@@ -37,15 +39,30 @@ interface SessionStore {
   openSegment: () => OpenSegment | null;
   bank: () => number;
 
+  /** The ratio today is worked at: the day's own choice, else the settings default. */
+  dayMode: () => Mode;
+  /**
+   * Change today's difficulty. Easing off once work has started is a
+   * reduction, and under a quota policy reductions run out; raising never
+   * does. Returns why it refused, or null.
+   */
+  setDayMode: (mode: Mode) => string | null;
+
   startWork: () => void;
-  stopWork: (mode: Mode) => void;
-  startBreak: (mode: Mode) => void;
+  stopWork: () => void;
+  startBreak: () => void;
   stopBreak: () => void;
   setActive: (projectId?: string, taskId?: string) => void;
 
-  addEntry: (e: TimeEntry) => void;
-  updateEntry: (id: string, patch: Partial<TimeEntry>) => void;
+  /*
+   * The timeline's doors into the ledger, for today and any archived day.
+   * Each returns why it refused, or null once the edit is in. See `refusalFor`.
+   */
+  addEntry: (e: TimeEntry) => string | null;
+  updateEntry: (id: string, patch: Partial<Omit<TimeEntry, 'id'>>) => string | null;
   removeEntry: (id: string) => void;
+  /** Cut one entry in two at `at`; both halves keep kind, project, task and mode. */
+  splitEntry: (id: string, at: number) => string | null;
 
   archiveDay: () => void;
   maybeArchivePreviousDay: () => void;
@@ -84,6 +101,11 @@ function recomputeAggregates(daily: DailyState, history: HistoryEntry[]): void {
   const entries = allEntries(daily, history);
   useProjects.getState().recomputeFrom(entries);
   useTasks.getState().recomputeFrom(entries);
+}
+
+/** A break credits nothing, so it names nothing. */
+function withoutBreakTargets(e: TimeEntry): TimeEntry {
+  return e.kind === 'break' ? { ...e, projectId: undefined, taskId: undefined } : e;
 }
 
 export const useSession = create<SessionStore>()(
@@ -169,7 +191,81 @@ export const useSession = create<SessionStore>()(
           set({ timerStart: reopened.startedAt });
         }
         if (get().daily.entries.length > 0) get().archiveDay();
-        set({ daily: { date: day, entries: [] } });
+        // A new day starts at the default difficulty. If a stint is carrying
+        // over into it, that is the day's first timer start — lock it in, so
+        // the reopened segment keeps its rate whatever the default does next.
+        const carrying = get().timerState !== 'idle' && get().timerStart !== null;
+        set({
+          daily: {
+            date: day,
+            entries: [],
+            ...(carrying ? { mode: useSettings.getState().mode } : {}),
+          },
+        });
+      };
+
+      /** The entries filed under `date` — today's live list, or an archived day's. */
+      const entriesOn = (date: string): TimeEntry[] => {
+        const { daily, history } = get();
+        if (daily.date === date) return daily.entries;
+        return history.find((h) => h.date === date)?.entries ?? [];
+      };
+
+      const dayOfEntry = (id: string): string | null => {
+        const { daily, history } = get();
+        if (daily.entries.some((e) => e.id === id)) return daily.date;
+        return history.find((h) => h.entries.some((e) => e.id === id))?.date ?? null;
+      };
+
+      const refuse = (date: string, candidate: TimeEntry, others: TimeEntry[]): string | null => {
+        const { daily, timerStart, timerState } = get();
+        if (date > daily.date) return 'That day hasn’t happened yet.';
+        const dayEndHour = useSettings.getState().dayEndHour;
+        // Only today has a running timer to stay clear of; past days are
+        // claimable right up to their end.
+        const claimableUntil =
+          date === daily.date
+            ? timerState !== 'idle' && timerStart !== null
+              ? Math.min(timerStart, Date.now())
+              : Date.now()
+            : Infinity;
+        return refusalFor(
+          candidate,
+          others,
+          { start: dayStartOf(date, dayEndHour), end: dayEndOf(date, dayEndHour) },
+          claimableUntil
+        );
+      };
+
+      /**
+       * Replace a day's entries and re-derive everything summed from them
+       * (spec 2.3): an archived day's totals, then every project and task.
+       * `unusedRestMs` stays as archived — it records what the bank held at
+       * turnover, which an edit made afterwards can't rewind.
+       */
+      const writeDay = (date: string, next: TimeEntry[]) => {
+        const entries = [...next].sort((a, b) => a.startedAt - b.startedAt);
+        const { daily, history } = get();
+        if (daily.date === date) {
+          set({ daily: { ...daily, entries } });
+        } else {
+          const existing = history.find((h) => h.date === date);
+          const updated: HistoryEntry = {
+            ...existing,
+            date,
+            unusedRestMs: existing?.unusedRestMs ?? 0,
+            totalWorkMs: workMsOf(entries),
+            totalBreakMs: breakMsOf(entries),
+            entries,
+          };
+          set({
+            history: [updated, ...history.filter((h) => h.date !== date)].sort((a, b) =>
+              b.date.localeCompare(a.date)
+            ),
+          });
+        }
+        const s = get();
+        recomputeAggregates(s.daily, s.history);
       };
 
       return {
@@ -194,10 +290,34 @@ export const useSession = create<SessionStore>()(
           return {
             kind: timerState === 'working' ? 'work' : 'break',
             startedAt: timerStart,
-            mode: useSettings.getState().mode,
+            mode: get().dayMode(),
             projectId: activeProjectId,
             taskId: activeTaskId,
           };
+        },
+
+        dayMode: () => get().daily.mode ?? useSettings.getState().mode,
+
+        setDayMode: (mode) => {
+          const { daily, timerState } = get();
+          const current = get().dayMode();
+          if (mode === current) return null;
+          // The open segment is rated at the mode in force; changing it now
+          // would rewrite what the running stint has already earned.
+          if (timerState !== 'idle') return 'Stop the timer to change difficulty.';
+          const started = daily.entries.length > 0;
+          const easing = MODE_CONFIG[mode].ratio < MODE_CONFIG[current].ratio;
+          const used = daily.reductionsUsed ?? 0;
+          const policy = useSettings.getState().difficultyPolicy;
+          if (started && easing && policy.kind === 'quota' && used >= policy.perDay) {
+            return policy.perDay === 0
+              ? 'Easing off isn’t allowed once you’ve started — your settings allow no reductions.'
+              : `You’ve used today’s ${policy.perDay === 1 ? 'one reduction' : `${policy.perDay} reductions`}.`;
+          }
+          set({
+            daily: { ...daily, mode, reductionsUsed: used + (started && easing ? 1 : 0) },
+          });
+          return null;
         },
 
         bank: () => {
@@ -208,17 +328,33 @@ export const useSession = create<SessionStore>()(
         archiveDay: () => {
           const { daily, history } = get();
           if (daily.entries.length === 0) return;
+          // A day can come round twice — moving `dayEndHour` later just after
+          // midnight steps "today" back onto a day already archived. Its
+          // earlier entries are merged in, never replaced.
+          const earlier = history.find((h) => h.date === daily.date)?.entries ?? [];
+          const entries = [...earlier, ...daily.entries].sort((a, b) => a.startedAt - b.startedAt);
           const entry: HistoryEntry = {
             date: daily.date,
-            totalWorkMs: workMsOf(daily.entries),
-            totalBreakMs: breakMsOf(daily.entries),
-            unusedRestMs: Math.max(0, bankOf(daily.entries)),
-            entries: daily.entries,
+            totalWorkMs: workMsOf(entries),
+            totalBreakMs: breakMsOf(entries),
+            unusedRestMs: Math.max(0, bankOf(entries)),
+            entries,
+            mode: daily.mode ?? history.find((h) => h.date === daily.date)?.mode,
+            reductionsUsed: daily.reductionsUsed ?? 0,
           };
           // Four months. The pace band needs 28 days behind the earliest day it
           // plots, and entries are small.
-          const updated = [entry, ...history.filter((h) => h.date !== entry.date)].slice(0, 120);
-          set({ history: updated });
+          const all = [entry, ...history.filter((h) => h.date !== entry.date)].sort((a, b) =>
+            b.date.localeCompare(a.date)
+          );
+          const kept = all.slice(0, HISTORY_DAYS);
+          // What ages out stops being ledger, but the time it credited is
+          // still real. Hand it to the carried balances before it goes, or
+          // the next re-sum drops it from every project and task total.
+          const leaving = all.slice(HISTORY_DAYS).flatMap((h) => h.entries);
+          useProjects.getState().carryForward(leaving);
+          useTasks.getState().carryForward(leaving);
+          set({ history: kept });
         },
 
         maybeArchivePreviousDay: () => {
@@ -327,10 +463,18 @@ export const useSession = create<SessionStore>()(
 
         startWork: () => {
           get().maybeArchivePreviousDay();
-          set({ timerState: 'working', timerStart: Date.now() });
+          // The day's first timer start is where its difficulty is chosen: an
+          // unset day takes the default now, and a later change to the default
+          // no longer reaches it.
+          const { daily } = get();
+          set({
+            daily: daily.mode ? daily : { ...daily, mode: get().dayMode() },
+            timerState: 'working',
+            timerStart: Date.now(),
+          });
         },
 
-        stopWork: (mode: Mode) => {
+        stopWork: () => {
           // Before anything else — the timer may still be open from a day
           // that already ended, and that's only detectable (and splittable)
           // while it's still open. Read `timerStart`/`daily` fresh afterward,
@@ -345,7 +489,7 @@ export const useSession = create<SessionStore>()(
             endedAt: Date.now(),
             projectId: activeProjectId,
             taskId: activeTaskId,
-            mode,
+            mode: get().dayMode(),
           };
           // Credit whatever the entry actually names — a project directly, or a
           // task (which is itself only ever tagged with its own project, kept in
@@ -356,9 +500,9 @@ export const useSession = create<SessionStore>()(
           set({ timerState: 'idle', timerStart: null });
         },
 
-        startBreak: (mode: Mode) => {
+        startBreak: () => {
           const { timerState } = get();
-          if (timerState === 'working') get().stopWork(mode);
+          if (timerState === 'working') get().stopWork();
           set({ timerState: 'on-break', timerStart: Date.now() });
         },
 
@@ -372,7 +516,7 @@ export const useSession = create<SessionStore>()(
             kind: 'break',
             startedAt: timerStart,
             endedAt: Date.now(),
-            mode: useSettings.getState().mode,
+            mode: get().dayMode(),
           };
           fileEntry(entry);
           set({ timerState: 'idle', timerStart: null });
@@ -410,7 +554,7 @@ export const useSession = create<SessionStore>()(
             endedAt: now,
             projectId: activeProjectId,
             taskId: activeTaskId,
-            mode: useSettings.getState().mode,
+            mode: get().dayMode(),
           };
           creditWork(entry);
           fileEntry(entry);
@@ -422,31 +566,56 @@ export const useSession = create<SessionStore>()(
         },
 
         addEntry: (e) => {
-          const { daily, history } = get();
-          if (daily.entries.some((existing) => entriesOverlap(existing, e))) return;
-          const entries = [...daily.entries, e].sort((a, b) => a.startedAt - b.startedAt);
-          set({ daily: { ...daily, entries } });
-          recomputeAggregates({ ...daily, entries }, history);
+          const date = dayKeyOf(e.startedAt, useSettings.getState().dayEndHour);
+          const clean = withoutBreakTargets(e);
+          const refusal = refuse(date, clean, entriesOn(date));
+          if (refusal) return refusal;
+          writeDay(date, [...entriesOn(date), clean]);
+          return null;
         },
 
         updateEntry: (id, patch) => {
-          const { daily, history } = get();
-          const current = daily.entries.find((e) => e.id === id);
-          if (!current) return;
-          const updated = { ...current, ...patch };
-          if (daily.entries.some((e) => e.id !== id && entriesOverlap(e, updated))) return;
-          const entries = daily.entries
-            .map((e) => (e.id === id ? updated : e))
-            .sort((a, b) => a.startedAt - b.startedAt);
-          set({ daily: { ...daily, entries } });
-          recomputeAggregates({ ...daily, entries }, history);
+          const date = dayOfEntry(id);
+          if (!date) return 'That entry no longer exists.';
+          const entries = entriesOn(date);
+          const current = entries.find((e) => e.id === id)!;
+          const updated = withoutBreakTargets({ ...current, ...patch, id });
+          // Trimmed to nothing is a deletion, not an error.
+          if (updated.endedAt === updated.startedAt) {
+            get().removeEntry(id);
+            return null;
+          }
+          const others = entries.filter((e) => e.id !== id);
+          const refusal = refuse(date, updated, others);
+          if (refusal) return refusal;
+          writeDay(date, [...others, updated]);
+          return null;
         },
 
         removeEntry: (id) => {
-          const { daily, history } = get();
-          const entries = daily.entries.filter((e) => e.id !== id);
-          set({ daily: { ...daily, entries } });
-          recomputeAggregates({ ...daily, entries }, history);
+          const date = dayOfEntry(id);
+          if (!date) {
+            // Nothing to remove, but callers rely on this to settle the
+            // totals against the ledger as it stands.
+            const { daily, history } = get();
+            recomputeAggregates(daily, history);
+            return;
+          }
+          writeDay(date, entriesOn(date).filter((e) => e.id !== id));
+        },
+
+        splitEntry: (id, at) => {
+          const date = dayOfEntry(id);
+          if (!date) return 'That entry no longer exists.';
+          const entries = entriesOn(date);
+          const current = entries.find((e) => e.id === id)!;
+          if (!(at > current.startedAt && at < current.endedAt)) {
+            return 'Pick a time inside the block to split it.';
+          }
+          const first = { ...current, endedAt: at };
+          const second = { ...current, id: crypto.randomUUID(), startedAt: at };
+          writeDay(date, [...entries.filter((e) => e.id !== id), first, second]);
+          return null;
         },
 
         resetDay: () =>
@@ -463,7 +632,7 @@ export const useSession = create<SessionStore>()(
     },
     {
       name: 'tt-session',
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
         let s = persisted as Record<string, unknown>;
         if (version < 2) {
@@ -482,6 +651,10 @@ export const useSession = create<SessionStore>()(
         if (version < 4) {
           s = { ...s, ...migrateSessionV3(s) };
         }
+        // v5: `daily.mode`/`reductionsUsed` are optional and their absence
+        // means "the default, never eased" — nothing to backfill. A day
+        // already under way keeps rating at whatever the default says, as it
+        // did before, until it is changed or rolls over.
         return s;
       },
       partialize: (s) => ({

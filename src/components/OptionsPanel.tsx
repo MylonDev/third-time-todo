@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Modal } from './Modal';
 import { useSettings } from '../store/settings';
 import type { Theme } from '../store/settings';
+import { MODE_CONFIG } from '../utils/thirdTime';
+import { MODES } from '../utils/difficulty';
+import type { Mode } from '../types';
 
 interface Props {
   isOpen: boolean;
@@ -12,6 +15,14 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: 'light', label: 'Light' },
   { value: 'system', label: 'System' },
   { value: 'dark', label: 'Dark' },
+];
+
+/** `free`, or a quota of N reductions a day, as one select value. */
+const POLICIES: { value: string; label: string }[] = [
+  { value: 'quota:0', label: 'Never, once I’ve started' },
+  { value: 'quota:1', label: 'Once a day' },
+  { value: 'quota:2', label: 'Twice a day' },
+  { value: 'free', label: 'Whenever I like' },
 ];
 
 const DAY_END_HOURS: { value: number; label: string }[] = [
@@ -25,10 +36,12 @@ const DAY_END_HOURS: { value: number; label: string }[] = [
 export function OptionsPanel({ isOpen, onClose }: Props) {
   const {
     longWorkReminderMin, soundsEnabled, theme,
-    breakIncrements, dayEndHour,
+    breakIncrements, dayEndHour, mode, difficultyPolicy,
     setLongWorkReminderMin, setSoundsEnabled, setTheme,
-    setBreakIncrements, setDayEndHour,
+    setBreakIncrements, setDayEndHour, setMode, setDifficultyPolicy,
   } = useSettings();
+  const policyValue =
+    difficultyPolicy.kind === 'free' ? 'free' : `quota:${difficultyPolicy.perDay}`;
 
   const [newIncrement, setNewIncrement] = useState('');
 
@@ -100,6 +113,62 @@ export function OptionsPanel({ isOpen, onClose }: Props) {
                   {t.label}
                 </button>
               ))}
+            </div>
+          </section>
+
+          {/* Difficulty */}
+          <section className="flex flex-col gap-3">
+            <div>
+              <label className="block mb-3" style={labelStyle} htmlFor="default-mode">
+                A new day starts at
+              </label>
+              <select
+                id="default-mode"
+                value={mode}
+                onChange={(e) => setMode(e.target.value as Mode)}
+                className="w-full rounded-lg px-2 py-1.5 text-sm outline-none transition-colors border"
+                style={{
+                  background: 'var(--color-surface-2)',
+                  color: 'var(--color-text)',
+                  borderColor: 'var(--color-border)',
+                }}
+              >
+                {MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {MODE_CONFIG[m].label} · 1:{MODE_CONFIG[m].ratio}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block mb-3" style={labelStyle} htmlFor="difficulty-policy">
+                Easing off during a day
+              </label>
+              <select
+                id="difficulty-policy"
+                value={policyValue}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDifficultyPolicy(
+                    v === 'free' ? { kind: 'free' } : { kind: 'quota', perDay: Number(v.split(':')[1]) }
+                  );
+                }}
+                className="w-full rounded-lg px-2 py-1.5 text-sm outline-none transition-colors border"
+                style={{
+                  background: 'var(--color-surface-2)',
+                  color: 'var(--color-text)',
+                  borderColor: 'var(--color-border)',
+                }}
+              >
+                {POLICIES.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                Raising is always allowed. Work already logged keeps the ratio it earned at.
+              </p>
             </div>
           </section>
 
