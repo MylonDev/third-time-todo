@@ -147,3 +147,49 @@ export function denseLoads(
     return { date, workMs: workMsByDate.get(date) ?? 0 };
   });
 }
+
+const PLOT_DAYS = 56; // eight weeks
+const LOOKBACK = 28; // what chronic needs behind the first plotted point
+
+function daysBetween(a: string, b: string): number {
+  return Math.round(
+    (new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86_400_000
+  );
+}
+
+export interface PaceSeries {
+  points: PacePoint[];
+  ready: boolean;
+  /** Days of use still needed before the band is drawn. */
+  daysShort: number;
+  /** True when the run of use restarted after a lapse. */
+  resuming: boolean;
+}
+
+/**
+ * The plotted pace series for today, from each day's work total. Shared by the
+ * chart and by the difficulty picker's recommendation, so they can never
+ * disagree about which side of the band you are on.
+ */
+export function paceSeries(workMsByDate: Map<string, number>, today: string): PaceSeries {
+  const dates = [...workMsByDate.keys()].sort();
+  if (dates.length === 0) return { points: [], ready: false, daysShort: MIN_DAYS, resuming: false };
+
+  // Start from the current run of use, not the first record ever. A long gap
+  // leaves a baseline that no longer describes you.
+  const first = currentRunStart(dates) as string;
+  const resuming = first !== dates[0];
+  const span = daysBetween(first, today) + 1;
+  if (span < MIN_DAYS) return { points: [], ready: false, daysShort: MIN_DAYS - span, resuming };
+
+  const window = Math.min(span, PLOT_DAYS + LOOKBACK);
+  const series = pacePoints(denseLoads(workMsByDate, today, window));
+  // The first six points have a partial 7-day window, so they understate.
+  return { points: series.slice(6).slice(-PLOT_DAYS), ready: true, daysShort: 0, resuming };
+}
+
+/** Where today sits against the band, or 'unknown' before there is one. */
+export function currentVerdict(workMsByDate: Map<string, number>, today: string): PaceVerdict {
+  const { points, ready } = paceSeries(workMsByDate, today);
+  return ready && points.length > 0 ? verdict(points[points.length - 1]) : 'unknown';
+}

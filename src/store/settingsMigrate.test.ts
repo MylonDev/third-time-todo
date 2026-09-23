@@ -29,3 +29,11 @@ describe('migrateTtSettings — v9 and v10, already covered but re-asserted here
     expect(state.activeTab).toBe('tasks');
   });
 });
+
+describe('migrateTtSettings — v11 → v12', () => {
+  it('keeps the stored mode as the new-day default and adds a one-a-day quota', () => {
+    const state = migrateTtSettings({ mode: 'quarter', activeTab: 'tasks' }, 11);
+    expect(state.mode).toBe('quarter');
+    expect(state.difficultyPolicy).toEqual({ kind: 'quota', perDay: 1 });
+  });
+});

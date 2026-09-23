@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { SubTask, Task, TaskStatus, TimeEntry } from '../types';
+import type { Recurrence, RecurringTask, SubTask, Task, TaskStatus, TimeEntry } from '../types';
 import { todayKey, tomorrowKey } from '../utils/thirdTime';
+import { pruneDateKeys } from '../utils/schedule';
 import { useSettings } from './settings';
 import { reattributeActiveTask, resyncAggregates } from './sessionBridge';
+import { readPersistedLedger } from './persistedLedger';
 
 /**
  * Legacy routine data. Routines became habits, and habits are gone too now —
@@ -16,23 +18,37 @@ type LegacyRoutineHistory = Record<string, unknown>;
 
 interface TasksState {
   tasks: Task[];
+  recurring: RecurringTask[];
   /** @deprecated kept only so the persisted key survives */
   routines: LegacyRoutines;
   /** @deprecated */
   routineHistory: LegacyRoutineHistory;
-  addTask: (title: string, scheduledDate: string) => void;
+  addTask: (title: string, scheduledDate: string, projectId?: string) => void;
   updateTask: (id: string, patch: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
   deleteTask: (id: string) => void;
   restoreTask: (task: Task) => void;
   moveToTomorrow: (id: string) => void;
+  moveToDate: (id: string, scheduledDate: string) => void;
   reorderTasks: (orderedIds: string[]) => void;
   addSubtask: (taskId: string, title: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   deleteSubtask: (taskId: string, subtaskId: string) => void;
   editSubtask: (taskId: string, subtaskId: string, title: string) => void;
-  /** Moves unfinished tasks from past days into today, returning their ids. */
-  rolloverPastTasks: () => string[];
+
+  /** A recurring task anchored at `anchor` (its first possible day). */
+  addRecurring: (title: string, rule: Recurrence, anchor: number, projectId?: string) => void;
+  updateRecurring: (id: string, patch: Partial<Pick<RecurringTask, 'title' | 'projectId' | 'rule'>>) => void;
+  toggleOccurrence: (id: string, day: string) => void;
+  skipOccurrence: (id: string, day: string) => void;
+  endRecurring: (id: string) => void;
+  deleteRecurring: (id: string) => void;
+  /** Ledger credit from a closing entry. The session store's to call. */
   adjustTrackedMs: (id: string, deltaMs: number) => void;
+  /**
+   * A hand correction ("I forgot to track 20 minutes"). There's no entry
+   * behind it, so it lands in `carriedMs` where a re-sum can't undo it.
+   */
+  adjustManualMs: (id: string, deltaMs: number) => void;
   setTaskProject: (id: string, projectId?: string) => void;
   /** A deleted project untags itself from every task — the tasks stay, the tag doesn't. */
   clearTaskProject: (projectId: string) => void;
@@ -44,6 +60,18 @@ interface TasksState {
    * ever correct on its own.
    */
   recomputeFrom: (entries: TimeEntry[]) => void;
+  /** Entries aging out of history move their time into `carriedMs`. */
+  carryForward: (entries: TimeEntry[]) => void;
+}
+
+/** Work time the ledger credits to each task. */
+function ledgerMsByTask(entries: TimeEntry[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const e of entries) {
+    if (e.kind !== 'work' || !e.taskId) continue;
+    out.set(e.taskId, (out.get(e.taskId) ?? 0) + Math.max(0, e.endedAt - e.startedAt));
+  }
+  return out;
 }
 
 /**
@@ -58,6 +86,7 @@ type PersistedTask = Partial<Omit<Task, 'status'>> & {
 /** The persisted root, at whatever version it was last written. */
 interface PersistedTasksState {
   tasks?: PersistedTask[];
+  recurring?: RecurringTask[];
   routines?: LegacyRoutines;
   routineHistory?: LegacyRoutineHistory;
 }
@@ -114,12 +143,13 @@ function migrateChecklists(existingTasks: PersistedTask[]): LegacyRoutines {
 
 export const useTasks = create<TasksState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       tasks: [],
+      recurring: [],
       routines: [],
       routineHistory: {},
 
-      addTask: (title, scheduledDate) =>
+      addTask: (title, scheduledDate, projectId) =>
         set((s) => ({
           tasks: [
             ...s.tasks,
@@ -132,6 +162,7 @@ export const useTasks = create<TasksState>()(
               order: s.tasks.filter((t) => t.scheduledDate === scheduledDate).length,
               subtasks: [],
               trackedMs: 0,
+              projectId,
             },
           ],
         })),
@@ -158,6 +189,20 @@ export const useTasks = create<TasksState>()(
           ),
         }));
       },
+
+      moveToDate: (id, scheduledDate) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === id
+              ? {
+                  ...t,
+                  scheduledDate,
+                  // To the bottom of its new day, not wherever its old order lands.
+                  order: s.tasks.filter((o) => o.scheduledDate === scheduledDate).length,
+                }
+              : t
+          ),
+        })),
 
       reorderTasks: (orderedIds) =>
         set((s) => ({
@@ -219,21 +264,49 @@ export const useTasks = create<TasksState>()(
           ),
         })),
 
-      rolloverPastTasks: () => {
-        const today = todayKey(useSettings.getState().dayEndHour);
-        const carried = get()
-          .tasks.filter(
-            (t) => t.scheduledDate < today && t.status !== 'done' && !t.routineId
-          )
-          .map((t) => t.id);
-        if (carried.length === 0) return [];
+      addRecurring: (title, rule, anchor, projectId) =>
         set((s) => ({
-          tasks: s.tasks.map((t) =>
-            carried.includes(t.id) ? { ...t, scheduledDate: today } : t
+          recurring: [
+            ...s.recurring,
+            {
+              id: crypto.randomUUID(),
+              title,
+              projectId,
+              rule,
+              createdAt: anchor,
+              order: s.recurring.length,
+              completions: {},
+            },
+          ],
+        })),
+
+      updateRecurring: (id, patch) =>
+        set((s) => ({ recurring: s.recurring.map((r) => (r.id === id ? { ...r, ...patch } : r)) })),
+
+      toggleOccurrence: (id, day) =>
+        set((s) => ({
+          recurring: s.recurring.map((r) => {
+            if (r.id !== id) return r;
+            const completions = { ...r.completions };
+            if (completions[day]) delete completions[day];
+            else completions[day] = true;
+            return { ...r, completions: pruneDateKeys(completions) };
+          }),
+        })),
+
+      skipOccurrence: (id, day) =>
+        set((s) => ({
+          recurring: s.recurring.map((r) =>
+            r.id === id ? { ...r, skipped: pruneDateKeys({ ...(r.skipped ?? {}), [day]: true }) } : r
           ),
-        }));
-        return carried;
-      },
+        })),
+
+      endRecurring: (id) =>
+        set((s) => ({
+          recurring: s.recurring.map((r) => (r.id === id ? { ...r, endedAt: Date.now() } : r)),
+        })),
+
+      deleteRecurring: (id) => set((s) => ({ recurring: s.recurring.filter((r) => r.id !== id) })),
 
       adjustTrackedMs: (id, deltaMs) =>
         set((s) => ({
@@ -242,6 +315,17 @@ export const useTasks = create<TasksState>()(
               ? { ...t, trackedMs: Math.max(0, (t.trackedMs ?? 0) + deltaMs) }
               : t
           ),
+        })),
+
+      adjustManualMs: (id, deltaMs) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) => {
+            if (t.id !== id) return t;
+            const trackedMs = Math.max(0, (t.trackedMs ?? 0) + deltaMs);
+            // Only what actually moved `trackedMs` is carried, so a subtraction
+            // clamped at zero can't leave a hidden debt behind.
+            return { ...t, trackedMs, carriedMs: (t.carriedMs ?? 0) + trackedMs - (t.trackedMs ?? 0) };
+          }),
         })),
 
       setTaskProject: (id, projectId) => {
@@ -261,59 +345,99 @@ export const useTasks = create<TasksState>()(
       clearTaskProject: (projectId) =>
         set((s) => ({
           tasks: s.tasks.map((t) => (t.projectId === projectId ? { ...t, projectId: undefined } : t)),
+          recurring: s.recurring.map((r) =>
+            r.projectId === projectId ? { ...r, projectId: undefined } : r
+          ),
         })),
 
-      recomputeFrom: (entries) =>
+      recomputeFrom: (entries) => {
+        const byTask = ledgerMsByTask(entries);
         set((s) => ({
-          tasks: s.tasks.map((t) => {
-            const trackedMs = entries
-              .filter((e) => e.kind === 'work' && e.taskId === t.id)
-              .reduce((sum, e) => sum + Math.max(0, e.endedAt - e.startedAt), 0);
-            return { ...t, trackedMs };
-          }),
-        })),
+          tasks: s.tasks.map((t) => ({
+            ...t,
+            trackedMs: Math.max(0, (t.carriedMs ?? 0) + (byTask.get(t.id) ?? 0)),
+          })),
+        }));
+      },
+
+      carryForward: (entries) => {
+        const byTask = ledgerMsByTask(entries);
+        if (byTask.size === 0) return;
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            byTask.has(t.id) ? { ...t, carriedMs: (t.carriedMs ?? 0) + byTask.get(t.id)! } : t
+          ),
+        }));
+      },
     }),
     {
       name: 'tt-tasks',
-      version: 7,
-      migrate: (persisted: unknown, version: number) => {
-        let state = persisted as PersistedTasksState;
-        if (version < 3) {
-          return {
-            tasks: (state.tasks ?? []).map((t, i) => ({
-              id: t.id,
-              title: t.title,
-              status:
-                t.status === 'in-progress' || t.status === 'parked'
-                  ? 'todo'
-                  : t.status ?? 'todo',
-              createdAt: t.createdAt ?? Date.now(),
-              scheduledDate: t.scheduledDate ?? todayKey(useSettings.getState().dayEndHour),
-              order: t.order ?? i,
-              subtasks: t.subtasks ?? [],
-              trackedMs: 0,
-            })),
-          };
-        }
-        if (version < 4) {
-          state = {
-            tasks: (state.tasks ?? []).map((t) => ({ ...t, trackedMs: t.trackedMs ?? 0 })),
-          };
-        }
-        if (version < 5) {
-          state = { ...state, routines: migrateChecklists(state.tasks ?? []) };
-        }
-        if (version < 6) {
-          state = { ...state, routineHistory: {} };
-        }
-        if (version < 7) {
-          // `projectId` is optional, and its absence already means "no
-          // project" — there is nothing on an existing task to backfill. The
-          // bump exists only to declare the field as part of the shape.
-          state = { ...state };
-        }
-        return state;
-      },
+      version: 9,
+      migrate: (persisted: unknown, version: number) => migrateTtTasks(persisted, version),
     }
   )
 );
+
+/**
+ * The store's `migrate`, exported so the chain is what tests exercise. `ledger`
+ * defaults to what `tt-session` holds on disk.
+ */
+export function migrateTtTasks(
+  persisted: unknown,
+  version: number,
+  ledger: TimeEntry[] = readPersistedLedger()
+) {
+  let state = persisted as PersistedTasksState;
+  if (version < 3) {
+    // Falls through: every later leg still applies to a store this old.
+    state = {
+      tasks: (state.tasks ?? []).map((t, i) => ({
+        id: t.id,
+        title: t.title,
+        status:
+          t.status === 'in-progress' || t.status === 'parked'
+            ? 'todo'
+            : t.status ?? 'todo',
+        createdAt: t.createdAt ?? Date.now(),
+        scheduledDate: t.scheduledDate ?? todayKey(useSettings.getState().dayEndHour),
+        order: t.order ?? i,
+        subtasks: t.subtasks ?? [],
+        trackedMs: 0,
+      })),
+    };
+  }
+  if (version < 4) {
+    state = {
+      tasks: (state.tasks ?? []).map((t) => ({ ...t, trackedMs: t.trackedMs ?? 0 })),
+    };
+  }
+  if (version < 5) {
+    state = { ...state, routines: migrateChecklists(state.tasks ?? []) };
+  }
+  if (version < 6) {
+    state = { ...state, routineHistory: {} };
+  }
+  if (version < 7) {
+    // `projectId` is optional, and its absence already means "no
+    // project" — there is nothing on an existing task to backfill. The
+    // bump exists only to declare the field as part of the shape.
+    state = { ...state };
+  }
+  if (version < 8) {
+    // Whatever a task has tracked beyond what the ledger holds for it —
+    // everything from before entries named tasks, plus any manual
+    // adjustments — would be zeroed by the next re-sum. Carry it.
+    const byTask = ledgerMsByTask(ledger);
+    state = {
+      ...state,
+      tasks: (state.tasks ?? []).map((t) => ({
+        ...t,
+        carriedMs: Math.max(0, (t.trackedMs ?? 0) - (byTask.get(t.id ?? '') ?? 0)),
+      })),
+    };
+  }
+  if (version < 9) {
+    state = { ...state, recurring: state.recurring ?? [] };
+  }
+  return state;
+}

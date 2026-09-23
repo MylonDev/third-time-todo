@@ -62,7 +62,7 @@ describe('tagging the running task with a project', () => {
     useTasks.getState().setTaskProject('t1', 'p1');
 
     vi.setSystemTime(startAt + 40 * MINUTE);
-    useSession.getState().stopWork('third');
+    useSession.getState().stopWork();
 
     // The task shows forty minutes, so the project it is filed under has to
     // show them too — the whole stint was this task's work.
@@ -83,7 +83,7 @@ describe('deleting the project the timer is pointing at', () => {
     expect(useSession.getState().activeProjectId).toBeUndefined();
 
     vi.setSystemTime(startAt + 25 * MINUTE);
-    useSession.getState().stopWork('third');
+    useSession.getState().stopWork();
 
     // The task keeps its own record of the whole stint, and nothing written
     // after the delete still names the project that is gone.

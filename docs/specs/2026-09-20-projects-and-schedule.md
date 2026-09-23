@@ -1,7 +1,7 @@
 # Projects, a day timeline, and a weekly schedule
 
-**Status:** Phase 1 implemented, 2026-09-21. Phases 2, 3 and 4 are designed,
-not yet built.
+**Status:** Phase 1 implemented 2026-09-21; phases 2, 3 and 4 implemented
+2026-09-22.
 **Supersedes** parts of `2026-09-08-redesign.md` (habits) and
 `2026-09-05-session-model.md` (the session as a unit of work).
 
@@ -349,6 +349,18 @@ cleanup, v11's goals rename) had its value stomped back to the v8 default
 first. The legs after it now build on what came before rather than assuming
 v8's placeholder.
 
+**Not all credited time is in the ledger.** Re-summing a project or task from
+entries alone zeroed every hour logged before the ledger existed, every manual
+"Adjust tracked time", and every day aged out of the 120-day history — on
+something as small as a project rename. Projects carry `carried { time, total }`
+and tasks `carriedMs` for exactly that time (tt-goals v5, tt-tasks v8, seeded
+from whatever each record held beyond what the persisted ledger accounts for);
+re-sums add it back, and history aging hands leaving entries to it.
+
+**A day can be archived twice.** Moving `dayEndHour` later just after midnight
+steps "today" back onto a day already in history. `archiveDay` merges into it
+rather than replacing it.
+
 # Phase 2 — The day timeline
 
 ## 2.1 What it is
@@ -408,6 +420,18 @@ the next read, with no changes of its own.
 | Manual add | dragging empty rail creates an entry that earns break time |
 | Reassign | moving an entry to another project moves the time with it |
 | Live block | the running entry grows on the shared second clock |
+
+---
+
+## Found while implementing
+
+**A manually added entry is rated at its own day's mode**, not today's — an
+hour forgotten on Monday earns what Monday was worked at (phase 4's
+`HistoryEntry.mode`, falling back to the default for days archived before it).
+
+**Past days are claimable to their end; today only up to now**, or up to where
+a running timer began. The open segment is not an entry and cannot be edited;
+the editor refuses anything that would run into it.
 
 ---
 
@@ -477,6 +501,16 @@ next occurrence stands on its own.
 
 ---
 
+## Found while implementing
+
+**`weekly` means "on the anchor's weekday".** The habits sense ("some time this
+week") has no single column to sit in on a day-by-day board.
+
+**The view and filter are not persisted.** Rolling is the default: it keeps
+today leftmost on every screen width.
+
+---
+
 # Phase 4 — Difficulty per day
 
 ## 4.1 The day's mode
@@ -525,6 +559,16 @@ is lapse-aware after PR #17. No new heuristic:
 | Non-retroactive | entries recorded before a change keep their old ratio's earnings |
 | Warning | raising above the band shows the confirmation, then proceeds |
 | Archive | the day's mode and reductions land on the history entry |
+
+## Found while implementing
+
+**Easing off before any work is recorded is the day's first choice, not a
+reduction.** Otherwise picking the day's mode before starting would spend the
+quota. A change while a timer runs is refused outright: the open segment is
+rated at the mode in force.
+
+**A stint carried over midnight locks the new day's mode at the default** at
+the split, so a later change to the default can't re-rate it.
 
 ---
 

@@ -21,19 +21,22 @@ import { useTasks } from '../store/tasks';
 import { useSettings } from '../store/settings';
 import { useSession } from '../store/session';
 import { useProjects } from '../store/projects';
-import { todayKey, isStale, daysSince, formatTimeLong } from '../utils/thirdTime';
+import { todayKey, isStale, daysSince, formatTimeLong, shiftDayKey } from '../utils/thirdTime';
 import { ActionMenu } from './ActionMenu';
 import { InlineInput } from './InlineInput';
 import { useActiveTarget } from '../hooks/useFocusable';
 import { useElapsed } from '../hooks/useNow';
-import type { Project, Task } from '../types';
+import { scheduleDays, occursOn, overdueTasks, type ScheduleView } from '../utils/schedule';
+import { recurrenceLabel, WEEKDAY_LABELS } from '../utils/recurrence';
+import type { Project, Recurrence, RecurringTask, Task } from '../types';
 
 function SortableTask({
   task,
   projects,
+  today,
   onUpdate,
   onDelete,
-  onMoveToTomorrow,
+  onMove,
   onAddSubtask,
   onToggleSubtask,
   onDeleteSubtask,
@@ -43,9 +46,10 @@ function SortableTask({
 }: {
   task: Task;
   projects: Project[];
+  today: string;
   onUpdate: (id: string, patch: Partial<Task>) => void;
   onDelete: (id: string) => void;
-  onMoveToTomorrow: (id: string) => void;
+  onMove: (id: string, scheduledDate: string) => void;
   onAddSubtask: (taskId: string, title: string) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
   onDeleteSubtask: (taskId: string, subtaskId: string) => void;
@@ -128,6 +132,14 @@ function SortableTask({
   const subtasks = task.subtasks ?? [];
   const doneSubtasks = subtasks.filter((s) => s.done).length;
   const isDone = task.status === 'done';
+  // Left undone on a day that has passed: kept where it was planned, as
+  // history, and greyed. Today's Overdue strip is where it gets picked up.
+  const missed = !isDone && task.scheduledDate < today;
+  const moveAction = missed
+    ? { label: 'Move to today', onSelect: () => onMove(task.id, today) }
+    : task.scheduledDate === today
+    ? { label: 'Move to tomorrow', onSelect: () => onMove(task.id, shiftDayKey(today, 1)) }
+    : { label: 'Move to next day', onSelect: () => onMove(task.id, shiftDayKey(task.scheduledDate, 1)) };
 
   const cardStyle: React.CSSProperties = isDragging
     ? {
@@ -136,10 +148,11 @@ function SortableTask({
         opacity: 0.85,
         boxShadow: 'var(--shadow-raised)',
       }
-    : isDone
+    : isDone || missed
     ? {
         background: 'var(--color-surface-2)',
         borderColor: 'var(--color-border)',
+        borderStyle: missed ? 'dashed' : undefined,
         opacity: 0.55,
       }
     : isFocused
@@ -292,7 +305,15 @@ function SortableTask({
                 )}
               </div>
               <div className="flex gap-1.5 mt-0.5 flex-wrap items-center">
-                {isStale(task.createdAt) && !isDone && (
+                {missed && (
+                  <span
+                    className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                    style={{ background: 'var(--color-debt-dim)', color: 'var(--color-debt)' }}
+                  >
+                    missed
+                  </span>
+                )}
+                {isStale(task.createdAt) && !isDone && !missed && (
                   <span
                     className="text-xs px-1.5 py-0.5 rounded-full font-medium"
                     style={{
@@ -400,7 +421,7 @@ function SortableTask({
                 },
               },
               { label: 'Subtasks', onSelect: () => setSubtasksOpen((o) => !o) },
-              { label: 'Move to tomorrow', onSelect: () => onMoveToTomorrow(task.id) },
+              moveAction,
               {
                 label: 'Adjust tracked time',
                 onSelect: () => { setShowTimeEdit(true); setTimeEditMin(''); },
@@ -502,16 +523,137 @@ function SortableTask({
   );
 }
 
+// ── Recurring occurrences ─────────────────────────────────────────────────────
+
+function ProjectChip({ project }: { project: Project }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full font-medium"
+      style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-muted)' }}
+    >
+      {project.color && (
+        <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: project.color }} aria-hidden />
+      )}
+      {project.name}
+    </span>
+  );
+}
+
+function OccurrenceRow({
+  rt,
+  day,
+  today,
+  project,
+}: {
+  rt: RecurringTask;
+  day: string;
+  today: string;
+  project?: Project;
+}) {
+  const { toggleOccurrence, skipOccurrence, endRecurring, deleteRecurring } = useTasks();
+  const done = !!rt.completions[day];
+  // A past occurrence left undone is just not done — never overdue.
+  const past = day < today;
+  return (
+    <li
+      className="flex items-start gap-3 rounded-xl border p-3"
+      style={{
+        background: done || past ? 'var(--color-surface-2)' : 'var(--color-surface)',
+        borderColor: 'var(--color-border)',
+        opacity: done || past ? 0.55 : 1,
+      }}
+      data-testid="occurrence"
+    >
+      <span className="w-4 flex-shrink-0" />
+      <button
+        onClick={() => toggleOccurrence(rt.id, day)}
+        role="checkbox"
+        aria-checked={done}
+        aria-label={rt.title}
+        className="flex-shrink-0 flex items-center justify-center text-[11px]"
+        style={{
+          width: '20px',
+          height: '20px',
+          marginTop: '2px',
+          borderRadius: '10px',
+          border: `2px solid ${done ? 'var(--color-rest)' : 'var(--color-border-strong)'}`,
+          background: done ? 'var(--color-rest)' : 'transparent',
+          color: done ? 'var(--color-bg)' : 'transparent',
+        }}
+        title={done ? 'Mark as not done' : 'Mark this day done'}
+      >
+        {done && '✓'}
+      </button>
+      <div className="flex-1 min-w-0">
+        <span
+          className="text-[15px] font-medium leading-snug"
+          style={{
+            color: done ? 'var(--color-text-muted)' : 'var(--color-text)',
+            textDecoration: done ? 'line-through' : 'none',
+          }}
+        >
+          {rt.title}
+        </span>
+        <div className="flex gap-1.5 mt-0.5 flex-wrap items-center">
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            ↻ {recurrenceLabel(rt.rule)}
+          </span>
+          {project && <ProjectChip project={project} />}
+        </div>
+      </div>
+      <ActionMenu
+        label="Repeating task actions"
+        actions={[
+          { label: 'Skip this day', onSelect: () => skipOccurrence(rt.id, day) },
+          { label: 'Stop repeating', onSelect: () => endRecurring(rt.id) },
+          { label: 'Delete', onSelect: () => deleteRecurring(rt.id), danger: true },
+        ]}
+      />
+    </li>
+  );
+}
+
+// ── The board ────────────────────────────────────────────────────────────────
+
+type ProjectFilter = 'all' | 'none' | string;
+type RepeatChoice = 'none' | 'daily' | 'weekdays' | 'weekly' | 'everyN';
+
+function columnLabel(day: string, today: string): string {
+  if (day === today) return 'Today';
+  if (day === shiftDayKey(today, 1)) return 'Tomorrow';
+  if (day === shiftDayKey(today, -1)) return 'Yesterday';
+  return new Date(day + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' });
+}
+
+function shortDate(day: string): string {
+  return new Date(day + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+/**
+ * The Tasks tab: a week of day columns (spec phase 3). One-off tasks sit on
+ * the day they were planned for and stay there — an unfinished one from a
+ * past day is shown greyed as missed, and surfaces in today's Overdue strip.
+ * Recurring tasks are rules; their occurrences are drawn wherever they fall.
+ */
 export function TaskList() {
   const {
-    tasks, addTask, updateTask, deleteTask, moveToTomorrow,
+    tasks, recurring, addTask, addRecurring, updateTask, deleteTask, moveToDate,
     reorderTasks, addSubtask, toggleSubtask, deleteSubtask, editSubtask,
-    adjustTrackedMs, restoreTask, setTaskProject,
+    adjustManualMs, restoreTask, setTaskProject,
   } = useTasks();
   const projects = useProjects((s) => s.projects);
   const dayEndHour = useSettings((s) => s.dayEndHour);
+  const today = todayKey(dayEndHour);
+
+  const [view, setView] = useState<ScheduleView>('rolling');
+  const [filter, setFilter] = useState<ProjectFilter>('all');
   const [title, setTitle] = useState('');
-  const [showDone, setShowDone] = useState(false);
+  const [day, setDay] = useState<string | null>(null); // null = today
+  const [repeat, setRepeat] = useState<RepeatChoice>('none');
+  const [weekdays, setWeekdays] = useState<number[]>([0, 1, 2, 3, 4]);
+  const [everyN, setEveryN] = useState('2');
+  const [showOverdue, setShowOverdue] = useState(true);
+  const [openDone, setOpenDone] = useState<Record<string, boolean>>({});
 
   // Delete commits immediately; the toast holds a snapshot so Undo can put it back.
   // (A deferred delete loses the task if the tab closes while the toast is up.)
@@ -553,140 +695,340 @@ export function TaskList() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const today = todayKey(dayEndHour);
-  const todayTasks = useMemo(
-    () => tasks.filter((t) => t.scheduledDate === today),
-    [tasks, today]
-  );
+  const days = useMemo(() => scheduleDays(view, today, dayEndHour), [view, today, dayEndHour]);
+  const addDays = useMemo(() => scheduleDays('rolling', today, dayEndHour), [today, dayEndHour]);
+  const targetDay = day && day >= today ? day : today;
 
-  const activeTasks = useMemo(
-    () => todayTasks.filter((t) => t.status !== 'done').sort((a, b) => a.order - b.order),
-    [todayTasks]
-  );
-
-  // Routine steps have their own panel above the list, so they are not repeated here.
-  const looseTasks = useMemo(() => activeTasks.filter((t) => !t.routineId), [activeTasks]);
-  const doneTasks = useMemo(
+  const visibleTasks = useMemo(
     () =>
-      todayTasks
-        .filter((t) => t.status === 'done' && !t.routineId)
-        .sort((a, b) => a.order - b.order),
-    [todayTasks]
+      tasks.filter(
+        (t) => !t.routineId && (filter === 'all' || (filter === 'none' ? !t.projectId : t.projectId === filter))
+      ),
+    [tasks, filter]
   );
+  const visibleRecurring = useMemo(
+    () =>
+      recurring.filter(
+        (r) => filter === 'all' || (filter === 'none' ? !r.projectId : r.projectId === filter)
+      ),
+    [recurring, filter]
+  );
+  const overdue = useMemo(() => overdueTasks(visibleTasks, today), [visibleTasks, today]);
+  const projectOf = (id?: string) => (id ? projects.find((p) => p.id === id) : undefined);
+  const liveProjects = projects.filter((p) => !p.archivedAt);
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
-    addTask(title.trim(), today);
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    // A task added while filtered to a project belongs to that project.
+    const projectId = filter !== 'all' && filter !== 'none' ? filter : undefined;
+    if (repeat === 'none') {
+      addTask(trimmed, targetDay, projectId);
+    } else {
+      const rule: Recurrence =
+        repeat === 'daily'
+          ? { kind: 'daily' }
+          : repeat === 'weekly'
+          ? { kind: 'weekly' }
+          : repeat === 'weekdays'
+          ? { kind: 'weekdays', days: weekdays }
+          : { kind: 'everyN', n: Math.max(2, parseInt(everyN, 10) || 2) };
+      addRecurring(trimmed, rule, new Date(targetDay + 'T12:00:00').getTime(), projectId);
+    }
     setTitle('');
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const dragEndFor = (column: Task[]) => (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = looseTasks.findIndex((t) => t.id === active.id);
-      const newIndex = looseTasks.findIndex((t) => t.id === over.id);
+      const oldIndex = column.findIndex((t) => t.id === active.id);
+      const newIndex = column.findIndex((t) => t.id === over.id);
       if (oldIndex < 0 || newIndex < 0) return;
-      reorderTasks(arrayMove(looseTasks, oldIndex, newIndex).map((t) => t.id));
+      reorderTasks(arrayMove(column, oldIndex, newIndex).map((t) => t.id));
     }
   };
 
-  const inputStyle: React.CSSProperties = {
+  const rowProps = {
+    projects,
+    today,
+    onUpdate: updateTask,
+    onDelete: handleDelete,
+    onMove: moveToDate,
+    onAddSubtask: addSubtask,
+    onToggleSubtask: toggleSubtask,
+    onDeleteSubtask: deleteSubtask,
+    onEditSubtask: editSubtask,
+    onAdjustTrackedMs: adjustManualMs,
+    onSetTaskProject: setTaskProject,
+  };
+
+  const fieldStyle: React.CSSProperties = {
     background: 'var(--color-surface-2)',
     color: 'var(--color-text)',
     borderColor: 'var(--color-border)',
   };
 
+  const segment = (active: boolean): React.CSSProperties =>
+    active
+      ? { background: 'var(--color-surface-2)', color: 'var(--color-text)', borderColor: 'var(--color-border-strong)' }
+      : { color: 'var(--color-text-muted)', borderColor: 'transparent' };
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Add task form */}
-      <form onSubmit={handleAdd} className="flex gap-2">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Add a task…"
-          className="flex-1 rounded-xl px-3 py-2 text-sm outline-none border transition-colors"
-          style={inputStyle}
-        />
-        <button
-          type="submit"
-          className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-          style={{
-            background: 'var(--color-accent-dim)',
-            color: 'var(--color-accent)',
-            border: '1px solid var(--color-accent)',
-            fontFamily: 'var(--font-display)',
-          }}
+      {/* View + filter */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex gap-1" role="radiogroup" aria-label="View">
+          {([['rolling', 'Rolling'], ['week', 'This week']] as const).map(([v, label]) => (
+            <button
+              key={v}
+              role="radio"
+              aria-checked={view === v}
+              onClick={() => setView(v)}
+              className="rounded-lg border px-3 py-1 text-xs font-semibold"
+              style={segment(view === v)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <select
+          aria-label="Project filter"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="rounded-lg border px-2 py-1 text-xs outline-none"
+          style={fieldStyle}
         >
-          Add
-        </button>
-      </form>
+          <option value="all">All projects</option>
+          <option value="none">No project</option>
+          {liveProjects.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </div>
 
-      {/* Loose tasks */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={looseTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-          <ul className="flex flex-col gap-1.5">
-            {looseTasks.length === 0 && doneTasks.length === 0 && (
-              <li
-                className="text-center text-sm py-8"
-                style={{ color: 'var(--color-text-muted)' }}
-              >
-                No tasks yet — add some above
-              </li>
-            )}
-            {looseTasks.map((task) => (
-              <SortableTask
-                key={task.id}
-                task={task}
-                projects={projects}
-                onUpdate={updateTask}
-                onDelete={handleDelete}
-                onMoveToTomorrow={moveToTomorrow}
-                onAddSubtask={addSubtask}
-                onToggleSubtask={toggleSubtask}
-                onDeleteSubtask={deleteSubtask}
-                onEditSubtask={editSubtask}
-                onAdjustTrackedMs={adjustTrackedMs}
-                onSetTaskProject={setTaskProject}
-              />
-            ))}
-          </ul>
-        </SortableContext>
-      </DndContext>
-
-      {/* Completed tasks */}
-      {doneTasks.length > 0 && (
-        <div>
+      {/* Add task form */}
+      <form onSubmit={handleAdd} className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Add a task…"
+            className="flex-1 min-w-0 rounded-xl px-3 py-2 text-sm outline-none border transition-colors"
+            style={fieldStyle}
+          />
           <button
-            onClick={() => setShowDone((o) => !o)}
-            className="flex items-center gap-1.5 text-xs font-semibold transition-opacity opacity-50 hover:opacity-100"
-            style={{ color: 'var(--color-text-muted)' }}
+            type="submit"
+            className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+            style={{
+              background: 'var(--color-accent-dim)',
+              color: 'var(--color-accent)',
+              border: '1px solid var(--color-accent)',
+              fontFamily: 'var(--font-display)',
+            }}
           >
-            <span>{showDone ? '▾' : '▸'}</span>
-            {doneTasks.length} completed
+            Add
           </button>
-          {showDone && (
-            <ul className="flex flex-col gap-1.5 mt-2">
-              {doneTasks.map((task) => (
-                <SortableTask
-                  key={task.id}
-                  task={task}
-                  projects={projects}
-                  onUpdate={updateTask}
-                  onDelete={handleDelete}
-                  onMoveToTomorrow={moveToTomorrow}
-                  onAddSubtask={addSubtask}
-                  onToggleSubtask={toggleSubtask}
-                  onDeleteSubtask={deleteSubtask}
-                  onEditSubtask={editSubtask}
-                  onAdjustTrackedMs={adjustTrackedMs}
-                  onSetTaskProject={setTaskProject}
-                />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <label className="flex items-center gap-1.5">
+            {repeat === 'none' ? 'On' : 'Starting'}
+            <select
+              aria-label="Day"
+              value={targetDay}
+              onChange={(e) => setDay(e.target.value)}
+              className="rounded-lg border px-2 py-1 outline-none"
+              style={fieldStyle}
+            >
+              {addDays.map((d) => (
+                <option key={d} value={d}>
+                  {columnLabel(d, today)}
+                  {d !== today && d !== shiftDayKey(today, 1) ? ` ${shortDate(d)}` : ''}
+                </option>
               ))}
-            </ul>
+            </select>
+          </label>
+          <label className="flex items-center gap-1.5">
+            Repeat
+            <select
+              aria-label="Repeat"
+              value={repeat}
+              onChange={(e) => setRepeat(e.target.value as RepeatChoice)}
+              className="rounded-lg border px-2 py-1 outline-none"
+              style={fieldStyle}
+            >
+              <option value="none">Never</option>
+              <option value="daily">Every day</option>
+              <option value="weekdays">On some weekdays</option>
+              <option value="weekly">Every week</option>
+              <option value="everyN">Every few days</option>
+            </select>
+          </label>
+          {repeat === 'weekdays' && (
+            <div className="flex gap-1" role="group" aria-label="Weekdays">
+              {WEEKDAY_LABELS.map((label, i) => {
+                const on = weekdays.includes(i);
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    aria-pressed={on}
+                    aria-label={label}
+                    onClick={() =>
+                      setWeekdays((w) => (on ? w.filter((d) => d !== i) : [...w, i].sort((a, b) => a - b)))
+                    }
+                    className="w-7 h-7 rounded-md border text-[11px] font-semibold"
+                    style={segment(on)}
+                  >
+                    {label.slice(0, 2)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {repeat === 'everyN' && (
+            <label className="flex items-center gap-1.5">
+              every
+              <input
+                aria-label="Every how many days"
+                type="number"
+                min={2}
+                value={everyN}
+                onChange={(e) => setEveryN(e.target.value)}
+                className="num w-14 rounded-lg border px-2 py-1 outline-none"
+                style={fieldStyle}
+              />
+              days
+            </label>
           )}
         </div>
-      )}
+      </form>
+
+      {/* Day columns — a board on wide screens, a stack on narrow ones */}
+      <div
+        className="flex flex-col gap-4 lg:grid lg:grid-flow-col lg:auto-cols-[minmax(220px,1fr)] lg:gap-3 lg:overflow-x-auto lg:pb-2"
+        data-testid="schedule"
+      >
+        {days.map((d) => {
+          const dayTasks = visibleTasks.filter((t) => t.scheduledDate === d);
+          const open = dayTasks.filter((t) => t.status !== 'done').sort((a, b) => a.order - b.order);
+          const done = dayTasks.filter((t) => t.status === 'done').sort((a, b) => a.order - b.order);
+          const occurrences = visibleRecurring
+            .filter((r) => occursOn(r, d, dayEndHour))
+            .sort((a, b) => a.order - b.order);
+          const isToday = d === today;
+          const empty = open.length === 0 && done.length === 0 && occurrences.length === 0;
+
+          return (
+            <section
+              key={d}
+              aria-label={`${columnLabel(d, today)}, ${shortDate(d)}`}
+              data-day={d}
+              className="flex flex-col gap-2 min-w-0"
+            >
+              <header
+                className="flex items-baseline justify-between gap-2 border-b pb-1.5"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                <span
+                  className="text-sm font-semibold"
+                  style={{
+                    color: isToday
+                      ? 'var(--color-accent)'
+                      : d < today
+                      ? 'var(--color-text-muted)'
+                      : 'var(--color-text)',
+                  }}
+                >
+                  {columnLabel(d, today)}
+                </span>
+                <span className="num text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                  {shortDate(d)}
+                </span>
+              </header>
+
+              {isToday && overdue.length > 0 && (
+                <div
+                  className="rounded-xl border p-2 flex flex-col gap-1"
+                  style={{ borderColor: 'var(--color-debt-edge)', background: 'var(--color-debt-dim)' }}
+                  data-testid="overdue"
+                >
+                  <button
+                    onClick={() => setShowOverdue((o) => !o)}
+                    aria-expanded={showOverdue}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-left"
+                    style={{ color: 'var(--color-debt)' }}
+                  >
+                    <span>{showOverdue ? '▾' : '▸'}</span>
+                    Overdue ({overdue.length})
+                  </button>
+                  {showOverdue && (
+                    <ul className="flex flex-col gap-1">
+                      {overdue.map((t) => (
+                        <li key={t.id} className="flex items-center gap-2 text-[13px]">
+                          <span className="flex-1 min-w-0 truncate" style={{ color: 'var(--color-text)' }}>
+                            {t.title}
+                          </span>
+                          <span className="num text-[11px] flex-shrink-0" style={{ color: 'var(--color-text-muted)' }}>
+                            {shortDate(t.scheduledDate)}
+                          </span>
+                          <button
+                            onClick={() => moveToDate(t.id, today)}
+                            aria-label={`Move ${t.title} to today`}
+                            className="text-[11px] font-semibold rounded-md border px-1.5 py-0.5 flex-shrink-0"
+                            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+                          >
+                            Today
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={dragEndFor(open)}>
+                <SortableContext items={open.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                  <ul className="flex flex-col gap-1.5">
+                    {open.map((task) => (
+                      <SortableTask key={task.id} task={task} {...rowProps} />
+                    ))}
+                    {occurrences.map((rt) => (
+                      <OccurrenceRow key={rt.id} rt={rt} day={d} today={today} project={projectOf(rt.projectId)} />
+                    ))}
+                  </ul>
+                </SortableContext>
+              </DndContext>
+
+              {empty && (
+                <p className="text-center text-xs py-3" style={{ color: 'var(--color-text-muted)' }}>
+                  {isToday ? 'No tasks yet — add some above' : 'Nothing planned'}
+                </p>
+              )}
+
+              {done.length > 0 && (
+                <div>
+                  <button
+                    onClick={() => setOpenDone((o) => ({ ...o, [d]: !o[d] }))}
+                    className="flex items-center gap-1.5 text-xs font-semibold transition-opacity opacity-50 hover:opacity-100"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    <span>{openDone[d] ? '▾' : '▸'}</span>
+                    {done.length} completed
+                  </button>
+                  {openDone[d] && (
+                    <ul className="flex flex-col gap-1.5 mt-2">
+                      {done.map((task) => (
+                        <SortableTask key={task.id} task={task} {...rowProps} />
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
 
       {/* Undo delete toast */}
       {undoTask && (

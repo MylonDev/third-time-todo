@@ -17,6 +17,12 @@ export interface Task {
   order: number;
   subtasks: SubTask[];
   trackedMs: number; // cumulative milliseconds focused while timer was running
+  /**
+   * The part of `trackedMs` no ledger entry carries: tracking from before the
+   * ledger existed, manual adjustments, and days aged out of history. A re-sum
+   * adds this back rather than zeroing it. Absent means 0.
+   */
+  carriedMs?: number;
   /** The project this task's tracked time is credited to, if any. */
   projectId?: string;
   /**
@@ -42,7 +48,17 @@ export interface TimeEntry {
 export interface DailyState {
   date: string; // day key, per `dayKeyOf`
   entries: TimeEntry[];
+  /**
+   * The ratio today is worked at. Absent until chosen — the settings default
+   * applies until then, and the day's first timer start locks it in.
+   */
+  mode?: Mode;
+  /** Downward difficulty changes made after work started today. */
+  reductionsUsed?: number;
 }
+
+/** How often a day's difficulty may be eased once work has started. */
+export type DifficultyPolicy = { kind: 'free' } | { kind: 'quota'; perDay: number };
 
 export interface HistoryEntry {
   date: string; // YYYY-MM-DD
@@ -50,6 +66,9 @@ export interface HistoryEntry {
   totalBreakMs: number;
   unusedRestMs: number;
   entries: TimeEntry[];
+  /** What the day was worked at, and how often it was eased. Absent before v5. */
+  mode?: Mode;
+  reductionsUsed?: number;
 }
 
 /** What to do with a task carried over from a previous day. */
@@ -76,6 +95,27 @@ export type Recurrence =
   | { kind: 'weekly' }
   | { kind: 'everyN'; n: number }
   | { kind: 'weekdays'; days: number[] };
+
+/**
+ * A task that comes back. It is a rule, not a row: the week view draws its
+ * occurrences on the fly, including days that haven't happened yet, and ticking
+ * one records that date only. Spec phase 3.2.
+ */
+export interface RecurringTask {
+  id: string;
+  title: string;
+  projectId?: string;
+  rule: Recurrence;
+  /** The anchor: `everyN` counts from this day, `weekly` repeats on its weekday. */
+  createdAt: number;
+  order: number;
+  /** dayKey → true when that occurrence was completed. */
+  completions: Record<string, true>;
+  /** dayKey → true when that occurrence was skipped, for that date only. */
+  skipped?: Record<string, true>;
+  /** No occurrences after the day this falls on. */
+  endedAt?: number;
+}
 
 // ── Projects ──────────────────────────────────────────────────────────────────
 
@@ -104,5 +144,12 @@ export interface Project {
   progress: { time: Record<string, number> };
   /** metric → running cumulative total, immune to `prunePeriods`. */
   total: { time: number };
+  /**
+   * Time credited to this project that no entry in the ledger backs — goal
+   * time logged before the ledger existed, and days aged out of history. A
+   * re-sum from the ledger adds this back on top; without it, the first edit
+   * anywhere would zero every hour the ledger cannot see. Absent means none.
+   */
+  carried?: { time: Record<string, number>; total: number };
   archivedAt?: number;
 }

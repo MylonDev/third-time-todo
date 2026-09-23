@@ -14,19 +14,26 @@ Live at **https://mylondev.github.io/third-time-todo/**
   step; you just start a timer and stop it. The bank itself isn't stored — it's
   derived on the fly from a ledger of time entries, so trimming or moving an
   entry later moves the break it earned along with it.
-- **Difficulty modes** — Locked in (1:4), Serious (1:3), Relaxed (1:2). Each
-  time entry remembers the mode that was in force when it ran, so switching
-  modes never rewrites what you already earned.
+- **Difficulty per day** — Locked in (1:4), Serious (1:3), Relaxed (1:2). Each
+  day starts at your default and keeps its own mode; easing off once you've
+  started uses a daily reduction (one by default, configurable), raising never
+  does. The picker suggests a mode from your pace band. Each time entry
+  remembers the mode it ran at, so a change is never retroactive.
 - **Projects** — a name, an optional colour, an optional time target per period
   ("10h / week"), an optional deadline. Time accrues to a project forever; a
   project is archived, never "completed".
-- **Tasks and subtasks** — drag to reorder, per-task time tracking, and an
-  end-of-day flow for whatever is left over. A task can be tagged to a
-  project, and a timer started on that task credits the project too.
+- **A weekly schedule** — the Tasks tab is seven day columns, This week or
+  Rolling, filterable by project. Tasks can be planned for later days or set to
+  repeat (daily, chosen weekdays, weekly, every N days); repeats are rules, so
+  future occurrences show before they exist. Unfinished tasks stay on their day
+  as missed, and today's Overdue strip pulls them forward. Subtasks, drag to
+  reorder, and per-task time tracking; a task tagged to a project credits it.
 - **A configurable end of day** — the day cuts over at midnight by default, but
   can be pushed to 1–4 AM for anyone who works past midnight. A timer left
   running across that boundary gets split there instead of stalling the day.
-- **Activity** — daily history of work, break, and unused rest time.
+- **Activity** — daily history of work and rest, a pace band, and an editable
+  day timeline: tap a block to trim, reassign, split or delete it; drag empty
+  rail to add one you forgot to start. Totals re-sum from the ledger.
 - Installable PWA with sound and notification cues. Everything is stored in
   `localStorage`; there is no account and no server.
 
