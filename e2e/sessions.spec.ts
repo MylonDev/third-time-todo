@@ -10,6 +10,18 @@ async function store(page: Page) {
 }
 
 /**
+ * A close stamp that leaves room for a two-hour gap on the same day. Anchored
+ * to `Date.now()` instead, any run after 22:00 crossed midnight during the gap,
+ * the settled stint was (correctly) archived into yesterday, and a test reading
+ * today's entries found nothing there.
+ */
+function middayToday(): number {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  return d.getTime();
+}
+
+/**
  * Move the whole app to a later date. `todayKey()` reads the system clock, so
  * shifting the clock is how a day rollover gets exercised.
  */
@@ -76,7 +88,7 @@ test.describe('restoring a timer that survived a reload', () => {
   test('Continue logs the time actually worked, not the time the tab was closed', async ({ app }) => {
     const workedMs = 1_500;
     const gapMs = 2 * 3_600_000; // two hours with the tab closed — well past the 30-minute Resume cutoff
-    const closedAt = Date.now();
+    const closedAt = middayToday();
 
     await seedClosedTimer(app, workedMs, closedAt);
     await app.clock.install();
@@ -106,7 +118,7 @@ test.describe('restoring a timer that survived a reload', () => {
   test('backgrounding the tab while the prompt is up does not move the close stamp', async ({ app }) => {
     const workedMs = 1_500;
     const gapMs = 2 * 3_600_000;
-    const closedAt = Date.now();
+    const closedAt = middayToday();
 
     await seedClosedTimer(app, workedMs, closedAt);
     await app.clock.install();
@@ -133,7 +145,7 @@ test.describe('restoring a timer that survived a reload', () => {
   test('Continue logs actual rest taken on a break, not the time the tab was closed', async ({ app }) => {
     const restedMs = 1_500;
     const gapMs = 2 * 3_600_000;
-    const closedAt = Date.now();
+    const closedAt = middayToday();
 
     await app.evaluate(
       ({ restedMs, closedAt, date }) => {
@@ -264,44 +276,20 @@ test.describe('the day ends by itself', () => {
   });
 });
 
-test.describe('tasks carried over', () => {
-  test('are triaged on the new day, not by ending a timer', async ({ app }) => {
+// Unfinished tasks used to be carried into the new day behind a triage modal.
+// They now stay on the day they were planned for; the Overdue strip in
+// today's column is how they come back (see schedule.spec.ts).
+test.describe('a new day with unfinished tasks', () => {
+  test('asks nothing, and leaves them where they were planned', async ({ app }) => {
     await addTask(app, 'Yesterday task');
     await startWork(app);
     await app.waitForTimeout(1200);
-
-    // Stopping the timer must not ask the day-scoped question.
     await app.getByRole('button', { name: 'Stop' }).click();
-    await expect(app.getByText('came with you')).toBeHidden();
 
     await setClockDaysAhead(app, 1);
     await app.reload();
-    await expect(app.getByText('came with you')).toBeVisible();
-    await expect(app.getByRole('dialog')).toHaveAttribute('aria-label', 'Tasks carried over');
-  });
-
-  test('dismissing keeps them, and it does not ask twice', async ({ app }) => {
-    await addTask(app, 'Yesterday task');
-    await setClockDaysAhead(app, 1);
-    await app.reload();
-
-    await expect(app.getByRole('dialog')).toBeVisible();
-    await app.keyboard.press('Escape');
-    await expect(app.getByRole('checkbox', { name: 'Yesterday task' })).toBeVisible();
-
-    await app.reload();
-    await expect(app.getByRole('dialog'), 'asked again on the same day').toBeHidden();
-    await expect(app.getByRole('checkbox', { name: 'Yesterday task' })).toBeVisible();
-  });
-
-  test('Discard drops the task', async ({ app }) => {
-    await addTask(app, 'Yesterday task');
-    await setClockDaysAhead(app, 1);
-    await app.reload();
-
-    await app.getByRole('button', { name: 'Discard' }).click();
-    await app.getByRole('button', { name: 'Start the day' }).click();
-    await expect(app.getByRole('checkbox', { name: 'Yesterday task' })).toBeHidden();
+    await expect(app.getByRole('dialog')).toHaveCount(0);
+    await expect(app.getByTestId('overdue')).toContainText('Yesterday task');
   });
 });
 

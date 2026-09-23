@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { BreakBank } from './components/BreakBank';
 import { SessionTimer } from './components/SessionTimer';
 import { TaskList } from './components/TaskList';
@@ -8,10 +8,9 @@ import { Activity } from './components/Activity';
 import { ModeSelector } from './components/ModeSelector';
 import { OptionsPanel } from './components/OptionsPanel';
 import { RestoreSessionModal } from './components/RestoreSessionModal';
-import { CarriedOverModal } from './components/CarriedOverModal';
 import { useSession } from './store/session';
 import { useSettings } from './store/settings';
-import { useTasks } from './store/tasks';
+import { useDayMode } from './hooks/useDayMode';
 import { requestNotificationPermission } from './utils/notifications';
 import { todayKey, dayEndOf } from './utils/thirdTime';
 import type { TabId } from './types';
@@ -34,15 +33,11 @@ export default function App() {
     discardRestoredSession,
     maybeArchivePreviousDay,
   } = useSession();
-  const { theme, mode, activeTab, setActiveTab, quotes, showQuote, setShowQuote, dayEndHour } = useSettings();
-  const { rolloverPastTasks } = useTasks();
-
-  // Tasks that came over from a previous day on this open. Offered for triage
-  // once — they have already been moved, so dismissing is a valid answer.
-  const [carriedOver, setCarriedOver] = useState<string[]>([]);
-
-  // Close out a day that ended while the app was away, then roll unfinished
-  // tasks into today.
+  const { theme, activeTab, setActiveTab, quotes, showQuote, setShowQuote, dayEndHour } = useSettings();
+  const mode = useDayMode();
+  // Close out a day that ended while the app was away. Unfinished tasks are
+  // not moved: they stay on the day they were planned for, and today's
+  // Overdue strip offers them back.
   useEffect(() => {
     // First, close any timer that was still running when the app went away, at
     // the moment it went away. Everything after that is a gap the restore
@@ -50,10 +45,6 @@ export default function App() {
     // the open segment as though it had been running the whole time.
     settleClosedSession();
     maybeArchivePreviousDay();
-    // Only ever widen the list — under StrictMode this runs twice, and the
-    // second pass finds nothing left to move.
-    const carried = rolloverPastTasks();
-    if (carried.length > 0) setCarriedOver(carried);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -83,20 +74,18 @@ export default function App() {
     };
   }, []);
 
-  // A tab left open across the day boundary keeps yesterday's task list;
-  // re-run rollover as the day turns. Re-scheduled whenever `dayEndHour`
+  // A tab left open across the day boundary would keep drawing yesterday as
+  // today; roll the ledger and re-render as the day turns. Re-scheduled whenever `dayEndHour`
   // changes, since that moves when "the day turns" means.
   const [dayKey, setDayKey] = useState(() => todayKey(dayEndHour));
   useEffect(() => {
     const turnover = dayEndOf(todayKey(dayEndHour), dayEndHour);
     const id = setTimeout(() => {
       maybeArchivePreviousDay();
-      const carried = rolloverPastTasks();
-      if (carried.length > 0) setCarriedOver(carried);
       setDayKey(todayKey(dayEndHour));
     }, turnover - Date.now());
     return () => clearTimeout(id);
-  }, [dayKey, dayEndHour, rolloverPastTasks, maybeArchivePreviousDay]);
+  }, [dayKey, dayEndHour, maybeArchivePreviousDay]);
 
   // Restore handlers
   const [restoreModalDismissed, setRestoreModalDismissed] = useState(false);
@@ -298,12 +287,6 @@ export default function App() {
           onResume={handleRestoreResume}
         />
       )}
-
-      <AnimatePresence>
-        {carriedOver.length > 0 && (
-          <CarriedOverModal taskIds={carriedOver} onClose={() => setCarriedOver([])} />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

@@ -117,8 +117,18 @@ export function todayKey(dayEndHour: number): string {
   return dayKeyOf(Date.now(), dayEndHour);
 }
 
+/**
+ * The day key `n` days after `key` (before, for negative `n`). Calendar
+ * arithmetic, not `± n × 24h`: across a DST change a day is 23 or 25 hours
+ * long, and a fixed step lands on the wrong side of it.
+ */
+export function shiftDayKey(key: string, n: number): string {
+  const [y, m, d] = key.split('-').map(Number);
+  return dateKey(new Date(y, m - 1, d + n));
+}
+
 export function tomorrowKey(dayEndHour: number): string {
-  return dayKeyOf(Date.now() + 86_400_000, dayEndHour);
+  return shiftDayKey(todayKey(dayEndHour), 1);
 }
 
 /** The instant the day named by `key` begins. */
