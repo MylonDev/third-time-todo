@@ -1,6 +1,6 @@
 # Two-state rebuild: Should earns Want
 
-**Status:** plan, nothing built yet.
+**Status:** decisions settled; Phases 0 and 1 in progress.
 
 The app stops being a work/break timer with a todo list attached. It becomes a
 balance between two kinds of time you spend on purpose: things you **should**
@@ -35,13 +35,15 @@ interface TimeEntry {            // append-only ledger
   deletedAt?: number;            // tombstone, so deletes sync
 }
 
-type ListKind = 'should' | 'want' | 'later';
-
 interface Item {                 // a checklist line, no timer attached
   id: string;
   text: string;
-  list: ListKind;
+  kind: 'should' | 'want';
+  dueOn: string | null;          // day key; null = Later ("someday")
   done: boolean;
+  doneAt?: number;
+  repeat?: Recurrence;           // daily | weekdays | weekly | every N days
+  nextId?: string;               // the occurrence a completion spawned
   order: number;
   updatedAt: number;
   deletedAt?: number;
@@ -57,9 +59,10 @@ interface Settings {
 
 - **Balance for a day** = `shouldMs / 3 - wantMs`, over entries inside that
   day's window, including the running entry measured to `now`. Derived on read.
-- **Day boundary.** Entries are split at the day end, as `splitAtBoundary` does
-  today. The balance (credit or debt) starts at 0 each day. The running timer
-  continues across the boundary as a new entry.
+- **Day boundary.** Entries are never split. A day's totals clip each entry to
+  that day's window, so an entry that crosses the boundary counts toward both
+  days and the running timer simply continues. The balance (credit or debt)
+  starts at 0 each day.
 - **Daily target.** Optional. Progress is `shouldMs / target`. Reaching it shows
   a quiet "done for today, you can stop" state. Nothing happens if you ignore it.
 - **One running entry.** There is at most one entry with `endedAt = null`.
@@ -73,10 +76,17 @@ interface Settings {
    (Should / Want), Stop, and the day balance. The balance reads as "Want
    available" when positive and "Want debt" when negative.
 2. **Correct** control on the running timer (below).
-3. **Should**, **Want** and **Later** lists. Items are plain checklist lines:
-   add, check off, edit, reorder, move between lists. Later holds anything that
-   does not belong to this day, and you pull an item into Today when it does.
-   Unchecked Today items stay on Today at the day boundary, marked as carried.
+3. **Today** and **Later**, switched by a segmented control. Each shows a
+   **Should** and a **Want** section of plain checklist lines: add, check off,
+   edit, move. Which view an item is in follows from `dueOn`:
+   - **Today** shows every unchecked item due today **or earlier**. Anything
+     overdue sits in Today, marked with how late it is, and stays until done
+     or moved. Items checked off today stay visible, struck through.
+   - **Later** shows items due after today, grouped by date, then items with no
+     date ("Someday").
+   - A new item added in Today is due today. One added in Later has no date.
+   - Setting a date (Today, Tomorrow, a picked day, Someday) is how an item
+     moves between the views.
 4. **Daily target progress**, shown only if a target is set.
 
 **Days** is a simple history list: per day, Should time, Want time, ending
@@ -87,22 +97,51 @@ editing with the same correction tools.
 
 There is no tab shell, week view, pace chart or timeline rail.
 
+## Recurring items
+
+Both Should and Want items can repeat: daily, chosen weekdays, weekly, or every
+N days.
+
+- A repeating item is an ordinary item with a `repeat` rule. **Checking it off
+  creates the next occurrence**, due on the first matching day after the later
+  of its due date and today. Missing several days therefore leaves one overdue
+  item, not a pile.
+- The next occurrence has a deterministic id (`seriesId:dueOn`), so two devices
+  completing the same item create one occurrence, not two. The completed item
+  records it in `nextId`.
+- Unchecking an item removes the occurrence it spawned, if that is untouched.
+- Deleting a repeating item stops the series. A dialog offers "this one only"
+  versus "this and future ones".
+- Weekly repeats on the weekday of the item's current due date. Every-N counts
+  from the later of the due date and today.
+
 ## Correcting the timer
 
-One control on the running timer, **Switch X ago**, with chips for 5, 10, 15
-and 30 minutes plus a custom value. It moves the boundary between the previous
-stretch and the current one:
+One control on the running timer, **Fix timer**, covers every case with one
+question and two answers:
 
-| You were | Action | Result |
-| --- | --- | --- |
-| Running Should, but did Want for the last X | Switch to Want, X ago | Should is closed at now - X, Want opens there |
-| Running Want, but did Should for the last X | Switch to Should, X ago | the mirror |
-| Forgot to stop | Stop, X ago | the entry ends at now - X, the rest is rest |
+1. **How long?** Chips for 5, 10, 15 and 30 minutes plus a custom value.
+2. **Those minutes were:** Should, Want, or Rest.
+3. **Since then I've been:** Should, Want, or Stopped. This defaults to the
+   current state.
 
-If X reaches back past the start of the current entry, it also shortens the
-entry before it, and an X larger than the whole of the day's history is refused.
-These are ordinary ledger edits: they change `startedAt` and `endedAt` and bump
-`updatedAt`. The same edit is available on any entry in the Days view.
+| You were | Those minutes were | Since then | Result |
+| --- | --- | --- | --- |
+| Running Should, did Want for 20 min and are still on it | Want | Want | Should up to now-20, Want runs from there |
+| Running Should, did Want for 20 min and are back | Want | Should | A 20 min Want entry, Should resumes now |
+| Forgot to stop 20 min ago | Rest | Stopped | The last 20 min are removed, timer off |
+
+A one-line preview ("Want from 2:14 to 2:34, then Should") is shown before
+applying. Underneath it is a single ledger operation, **paint(from, to,
+state | rest)**, which overwrites a range of time. Entries inside the range are
+tombstoned, entries straddling it are trimmed, and adjacent entries of the same
+state merge. The same operation will power editing in the Days view.
+
+If the range reaches back over earlier entries it overwrites them, so a Fix can
+also repair a state switch you made late. A range longer than 12 hours is
+refused.
+
+
 
 ## What stays from the current code
 
@@ -130,8 +169,10 @@ These three were named as important.
 - The lock is released whenever the page is hidden, so re-acquire it on
   `visibilitychange`.
 - Wake lock inside an installed iOS home-screen app has had bugs in some
-  releases. **Verify on the actual phone and iOS version before relying on it.**
-  If it fails, show nothing alarming and fall back to a normal timer.
+  releases. The target device runs iOS 27.2 (developer build), which is newer
+  than anything I can check behaviour for, so **the only real test is on the
+  phone**. If acquiring the lock fails, fall back to a normal timer with no
+  alarming error.
 
 ### Background tracking
 - The running entry is persisted the moment it starts, locally and to the
@@ -215,11 +256,10 @@ conflicting timers.
 Empty and error states. Optional web push for "balance is in debt" and "target
 reached", only if awareness alone proves not to be enough.
 
-## Open questions
+## Decisions
 
-1. **Carried items.** The plan keeps unchecked Today items on Today at the day
-   boundary. The alternative is moving them to Later. Say if you prefer that.
-2. **Want items.** The plan lets Want items be checked off like any other. If
-   wants should be reusable ("guitar" every day), they would need to reset
-   daily, which adds recurrence. Left out for now.
-3. **Old data.** Fresh start, or a one-off import of the existing ledger?
+1. **Overdue** items show in Today until done or moved.
+2. **Both lists** can hold recurring items, and Want items can be checked off.
+3. **Fresh start.** No import. Old `tt-*` localStorage keys are left untouched
+   and ignored; the new app uses `tt2-*` keys.
+4. **Device:** iOS 27.2 developer build.

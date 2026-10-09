@@ -1,7 +1,7 @@
 {
   "name": "Third Time",
   "short_name": "Third Time",
-  "description": "Work freely. Earn your breaks.",
+  "description": "Do what you should. Earn what you want.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
