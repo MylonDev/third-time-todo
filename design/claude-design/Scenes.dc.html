@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scene library</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#000;font-family:'Space Grotesk',system-ui,sans-serif}
+.drift{animation:drift 22s ease-in-out infinite alternate}
+.fall-rain{animation:fall-rain 1s linear infinite}
+.fall-snow{animation:fall-snow 8s linear infinite}
+.fall-petal{animation:fall-petal 11s linear infinite}
+.float{animation:float 4s ease-in-out infinite}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(24px)}}
+@keyframes fall-rain{from{transform:translate(0,-30px)}to{transform:translate(-30px,340px)}}
+@keyframes fall-snow{0%{transform:translate(0,-10px)}50%{transform:translate(10px,170px)}100%{transform:translate(-6px,330px)}}
+@keyframes fall-petal{0%{transform:translate(0,-10px)}50%{transform:translate(-40px,170px)}100%{transform:translate(10px,330px)}}
+@keyframes float{0%,100%{transform:translate(0,0);opacity:0.2}50%{transform:translate(10px,-14px);opacity:1}}
+@media (prefers-reduced-motion:reduce){.drift,.fall-rain,.fall-snow,.fall-petal,.float{animation:none}}
+</style>
+</helmet>
+<div style="width:1624px;height:1340px;box-sizing:border-box;background:#000;padding:48px;display:flex;flex-direction:column;gap:40px;color:#EDE6D3">
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:32px">
+    <div>
+      <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.14em;color:rgba(237,230,211,0.62)">SCENE LIBRARY</p>
+      <h1 style="margin:6px 0 0;font-size:48px;line-height:1;font-weight:700;letter-spacing:-0.03em">Sun and Wires, every vista</h1>
+    </div>
+    <p style="margin:0;max-width:560px;font-size:16px;line-height:1.5;color:rgba(237,230,211,0.72)">One scene, four inputs: season, time of day, weather and the Should / Want mode. The sun or moon still climbs with your daily target. Season sets the branch and what drifts down. Weather sets the sky and precipitation. Mode sets the color family.</p>
+  </div>
+
+  <div>
+    <p style="margin:0 0 12px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;color:#86B594">SEASON  /  SHOULD, DAY, CLEAR</p>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px">
+      <div><div style="border-radius:28px;overflow:hidden;width:358px;height:310px"><dc-import name="Scene" mode="should" progress="0.45" season="spring" time="day" weather="clear" hint-size="358px,310px"></dc-import></div><p style="margin:10px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em">SPRING  /  SAKURA PETALS</p></div>
+      <div><div style="border-radius:28px;overflow:hidden;width:358px;height:310px"><dc-import name="Scene" mode="should" progress="0.45" season="summer" time="day" weather="clear" hint-size="358px,310px"></dc-import></div><p style="margin:10px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em">SUMMER  /  GREEN LEAVES</p></div>
+      <div><div style="border-radius:28px;overflow:hidden;width:358px;height:310px"><dc-import name="Scene" mode="should" progress="0.45" season="autumn" time="day" weather="clear" hint-size="358px,310px"></dc-import></div><p style="margin:10px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em">AUTUMN  /  MAPLE</p></div>
+      <div><div style="border-radius:28px;overflow:hidden;width:358px;height:310px"><dc-import name="Scene" mode="should" progress="0.45" season="winter" time="day" weather="clear" hint-size="358px,310px"></dc-import></div><p style="margin:10px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em">WINTER  /  SNOW ON THE ROOFS</p></div>
+    </div>
+  </div>
+
+  <div>
+    <p style="margin:0 0 12px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;color:#86B594">WEATHER  /  SHOULD, DAY, AUTUMN</p>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px">
+      <div><div style="border-radius:28px;overflow:hidden;width:358px;height:310px"><dc-import name="Scene" mode="should" progress="0.45" season="autumn" time="day" weather="cloudy" hint-size="358px,310px"></dc-import></div><p style="margin:10px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em">CLOUDY</p></div>
+      <div><div style="border-radius:28px;overflow:hidden;width:358px;height:310px"><dc-import name="Scene" mode="should" progress="0.45" season="autumn" time="day" weather="rain" hint-size="358px,310px"></dc-import></div><p style="margin:10px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em">RAIN  /  SUN HIDDEN</p></div>
+      <div><div style="border-radius:28px;overflow:hidden;width:358px;height:310px"><dc-import name="Scene" mode="should" progress="0.45" season="autumn" time="day" weather="snow" hint-size="358px,310px"></dc-import></div><p style="margin:10px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em">SNOW</p></div>
+      <div><div style="border-radius:28px;overflow:hidden;width:358px;height:310px"><dc-import name="Scene" mode="should" progress="0.45" season="autumn" time="day" weather="fog" hint-size="358px,310px"></dc-import></div><p style="margin:10px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em">FOG  /  HILLS FADE</p></div>
+    </div>
+  </div>
+
+  <div>
+    <p style="margin:0 0 12px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;color:#86B594">TIME OF DAY AND MODE</p>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px">
+      <div><div style="border-radius:28px;overflow:hidden;width:358px;height:310px"><dc-import name="Scene" mode="should" progress="0.12" season="spring" time="dawn" weather="clear" hint-size="358px,310px"></dc-import></div><p style="margin:10px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em">DAWN  /  SHOULD, 12%</p></div>
+      <div><div style="border-radius:28px;overflow:hidden;width:358px;height:310px"><dc-import name="Scene" mode="should" progress="0.8" season="autumn" time="dusk" weather="clear" hint-size="358px,310px"></dc-import></div><p style="margin:10px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em">DUSK  /  SHOULD, 80%</p></div>
+      <div><div style="border-radius:28px;overflow:hidden;width:358px;height:310px"><dc-import name="Scene" mode="rest" progress="0.36" season="summer" time="night" weather="clear" hint-size="358px,310px"></dc-import></div><p style="margin:10px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em">NIGHT  /  RESTING, FIREFLIES</p></div>
+      <div><div style="border-radius:28px;overflow:hidden;width:358px;height:310px"><dc-import name="Scene" mode="want" progress="0.36" season="autumn" time="day" weather="clear" hint-size="358px,310px"></dc-import></div><p style="margin:10px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em">DAY  /  WANT, PAPER SKY, RED SUN</p></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1624,"height":1340}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

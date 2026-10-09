@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today, Orbit</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Space Grotesk',system-ui,sans-serif}
+button,input{font-family:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.press{transition:transform .18s cubic-bezier(.3,1.7,.5,1)}
+.press:active{transform:scale(.95)}
+@keyframes beat{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+.beat{animation:beat 1.6s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.beat{animation:none}.press{transition:none}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:1080px;box-sizing:border-box;background-color:{{bg}};padding:16px 16px 20px;display:flex;flex-direction:column;gap:14px;color:{{paper}};overflow:hidden;transition:background-color .4s">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;min-height:44px">
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <span style="font-size:18px;font-weight:700;letter-spacing:-0.01em">Third Time</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.08em;color:{{muted}}">FRI 09·10</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span role="img" aria-label="Synced" style="width:8px;height:8px;border-radius:50%;background:{{b}};margin-right:6px"></span>
+      <button type="button" aria-label="Settings" class="press" style="width:44px;height:44px;border-radius:50%;border:1px solid {{edge}};background:transparent;color:{{paper}};display:flex;align-items:center;justify-content:center">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <section aria-label="Timer" style="position:relative;height:372px;flex:none">
+    <svg aria-hidden="true" width="358" height="372" viewBox="0 0 358 372" style="position:absolute;inset:0">
+      <ellipse cx="146" cy="176" rx="190" ry="58" fill="none" stroke="{{paper}}" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5" transform="rotate(-22 146 176)"/>
+      <ellipse cx="146" cy="176" rx="150" ry="30" fill="none" stroke="{{paper}}" stroke-opacity="0.14" stroke-width="1" transform="rotate(28 146 176)"/>
+      <circle cx="146" cy="176" r="134" fill="none" stroke="{{paper}}" stroke-opacity="0.16" stroke-width="2"/>
+      <circle cx="146" cy="176" r="134" fill="none" stroke="{{paper}}" stroke-width="3" stroke-linecap="round" stroke-dasharray="841.9" style="stroke-dashoffset:{{ringOffset}};transition:stroke-dashoffset 1s linear;transform:rotate(-90deg);transform-origin:146px 176px"/>
+      <g style="transform:translate({{moonX}}px,{{moonY}}px);transition:transform 1s linear"><circle r="11" fill="{{bg}}"/><circle r="7" fill="{{paper}}"/></g>
+    </svg>
+
+    <div style="position:absolute;left:28px;top:58px;width:236px;height:236px;border-radius:50%;box-sizing:border-box;border:1px solid {{edge}};background-color:{{planetBg}};color:{{planetInk}};display:flex;flex-direction:column;align-items:center;justify-content:center;transition:background-color .55s cubic-bezier(.2,.8,.2,1),color .55s cubic-bezier(.2,.8,.2,1);overflow:hidden">
+      <div aria-hidden="true" style="position:absolute;left:-30px;top:120px;width:300px;height:300px;border-radius:50%;background:{{planetShade}};transition:background-color .55s"></div>
+      <p style="position:relative;margin:0;display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.14em"><span class="beat" style="width:8px;height:8px;border-radius:50%;background:currentColor"></span>{{label}}</p>
+      <p data-testid="elapsed" style="position:relative;margin:6px 0 0;font-family:'JetBrains Mono',monospace;font-size:{{digitSize}}px;font-weight:700;line-height:1;letter-spacing:-0.04em">{{elapsedText}}</p>
+    </div>
+
+    <p style="position:absolute;left:0;top:6px;margin:0;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.12em;color:{{muted}}">DAY 282 / 365</p>
+    <div style="position:absolute;right:0;top:6px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.12em;color:{{muted}}">
+      <div>DAILY TARGET</div><div style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:{{paper}}">{{targetPct}}%</div>
+    </div>
+
+    <div style="position:absolute;right:0;bottom:30px;width:152px;box-sizing:border-box;padding:12px;border:1px solid {{edgeStrong}};background-color:{{bg}};transition:background-color .4s">
+      <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.12em;color:{{muted}}">{{balanceLabel}}</p>
+      <p style="margin:2px 0 8px;font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:700;letter-spacing:-0.04em;color:{{balanceColor}};transition:color .4s">{{balanceText}}</p>
+      <div style="border-top:1px solid {{edge}};padding-top:6px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.08em;color:{{muted}};display:flex;justify-content:space-between"><span>S {{shouldText}}</span><span>W {{wantText}}</span></div>
+    </div>
+  </section>
+
+  <div role="group" aria-label="Timer state" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:-4px">
+    <button type="button" class="press" aria-pressed="{{isShould}}" onClick="{{pickShould}}" style="position:relative;min-height:92px;border-radius:22px;padding:14px 16px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;border:0;background-color:{{a}};color:{{ink}};opacity:{{shouldOpacity}};box-shadow:{{shouldRing}};transition:opacity .3s,box-shadow .3s">
+      <span style="display:flex;justify-content:space-between;align-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.1em"><span>01</span><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></span>
+      <span><span style="display:block;font-size:26px;font-weight:700;letter-spacing:-0.02em;line-height:1">Should</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.1em">{{shouldSub}}</span></span>
+    </button>
+    <button type="button" class="press" aria-pressed="{{isWant}}" onClick="{{pickWant}}" style="position:relative;min-height:92px;border-radius:22px;padding:14px 16px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;border:0;background-color:{{b}};color:{{ink}};opacity:{{wantOpacity}};box-shadow:{{wantRing}};transition:opacity .3s,box-shadow .3s">
+      <span style="display:flex;justify-content:space-between;align-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.1em"><span>02</span><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></span>
+      <span><span style="display:block;font-size:26px;font-weight:700;letter-spacing:-0.02em;line-height:1">Want</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.1em">{{wantSub}}</span></span>
+    </button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+    <button type="button" class="press" onClick="{{stop}}" disabled="{{isRest}}" style="min-height:48px;border-radius:24px;border:1px solid {{edgeStrong}};background:transparent;color:{{paper}};font-size:16px;font-weight:600;opacity:{{runOpacity}};transition:opacity .3s">Stop</button>
+    <button type="button" class="press" disabled="{{isRest}}" style="min-height:48px;border-radius:24px;border:1px solid {{edge}};background:transparent;color:{{muted}};font-size:16px;font-weight:500;opacity:{{runOpacity}};transition:opacity .3s">Fix timer</button>
+  </div>
+
+  <section aria-label="Should" style="margin-top:6px">
+    <div style="display:flex;align-items:center;gap:12px;padding-bottom:6px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:{{muted}}">01</span>
+      <h2 style="margin:0;font-size:22px;font-weight:700;letter-spacing:-0.02em;color:{{a}}">Should</h2>
+      <span aria-hidden="true" style="flex:1;border-top:1px solid {{edge}}"></span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:{{muted}}">{{shouldCount}}</span>
+    </div>
+    <ul style="list-style:none;margin:0;padding:0">
+      <sc-for list="{{shouldItems}}" as="item" hint-placeholder-count="3">
+        <li style="display:flex;align-items:center;gap:6px;min-height:54px;border-top:1px solid {{edge}}">
+          <button type="button" role="checkbox" aria-checked="{{item.done}}" aria-label="{{item.text}}" onClick="{{item.toggle}}" class="press" style="flex:none;width:44px;height:44px;margin-left:-8px;border:0;background:transparent;display:flex;align-items:center;justify-content:center">
+            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26"><rect x="1.5" y="1.5" width="23" height="23" rx="7" stroke="{{a}}" stroke-width="2" style="fill:{{item.fill}};transition:fill .22s"/><path d="M7.5 13.5l4 4 7-8" fill="none" stroke="{{ink}}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" style="stroke-dashoffset:{{item.dash}};transition:stroke-dashoffset .3s cubic-bezier(.3,1,.4,1) .05s"/></svg>
+          </button>
+          <div style="flex:1;min-width:0;padding:6px 0">
+            <span style="display:block;font-size:17px;font-weight:500;color:{{item.ink}};text-decoration:{{item.strike}};transition:color .25s">{{item.text}}</span>
+            <sc-if value="{{item.note}}" hint-placeholder-val="{{ true }}"><span style="display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.08em;color:{{item.noteColor}}">{{item.note}}</span></sc-if>
+          </div>
+        </li>
+      </sc-for>
+    </ul>
+  </section>
+
+  <section aria-label="Want">
+    <div style="display:flex;align-items:center;gap:12px;padding-bottom:6px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:{{muted}}">02</span>
+      <h2 style="margin:0;font-size:22px;font-weight:700;letter-spacing:-0.02em;color:{{b}}">Want</h2>
+      <span aria-hidden="true" style="flex:1;border-top:1px solid {{edge}}"></span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:{{muted}}">{{wantCount}}</span>
+    </div>
+    <ul style="list-style:none;margin:0;padding:0">
+      <sc-for list="{{wantItems}}" as="item" hint-placeholder-count="2">
+        <li style="display:flex;align-items:center;gap:6px;min-height:54px;border-top:1px solid {{edge}}">
+          <button type="button" role="checkbox" aria-checked="{{item.done}}" aria-label="{{item.text}}" onClick="{{item.toggle}}" class="press" style="flex:none;width:44px;height:44px;margin-left:-8px;border:0;background:transparent;display:flex;align-items:center;justify-content:center">
+            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" stroke="{{b}}" stroke-width="2" style="fill:{{item.fill}};transition:fill .22s"/><path d="M7.5 13.5l4 4 7-8" fill="none" stroke="{{ink}}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" style="stroke-dashoffset:{{item.dash}};transition:stroke-dashoffset .3s cubic-bezier(.3,1,.4,1) .05s"/></svg>
+          </button>
+          <div style="flex:1;min-width:0;padding:6px 0">
+            <span style="display:block;font-size:17px;font-weight:500;color:{{item.ink}};text-decoration:{{item.strike}};transition:color .25s">{{item.text}}</span>
+            <sc-if value="{{item.note}}" hint-placeholder-val="{{ true }}"><span style="display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.08em;color:{{item.noteColor}}">{{item.note}}</span></sc-if>
+          </div>
+        </li>
+      </sc-for>
+    </ul>
+  </section>
+
+  <nav aria-label="Views" style="margin-top:auto;display:flex;align-items:center;gap:6px;padding:6px;border-radius:30px;background-color:{{panel}};border:1px solid {{edge}}">
+    <button type="button" aria-pressed="true" class="press" style="flex:1;min-height:48px;border-radius:24px;border:0;background:{{paper}};color:{{ink}};font-size:15px;font-weight:700">Today</button>
+    <button type="button" aria-pressed="false" class="press" style="flex:1;min-height:48px;border-radius:24px;border:0;background:transparent;color:{{muted}};font-size:15px;font-weight:600">Later</button>
+    <button type="button" aria-label="Add item" class="press" style="flex:none;width:48px;height:48px;border-radius:50%;border:1px solid {{edgeStrong}};background:transparent;color:{{paper}};display:flex;align-items:center;justify-content:center">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["amber","sage","dusk"],"default":"amber"},"$preview":{"width":390,"height":1080}}'>
+class Component extends DCLogic {
+  state = { mode: 'rest', elapsed: 0, balance: 1450, should: 4320, want: 0, done: { s3: true } };
+
+  componentDidMount() { this.timer = setInterval(() => this.tick(), 1000); }
+  componentWillUnmount() { clearInterval(this.timer); }
+
+  tick() {
+    const s = this.state;
+    if (s.mode === 'should') this.setState({ elapsed: s.elapsed + 1, balance: s.balance + 1 / 3, should: s.should + 1 });
+    else if (s.mode === 'want') this.setState({ elapsed: s.elapsed + 1, balance: s.balance - 1, want: s.want + 1 });
+  }
+
+  pad(n) { return String(n).padStart(2, '0'); }
+  clock(sec) {
+    const a = Math.floor(Math.abs(sec));
+    const h = Math.floor(a / 3600), m = Math.floor((a % 3600) / 60), s = a % 60;
+    return (sec < 0 ? '-' : '') + (h ? h + ':' + this.pad(m) : m) + ':' + this.pad(s);
+  }
+  dur(sec) {
+    const m = Math.floor(sec / 60), h = Math.floor(m / 60);
+    return h ? h + 'h' + this.pad(m % 60) : m + 'm';
+  }
+  rgba(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+
+  renderVals() {
+    const s = this.state;
+    const themes = {
+      amber: { bg: '#15181D', panel: '#1E232A', paper: '#EDE3CF', a: '#E5A84B', b: '#9ECBC9', debt: '#E0634F', ink: '#14171B' },
+      sage: { bg: '#131814', panel: '#1C241E', paper: '#EAE5D3', a: '#9DBB8E', b: '#E3C58F', debt: '#E2705A', ink: '#121612' },
+      dusk: { bg: '#1B2230', panel: '#242D3E', paper: '#DDE3EC', a: '#F0A987', b: '#8DBEE0', debt: '#E5677D', ink: '#141A26' },
+    };
+    const t = themes[this.props.theme] || themes.amber;
+    const mode = s.mode, rest = mode === 'rest', debt = s.balance < 0;
+    const planetBg = rest ? t.panel : (mode === 'should' ? t.a : t.b);
+    const planetInk = rest ? t.paper : t.ink;
+    const progress = Math.min(1, s.should / 12000);
+    const ang = progress * Math.PI * 2 - Math.PI / 2;
+    const ring = (on, c) => on ? '0 0 0 3px ' + t.bg + ', 0 0 0 5px ' + t.paper : '0 0 0 0 ' + t.bg;
+    const mk = (list, accent) => list.map((it) => {
+      const done = !!s.done[it.id];
+      return {
+        text: it.text, note: it.note || '', noteColor: it.late ? t.debt : this.rgba(t.paper, 0.62),
+        done: done, fill: done ? accent : 'transparent', dash: done ? 0 : 20,
+        ink: done ? this.rgba(t.paper, 0.5) : t.paper, strike: done ? 'line-through' : 'none',
+        toggle: () => this.setState({ done: { ...s.done, [it.id]: !done } }),
+      };
+    });
+    const sItems = [
+      { id: 's1', text: 'Pay the electricity bill', note: '2 DAYS OVERDUE', late: true },
+      { id: 's2', text: 'Write the quarterly report' },
+      { id: 's3', text: 'Clear the inbox', note: '↻ EVERY WEEKDAY' },
+    ];
+    const wItems = [
+      { id: 'w1', text: 'Practice guitar' },
+      { id: 'w2', text: 'Read a chapter', note: '↻ DAILY' },
+    ];
+    const count = (list) => list.filter((i) => s.done[i.id]).length + '/' + list.length;
+    const elapsedText = rest ? '0:00' : this.clock(s.elapsed);
+    return {
+      bg: t.bg, panel: t.panel, paper: t.paper, a: t.a, b: t.b, ink: t.ink,
+      muted: this.rgba(t.paper, 0.62), edge: this.rgba(t.paper, 0.14), edgeStrong: this.rgba(t.paper, 0.5),
+      planetBg, planetInk, planetShade: this.rgba(t.ink, rest ? 0 : 0.1),
+      label: rest ? 'RESTING' : (mode === 'should' ? 'SHOULD RUNNING' : 'WANT RUNNING'),
+      elapsedText, digitSize: elapsedText.length > 5 ? 40 : 56,
+      ringOffset: 841.9 * (1 - progress), targetPct: Math.round(progress * 100),
+      moonX: 146 + 134 * Math.cos(ang), moonY: 176 + 134 * Math.sin(ang),
+      balanceLabel: debt ? 'WANT DEBT' : 'WANT AVAIL',
+      balanceText: this.clock(s.balance), balanceColor: debt ? t.debt : t.b,
+      shouldText: this.dur(s.should), wantText: this.dur(s.want),
+      isRest: rest, isShould: mode === 'should', isWant: mode === 'want', runOpacity: rest ? 0.35 : 1,
+      shouldOpacity: mode === 'want' ? 0.5 : 1, wantOpacity: mode === 'should' ? 0.5 : 1,
+      shouldRing: ring(mode === 'should'), wantRing: ring(mode === 'want'),
+      shouldSub: mode === 'should' ? 'RUNNING' : 'EARNS 1:3', wantSub: mode === 'want' ? 'RUNNING' : 'SPENDS 1:1',
+      pickShould: () => this.setState({ mode: 'should', elapsed: 0 }),
+      pickWant: () => this.setState({ mode: 'want', elapsed: 0 }),
+      stop: () => this.setState({ mode: 'rest', elapsed: 0 }),
+      shouldItems: mk(sItems, t.a), wantItems: mk(wItems, t.b),
+      shouldCount: count(sItems), wantCount: count(wItems),
+    };
+  }
+}
+</script>
+</body>
+</html>

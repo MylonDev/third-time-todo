@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today, Terminal</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&amp;family=JetBrains+Mono:wght@500;600;700&amp;family=Zen+Kaku+Gothic+New:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#000;font-family:'JetBrains Mono',ui-monospace,monospace}
+button,input{font-family:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.press{transition:transform .16s cubic-bezier(.3,1.7,.5,1)}
+.press:active{transform:scale(.95)}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+.blink{animation:blink 1.1s steps(1) infinite}
+@keyframes beat{0%,100%{opacity:1}50%{opacity:.35}}
+.beat{animation:beat 1.6s ease-in-out infinite}
+input::placeholder{color:rgba(237,230,211,0.5)}
+@media (prefers-reduced-motion:reduce){.blink,.beat{animation:none}.press{transition:none}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:1060px;box-sizing:border-box;background:#000;padding:14px 14px 14px;display:flex;flex-direction:column;gap:18px;color:#EDE6D3;overflow:hidden">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px">
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="display:flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:10px;background:#D9503A;color:#EDE6D3;font-size:12px;font-weight:700"><span aria-hidden="true" style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px">三</span>third-time</span>
+      <span style="display:flex;align-items:center;height:28px;padding:0 10px;border-radius:10px;background-color:{{pillBg}};color:{{pillInk}};font-size:12px;font-weight:700;transition:background-color .4s,color .4s">{{pillText}}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:12px;color:rgba(237,230,211,0.62)">FRI 10·09</span>
+      <button type="button" aria-label="Settings" class="press" style="width:44px;height:44px;border-radius:12px;border:1px solid rgba(134,181,148,0.4);background:transparent;color:#86B594;display:flex;align-items:center;justify-content:center">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <section aria-label="Timer" style="position:relative;border:1px solid rgba(134,181,148,0.45);border-radius:16px;padding:22px 16px 16px;display:flex;flex-direction:column;gap:14px">
+    <h2 style="position:absolute;left:14px;top:-10px;margin:0;padding:0 8px;background:#000;font-size:12px;font-weight:600;color:#86B594"><span aria-hidden="true" style="font-family:'Zen Kaku Gothic New',sans-serif;margin-right:6px">時</span>timer</h2>
+    <div style="display:flex;align-items:center;gap:14px">
+      <svg role="img" aria-label="Daily Should target {{targetPct}} percent" width="84" height="84" viewBox="0 0 84 84" style="flex:none">
+        <circle cx="42" cy="42" r="36" fill="none" stroke="rgba(237,230,211,0.14)" stroke-width="5"/>
+        <circle cx="42" cy="42" r="36" fill="none" stroke="#86B594" stroke-width="5" stroke-linecap="butt" stroke-dasharray="226.2" style="stroke-dashoffset:{{ringOffset}};transition:stroke-dashoffset 1s linear;transform:rotate(-90deg);transform-origin:42px 42px"/>
+        <circle cx="42" cy="42" r="14" style="fill:{{sunFill}};transition:fill .5s"/>
+      </svg>
+      <div style="min-width:0">
+        <p style="margin:0;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:0.12em;color:{{stateColor}};transition:color .4s"><span class="beat" style="width:8px;height:8px;border-radius:50%;background:currentColor"></span>{{label}}</p>
+        <p data-testid="elapsed" style="margin:4px 0 0;font-size:{{digitSize}}px;font-weight:700;line-height:1;letter-spacing:-0.05em;white-space:nowrap">{{elapsedText}}<span class="blink" style="display:inline-block;width:0.42em;height:0.78em;margin-left:6px;background:#86B594;vertical-align:-0.06em"></span></p>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:auto 1fr;column-gap:16px;row-gap:4px;font-size:13px;border-top:1px dashed rgba(237,230,211,0.2);padding-top:12px">
+      <span style="color:#86B594">{{balanceKey}}</span><span data-testid="balance" style="font-weight:700;color:{{balanceColor}};transition:color .4s">{{balanceText}}</span>
+      <span style="color:#86B594">should</span><span>{{shouldText}}</span>
+      <span style="color:#86B594">want</span><span>{{wantText}}</span>
+      <span style="color:#86B594">target</span><span style="letter-spacing:0.02em"><span style="color:#86B594">{{barOn}}</span><span style="color:rgba(237,230,211,0.25)">{{barOff}}</span> {{targetPct}}%</span>
+    </div>
+  </section>
+
+  <section aria-label="Actions" style="position:relative;border:1px solid rgba(134,181,148,0.45);border-radius:16px;padding:22px 12px 12px">
+    <h2 style="position:absolute;left:14px;top:-10px;margin:0;padding:0 8px;background:#000;font-size:12px;font-weight:600;color:#86B594"><span aria-hidden="true" style="font-family:'Zen Kaku Gothic New',sans-serif;margin-right:6px">操</span>actions</h2>
+    <div role="group" aria-label="Timer state" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+      <button type="button" class="press" aria-pressed="{{isShould}}" onClick="{{pickShould}}" style="min-height:76px;border-radius:14px;padding:10px 14px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;border:0;background-color:#2F6B4A;color:#EDE6D3;opacity:{{shouldOpacity}};box-shadow:{{shouldRing}};transition:opacity .3s,box-shadow .3s">
+        <span style="display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:600"><span aria-hidden="true" style="border:1px solid currentColor;border-radius:5px;padding:0 6px">s</span><span aria-hidden="true" style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:20px">務</span></span>
+        <span style="font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;letter-spacing:-0.02em;line-height:1">Should <span style="display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.08em;margin-top:2px">{{shouldSub}}</span></span>
+      </button>
+      <button type="button" class="press" aria-pressed="{{isWant}}" onClick="{{pickWant}}" style="min-height:76px;border-radius:14px;padding:10px 14px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;border:0;background-color:#EDE6D3;color:#06120B;opacity:{{wantOpacity}};box-shadow:{{wantRing}};transition:opacity .3s,box-shadow .3s">
+        <span style="display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:600"><span aria-hidden="true" style="border:1px solid currentColor;border-radius:5px;padding:0 6px">w</span><span aria-hidden="true" style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:20px">望</span></span>
+        <span style="font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;letter-spacing:-0.02em;line-height:1">Want <span style="display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.08em;margin-top:2px">{{wantSub}}</span></span>
+      </button>
+    </div>
+    <div style="display:grid;grid-template-rows:{{stopRows}};margin-top:{{stopMt}}px;transition:grid-template-rows .35s cubic-bezier(.2,.8,.2,1),margin-top .35s cubic-bezier(.2,.8,.2,1)">
+      <div style="min-height:0;overflow:hidden;visibility:{{stopVis}};opacity:{{stopOpacity}};transition:opacity .3s,visibility 0s linear {{stopDelay}}">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+          <button type="button" class="press" onClick="{{stop}}" style="min-height:48px;border-radius:14px;border:1px solid rgba(237,230,211,0.5);background:transparent;color:#EDE6D3;font-size:14px;font-weight:600">stop</button>
+          <button type="button" class="press" style="min-height:48px;border-radius:14px;border:1px solid rgba(237,230,211,0.16);background:transparent;color:rgba(237,230,211,0.7);font-size:14px;font-weight:500">fix timer</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Should" style="position:relative;border:1px solid rgba(134,181,148,0.45);border-radius:16px;padding:20px 12px 8px">
+    <h2 style="position:absolute;left:14px;top:-10px;margin:0;padding:0 8px;background:#000;font-size:12px;font-weight:600;color:#86B594"><span aria-hidden="true" style="font-family:'Zen Kaku Gothic New',sans-serif;margin-right:6px">務</span>should.md</h2>
+    <span style="position:absolute;right:14px;top:-9px;padding:0 8px;background:#000;font-size:11px;color:rgba(237,230,211,0.62)">{{shouldCount}}</span>
+    <ul style="list-style:none;margin:0;padding:0">
+      <sc-for list="{{shouldItems}}" as="item" hint-placeholder-count="3">
+        <li style="display:flex;align-items:center;gap:4px;min-height:48px">
+          <button type="button" role="checkbox" aria-checked="{{item.done}}" aria-label="{{item.text}}" onClick="{{item.toggle}}" class="press" style="flex:none;width:48px;height:44px;border:0;background:transparent;font-size:17px;font-weight:700;color:{{item.markColor}};transition:color .2s">[{{item.mark}}]</button>
+          <div style="flex:1;min-width:0;padding:4px 0">
+            <span style="display:block;font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:500;color:{{item.ink}};text-decoration:{{item.strike}};transition:color .25s">{{item.text}}</span>
+            <sc-if value="{{item.note}}" hint-placeholder-val="{{ true }}"><span style="display:block;font-size:10px;letter-spacing:0.08em;color:{{item.noteColor}}">{{item.note}}</span></sc-if>
+          </div>
+        </li>
+      </sc-for>
+    </ul>
+    <label style="display:flex;align-items:center;gap:8px;min-height:44px;border-top:1px dashed rgba(237,230,211,0.2);margin-top:4px;padding:0 4px;font-size:14px"><span style="color:#86B594" aria-hidden="true">›</span><input placeholder="add something you should do" aria-label="Add to Should" style="flex:1;min-width:0;background:transparent;border:0;outline:0;color:#EDE6D3;font-size:16px;min-height:40px"></label>
+  </section>
+
+  <section aria-label="Want" style="position:relative;border:1px solid rgba(237,230,211,0.35);border-radius:16px;padding:20px 12px 8px">
+    <h2 style="position:absolute;left:14px;top:-10px;margin:0;padding:0 8px;background:#000;font-size:12px;font-weight:600;color:#EDE6D3"><span aria-hidden="true" style="font-family:'Zen Kaku Gothic New',sans-serif;margin-right:6px">望</span>want.md</h2>
+    <span style="position:absolute;right:14px;top:-9px;padding:0 8px;background:#000;font-size:11px;color:rgba(237,230,211,0.62)">{{wantCount}}</span>
+    <ul style="list-style:none;margin:0;padding:0">
+      <sc-for list="{{wantItems}}" as="item" hint-placeholder-count="2">
+        <li style="display:flex;align-items:center;gap:4px;min-height:48px">
+          <button type="button" role="checkbox" aria-checked="{{item.done}}" aria-label="{{item.text}}" onClick="{{item.toggle}}" class="press" style="flex:none;width:48px;height:44px;border:0;background:transparent;font-size:17px;font-weight:700;color:{{item.markColor}};transition:color .2s">({{item.mark}})</button>
+          <div style="flex:1;min-width:0;padding:4px 0">
+            <span style="display:block;font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:500;color:{{item.ink}};text-decoration:{{item.strike}};transition:color .25s">{{item.text}}</span>
+            <sc-if value="{{item.note}}" hint-placeholder-val="{{ true }}"><span style="display:block;font-size:10px;letter-spacing:0.08em;color:{{item.noteColor}}">{{item.note}}</span></sc-if>
+          </div>
+        </li>
+      </sc-for>
+    </ul>
+    <label style="display:flex;align-items:center;gap:8px;min-height:44px;border-top:1px dashed rgba(237,230,211,0.2);margin-top:4px;padding:0 4px;font-size:14px"><span aria-hidden="true">›</span><input placeholder="add something you want to do" aria-label="Add to Want" style="flex:1;min-width:0;background:transparent;border:0;outline:0;color:#EDE6D3;font-size:16px;min-height:40px"></label>
+  </section>
+
+  <nav aria-label="Views" style="margin-top:auto;display:flex;align-items:center;gap:6px;height:48px">
+    <button type="button" aria-pressed="true" class="press" style="flex:1;min-height:44px;border-radius:12px;border:0;background:#86B594;color:#06120B;font-size:13px;font-weight:700">0:today*</button>
+    <button type="button" aria-pressed="false" class="press" style="flex:1;min-height:44px;border-radius:12px;border:1px solid rgba(134,181,148,0.4);background:transparent;color:#86B594;font-size:13px;font-weight:600">1:later</button>
+    <button type="button" aria-label="Add item" class="press" style="flex:none;width:48px;height:44px;border-radius:12px;border:1px solid rgba(237,230,211,0.5);background:transparent;color:#EDE6D3;font-size:20px;font-weight:700">+</button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1060}}'>
+class Component extends DCLogic {
+  state = { mode: 'rest', elapsed: 0, balance: 1450, should: 4320, want: 0, done: { s3: true } };
+
+  componentDidMount() { this.timer = setInterval(() => this.tick(), 1000); }
+  componentWillUnmount() { clearInterval(this.timer); }
+
+  tick() {
+    const s = this.state;
+    if (s.mode === 'should') this.setState({ elapsed: s.elapsed + 1, balance: s.balance + 1 / 3, should: s.should + 1 });
+    else if (s.mode === 'want') this.setState({ elapsed: s.elapsed + 1, balance: s.balance - 1, want: s.want + 1 });
+  }
+
+  pad(n) { return String(n).padStart(2, '0'); }
+  clock(sec) {
+    const a = Math.floor(Math.abs(sec));
+    const h = Math.floor(a / 3600), m = Math.floor((a % 3600) / 60), s = a % 60;
+    return (sec < 0 ? '-' : '') + (h ? h + ':' + this.pad(m) : m) + ':' + this.pad(s);
+  }
+  dur(sec) {
+    const m = Math.floor(sec / 60), h = Math.floor(m / 60);
+    return h ? h + 'h ' + (m % 60) + 'm' : m + 'm';
+  }
+
+  renderVals() {
+    const s = this.state;
+    const PAPER = '#EDE6D3', FOREST = '#2F6B4A', MOSS = '#86B594', RED = '#E5604A';
+    const mode = s.mode, rest = mode === 'rest', debt = s.balance < 0;
+    const progress = Math.min(1, s.should / 12000);
+    const ring = (on) => on ? '0 0 0 3px #000, 0 0 0 5px ' + PAPER : '0 0 0 0 #000';
+    const mk = (list, accent) => list.map((it) => {
+      const done = !!s.done[it.id];
+      return {
+        text: it.text, note: it.note || '', noteColor: it.late ? RED : 'rgba(237,230,211,0.62)',
+        mark: done ? 'x' : ' ', markColor: done ? accent : 'rgba(237,230,211,0.62)',
+        done: done,
+        ink: done ? 'rgba(237,230,211,0.5)' : PAPER, strike: done ? 'line-through' : 'none',
+        toggle: () => this.setState({ done: { ...s.done, [it.id]: !done } }),
+      };
+    });
+    const sItems = [
+      { id: 's1', text: 'Pay the electricity bill', note: '2 DAYS OVERDUE', late: true },
+      { id: 's2', text: 'Write the quarterly report' },
+      { id: 's3', text: 'Clear the inbox', note: '↻ EVERY WEEKDAY' },
+    ];
+    const wItems = [
+      { id: 'w1', text: 'Practice guitar' },
+      { id: 'w2', text: 'Read a chapter', note: '↻ DAILY' },
+    ];
+    const count = (list) => list.filter((i) => s.done[i.id]).length + '/' + list.length;
+    const elapsedText = rest ? '0:00' : this.clock(s.elapsed);
+    const on = Math.round(progress * 12);
+    return {
+      pillBg: rest ? 'rgba(237,230,211,0.14)' : (mode === 'should' ? FOREST : PAPER),
+      pillInk: rest ? PAPER : (mode === 'should' ? PAPER : '#06120B'),
+      pillText: rest ? 'resting' : mode,
+      stateColor: rest ? 'rgba(237,230,211,0.62)' : (mode === 'should' ? MOSS : PAPER),
+      sunFill: rest ? 'rgba(237,230,211,0.3)' : (mode === 'should' ? MOSS : PAPER),
+      label: rest ? 'RESTING' : (mode === 'should' ? 'SHOULD RUNNING' : 'WANT RUNNING'),
+      elapsedText, digitSize: elapsedText.length > 5 ? 34 : 50,
+      ringOffset: 226.2 * (1 - progress), targetPct: Math.round(progress * 100),
+      barOn: '█'.repeat(on), barOff: '░'.repeat(12 - on),
+      balanceKey: debt ? 'debt' : 'avail', balanceText: this.clock(s.balance), balanceColor: debt ? RED : PAPER,
+      shouldText: this.dur(s.should), wantText: this.dur(s.want),
+      isShould: mode === 'should', isWant: mode === 'want',
+      shouldOpacity: mode === 'want' ? 0.45 : 1, wantOpacity: mode === 'should' ? 0.45 : 1,
+      shouldRing: ring(mode === 'should'), wantRing: ring(mode === 'want'),
+      shouldSub: mode === 'should' ? 'RUNNING' : 'EARNS 1:3', wantSub: mode === 'want' ? 'RUNNING' : 'SPENDS 1:1',
+      stopRows: rest ? '0fr' : '1fr', stopMt: rest ? 0 : 10, stopVis: rest ? 'hidden' : 'visible',
+      stopOpacity: rest ? 0 : 1, stopDelay: rest ? '.35s' : '0s',
+      pickShould: () => this.setState({ mode: 'should', elapsed: 0 }),
+      pickWant: () => this.setState({ mode: 'want', elapsed: 0 }),
+      stop: () => this.setState({ mode: 'rest', elapsed: 0 }),
+      shouldItems: mk(sItems, MOSS), wantItems: mk(wItems, PAPER),
+      shouldCount: count(sItems), wantCount: count(wItems),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Instrument Panel language</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#15181D;font-family:'Space Grotesk',system-ui,sans-serif;color:#EDE3CF}
+</style>
+</helmet>
+<div style="width:1240px;height:860px;box-sizing:border-box;background:#15181D;padding:48px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-template-rows:auto 1fr 1fr;gap:16px;color:#EDE3CF;font-family:'Space Grotesk',system-ui,sans-serif">
+
+  <div style="grid-column:span 12;display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+    <div>
+      <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.14em;color:rgba(237,227,207,0.62)">DESIGN LANGUAGE / 01</p>
+      <h1 style="margin:6px 0 0;font-size:56px;line-height:1;font-weight:700;letter-spacing:-0.03em">Instrument Panel</h1>
+    </div>
+    <p style="margin:0;max-width:460px;font-size:16px;line-height:1.5;color:rgba(237,227,207,0.72)">A calm, technical dashboard. Flat color blocks, hairline frames, grid paper and small mono readouts, borrowed from poster layouts and terminal setups. Color tells you which kind of time is running.</p>
+  </div>
+
+  <div style="grid-column:span 7;border-radius:28px;border:1px solid rgba(237,227,207,0.12);background:#1E232A;padding:24px;display:flex;flex-direction:column;gap:16px">
+    <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;color:rgba(237,227,207,0.62)">PALETTE</p>
+    <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;flex:1">
+      <div style="border-radius:18px;background:#15181D;border:1px solid rgba(237,227,207,0.2);padding:12px;display:flex;flex-direction:column;justify-content:flex-end"><b style="font-size:14px">Ground</b><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(237,227,207,0.7)">#15181D</span></div>
+      <div style="border-radius:18px;background:#272D36;padding:12px;display:flex;flex-direction:column;justify-content:flex-end"><b style="font-size:14px">Panel</b><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(237,227,207,0.7)">#1E232A</span></div>
+      <div style="border-radius:18px;background:#EDE3CF;color:#14171B;padding:12px;display:flex;flex-direction:column;justify-content:flex-end"><b style="font-size:14px">Paper</b><span style="font-family:'JetBrains Mono',monospace;font-size:11px">#EDE3CF</span></div>
+      <div style="border-radius:18px;background:#E5A84B;color:#14171B;padding:12px;display:flex;flex-direction:column;justify-content:flex-end"><b style="font-size:14px">Should</b><span style="font-family:'JetBrains Mono',monospace;font-size:11px">#E5A84B</span></div>
+      <div style="border-radius:18px;background:#9ECBC9;color:#14171B;padding:12px;display:flex;flex-direction:column;justify-content:flex-end"><b style="font-size:14px">Want</b><span style="font-family:'JetBrains Mono',monospace;font-size:11px">#9ECBC9</span></div>
+      <div style="border-radius:18px;background:#E0634F;color:#14171B;padding:12px;display:flex;flex-direction:column;justify-content:flex-end"><b style="font-size:14px">Debt</b><span style="font-family:'JetBrains Mono',monospace;font-size:11px">#E0634F</span></div>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:1.5;color:rgba(237,227,207,0.72)">Amber and pale teal differ in hue and in warmth. Text on filled blocks is always ground ink, all pairs clear 4.5:1. A light theme swaps ground and paper and keeps the three signals.</p>
+  </div>
+
+  <div style="grid-column:span 5;border-radius:28px;background:#E5A84B;color:#14171B;padding:24px;display:flex;flex-direction:column;justify-content:space-between">
+    <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em">TYPE</p>
+    <div>
+      <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:72px;font-weight:700;letter-spacing:-0.04em;line-height:1">12:34</p>
+      <p style="margin:8px 0 0;font-size:28px;font-weight:700;letter-spacing:-0.01em">Space Grotesk, words</p>
+      <p style="margin:2px 0 0;font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:0.08em">JETBRAINS MONO, NUMBERS AND LABELS</p>
+    </div>
+  </div>
+
+  <div style="grid-column:span 4;border-radius:28px;border:1px solid rgba(237,227,207,0.12);background:#1E232A;padding:24px;display:flex;flex-direction:column;gap:14px">
+    <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;color:rgba(237,227,207,0.62)">SHAPE</p>
+    <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;font-size:15px;line-height:1.4">
+      <li><b>Bento blocks.</b> 28px outer, 22px tiles, 16px buttons.</li>
+      <li><b>Hairlines</b> at 12% paper. Strong 45% for controls.</li>
+      <li><b>Grid paper</b> at 7% inside the hero only.</li>
+      <li><b>One hero.</b> Everything else supports it.</li>
+      <li><b>Bottom bar</b> for views, thumb reach first.</li>
+    </ul>
+  </div>
+
+  <div style="grid-column:span 8;border-radius:28px;border:1px solid rgba(237,227,207,0.12);background:#1E232A;padding:24px;display:flex;flex-direction:column;gap:14px">
+    <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;color:rgba(237,227,207,0.62)">MOTION  /  FAST, SPRINGY, NEVER BLOCKING</p>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 32px;font-size:15px;line-height:1.4">
+      <div><b>Press</b><br><span style="color:rgba(237,227,207,0.72)">Scale to 0.95, spring back with a small overshoot. 180ms.</span></div>
+      <div><b>Mode change</b><br><span style="color:rgba(237,227,207,0.72)">Hero floods to amber or teal. 500ms ease-out, ink flips with it.</span></div>
+      <div><b>Check off</b><br><span style="color:rgba(237,227,207,0.72)">Box fills, tick draws itself in 300ms, text dims and strikes.</span></div>
+      <div><b>Live dot</b><br><span style="color:rgba(237,227,207,0.72)">Slow 1.6s pulse while a timer runs. Still when resting.</span></div>
+      <div><b>Target ring</b><br><span style="color:rgba(237,227,207,0.72)">Fills smoothly each second. A small planet marks the center.</span></div>
+      <div><b>Reduced motion</b><br><span style="color:rgba(237,227,207,0.72)">Pulse and springs off. Color changes stay, instant.</span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1240,"height":860}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
