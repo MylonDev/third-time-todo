@@ -84,7 +84,6 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
 
   <section aria-label="Should" style="margin-top:6px">
     <div style="display:flex;align-items:center;gap:10px;padding-bottom:6px">
-      <span aria-hidden="true" style="width:12px;height:12px;box-sizing:border-box;border:2.5px solid #86B594;border-radius:4px"></span>
       <h2 style="margin:0;font-size:22px;font-weight:700;letter-spacing:-0.02em">Should</h2>
       <span aria-hidden="true" style="flex:1;border-top:1px solid rgba(237,230,211,0.12)"></span>
       <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(237,230,211,0.62)">{{shouldCount}}</span>
@@ -109,7 +108,6 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
 
   <section aria-label="Want">
     <div style="display:flex;align-items:center;gap:10px;padding-bottom:6px">
-      <span aria-hidden="true" style="width:12px;height:12px;box-sizing:border-box;border:2.5px solid #EDE6D3;border-radius:50%"></span>
       <h2 style="margin:0;font-size:22px;font-weight:700;letter-spacing:-0.02em">Want</h2>
       <span aria-hidden="true" style="flex:1;border-top:1px solid rgba(237,230,211,0.12)"></span>
       <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(237,230,211,0.62)">{{wantCount}}</span>
@@ -120,7 +118,7 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
           <sc-if value="{{item.isHead}}" hint-placeholder-val="{{ false }}"><div style="padding:14px 0 8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">{{item.text}}</div></sc-if>
           <sc-if value="{{item.isRow}}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:6px;min-height:54px">
           <button type="button" role="checkbox" aria-checked="{{item.done}}" aria-label="{{item.text}}" onClick="{{item.toggle}}" class="press" style="flex:none;width:44px;height:44px;margin-left:-8px;border:0;background:transparent;display:flex;align-items:center;justify-content:center">
-            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" stroke="#EDE6D3" stroke-width="2" style="fill:{{item.fill}};transition:fill .22s"/><path d="M7.5 13.5l4 4 7-8" fill="none" stroke="#06120B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" style="stroke-dashoffset:{{item.dash}};transition:stroke-dashoffset .3s cubic-bezier(.3,1,.4,1) .05s"/></svg>
+            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26"><rect x="1.5" y="1.5" width="23" height="23" rx="7" stroke="#EDE6D3" stroke-width="2" style="fill:{{item.fill}};transition:fill .22s"/><path d="M7.5 13.5l4 4 7-8" fill="none" stroke="#06120B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" style="stroke-dashoffset:{{item.dash}};transition:stroke-dashoffset .3s cubic-bezier(.3,1,.4,1) .05s"/></svg>
           </button>
           <div style="flex:1;min-width:0;padding:6px 0">
             <span style="display:block;font-size:17px;font-weight:500;color:{{item.ink}};text-decoration:{{item.strike}};transition:color .25s">{{item.text}}</span>
