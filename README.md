@@ -1,86 +1,79 @@
 # Third Time
 
-A local-first todo app built around the [Third Time](https://www.lesswrong.com/posts/RWu8eZqbwgB9zaerh/third-time-a-better-way-to-work)
-break system: instead of fixed Pomodoro intervals, you work for as long as you
-like and earn break time as a fraction of it. Breaks are banked, so you can
-save them up or go into debt.
+A time balance for the things you **should** do and the things you **want** to
+do. Time spent on Should earns Want time at 1:3, so every hour of Should earns
+20 minutes of Want. Want time spends it back, second for second. The balance can
+go negative (debt) and resets when the day ends.
+
+The idea comes from [Third Time](https://www.lesswrong.com/posts/RWu8eZqbwgB9zaerh/third-time-a-better-way-to-work),
+a break system where rest is earned as a fraction of work. Here the "rest" is
+time you spend on something you chose, rather than vegging out or scrolling.
 
 Live at **https://mylondev.github.io/third-time-todo/**
 
-## Features
+> This is a ground-up rebuild. The design and the plan are in
+> [`docs/specs/2026-10-09-two-state-rebuild.md`](docs/specs/2026-10-09-two-state-rebuild.md).
+> Older specs in `docs/specs/` describe the previous work/break design and are
+> kept for history.
 
-- **Break bank** — work accrues break time at your chosen ratio; the balance can
-  go negative (debt) and carries through the day. There's no Start/End Session
-  step; you just start a timer and stop it. The bank itself isn't stored — it's
-  derived on the fly from a ledger of time entries, so trimming or moving an
-  entry later moves the break it earned along with it.
-- **Difficulty per day** — Locked in (1:4), Serious (1:3), Relaxed (1:2). Each
-  day starts at your default and keeps its own mode; easing off once you've
-  started uses a daily reduction (one by default, configurable), raising never
-  does. The picker suggests a mode from your pace band. Each time entry
-  remembers the mode it ran at, so a change is never retroactive.
-- **Projects** — a name, an optional colour, an optional time target per period
-  ("10h / week"), an optional deadline. Time accrues to a project forever; a
-  project is archived, never "completed".
-- **A weekly schedule** — the Tasks tab is seven day columns, This week or
-  Rolling, filterable by project. Tasks can be planned for later days or set to
-  repeat (daily, chosen weekdays, weekly, every N days); repeats are rules, so
-  future occurrences show before they exist. Unfinished tasks stay on their day
-  as missed, and today's Overdue strip pulls them forward. Subtasks, drag to
-  reorder, and per-task time tracking; a task tagged to a project credits it.
-- **A configurable end of day** — the day cuts over at midnight by default, but
-  can be pushed to 1–4 AM for anyone who works past midnight. A timer left
-  running across that boundary gets split there instead of stalling the day.
-- **Activity** — daily history of work and rest, a pace band, and an editable
-  day timeline: tap a block to trim, reassign, split or delete it; drag empty
-  rail to add one you forgot to start. Totals re-sum from the ledger.
-- Installable PWA with sound and notification cues. Everything is stored in
-  `localStorage`; there is no account and no server.
+## How it works
+
+- **Running means balancing.** Pick **Should** or **Want**. Stop the timer and
+  you are resting: free, untracked, nothing to feel bad about.
+- **Awareness, not enforcement.** The app tells you where you stand. It never
+  locks anything.
+- **Today and Later.** Each has a Should list and a Want list. Today shows
+  everything due today or earlier, so overdue items stay until done or moved.
+  Later holds dated items and "someday".
+- **Recurring items** in either list: daily, chosen weekdays, weekly or every N
+  days. Checking one off creates the next occurrence.
+- **Fix timer.** Forgot to switch, or to stop? Say how long ago, what those
+  minutes really were, and what you have been doing since.
+- **Optional daily Should target.** When you reach it the app says you can stop.
+- **A configurable end of day**, for anyone who works past midnight. A stint
+  that crosses the boundary simply counts toward both days.
+
+State lives in `localStorage` on this device. Sync across devices is planned
+(Supabase); see the spec.
 
 ## Development
 
 ```bash
 npm install
-npx playwright install chromium   # once, for the test suite
+npx playwright install chromium   # once, for the e2e suite
 
-npm run dev      # vite dev server on http://localhost:5173
-npm run build    # typecheck (tsc -b) + production build to dist/
-npm run lint     # eslint
-npm run test:unit # vitest unit suite
-npm test         # playwright end-to-end suite (~12s)
-npm run preview  # serve the production build locally
+npm run dev        # vite dev server on http://localhost:5173/third-time-todo/
+npm run build      # typecheck (tsc -b) + production build to dist/
+npm run lint       # eslint
+npm run test:unit  # vitest: the ledger, recurrence, items, day keys
+npm test           # playwright end-to-end suite
+npm run preview    # serve the production build locally
 ```
 
-Requires Node 20+. `npm test` starts its own dev server, so nothing needs to
-be running first. Lint, build and both test suites all run on every PR via
+Requires Node 20+. Lint, build and both test suites run on every PR via
 `.github/workflows/ci.yml`.
+
+## Code
+
+React 19, TypeScript, Vite, Tailwind CSS 4 and zustand with `persist`.
+
+- `src/utils/ledger.ts`: the time ledger. Pure functions: totals per day, the
+  balance, start/stop, and `paint`, the one operation behind every correction.
+- `src/utils/items.ts`, `recurrence.ts`: which view an item belongs in, and
+  what completing a repeating item does.
+- `src/utils/time.ts`: day keys and formatting.
+- `src/store/`: three persisted stores, `timer` (the ledger), `items` and
+  `settings`, under `tt2-*` keys.
+
+The balance is never stored. It is derived from the ledger and the clock, and
+the running timer is a start timestamp, so a suspended or killed app loses
+nothing.
+
+> Persisted stores are versioned. Changing a store's shape requires bumping its
+> `version` and adding a `migrate`, or existing users lose data.
 
 ### Tests
 
-`e2e/` covers the behaviours that only exist in a browser: the shared
-one-second clock and that every panel advances off it, focused time accruing
-and surviving a reload, dialogs trapping focus and closing on Escape, inline
-editors committing and cancelling, empty states, and both colour themes. Each
-test starts from an empty `localStorage` and fails on any console error.
-
-`npm run test:unit` runs a vitest suite alongside it, for the logic that
-doesn't need a browser: the migration chains for each store, the derived
-break bank, and the day-boundary arithmetic.
-
-## Stack
-
-React 19, TypeScript, Vite 8, Tailwind CSS 4, zustand (with `persist`),
-`@dnd-kit` for drag-and-drop, and framer-motion for animation.
-
-State lives in four zustand stores under `src/store/` — `session`, `tasks`,
-`projects`, `settings` — each persisted to its own `localStorage` key. The
-break mechanic itself is pure and lives in `src/utils/thirdTime.ts`.
-
-> Persisted stores are versioned. Changing a store's shape requires bumping its
-> `version` and extending `migrate`, or existing users lose data.
-
-## Deployment
-
-Pushes to `main` trigger `.github/workflows/deploy.yml`, which builds and
-publishes `dist/` to GitHub Pages. `vite.config.ts` sets
-`base: '/third-time-todo/'` to match the Pages path.
+`e2e/` runs against the dev server with a fake, paused clock, so every figure on
+the timer is exact. Each test starts from an empty browser context and fails on
+any console error.
