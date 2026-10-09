@@ -12,25 +12,36 @@ Use a standard Postgres project (not OrioleDB).
 2. Authentication, Sign In / Providers, switch off **Allow new users to sign up**.
    Nobody else can then register, and the app never tries to create an account.
 
-## 2. URLs
+## 2. URLs (optional)
 
-Authentication, URL Configuration:
+Authentication, URL Configuration. Set **Site URL** to
+`https://mylondev.github.io/third-time-todo/`, and add that and
+`http://localhost:5173` to **Redirect URLs**. Supabase's default is
+`http://localhost:3000`, which only matters if you open a sign-in link in a
+browser. The app doesn't need you to.
 
-- **Site URL:** `https://mylondev.github.io/third-time-todo/`
-- **Redirect URLs:** the same URL, and `http://localhost:5173`
+## 3. The sign-in email
 
-## 3. Show the code in the email
+Supabase's default email contains a **link**. The app takes that link without
+you opening it:
 
-Authentication, Emails, Templates, **Magic Link**. The default only holds a link,
-which opens in Safari and doesn't sign the installed app in. Put the code in:
+1. Settings, Sync, enter your email, **Email me a sign-in code or link**.
+2. In the email, press and hold the link, choose **Copy Link** (on a computer,
+   right-click, Copy link address), and paste it into the **Code or link** box.
+3. **Sign in.**
 
-```html
-<h2>Your Third Time code</h2>
-<p>{{ .Token }}</p>
-```
+Opening the link in a browser instead signs in that browser, not the installed
+Home Screen app, which is why it is copied.
 
-Supabase's built-in email sender is rate limited to a few messages an hour, which
-is plenty for signing in on a new device.
+If you would rather get a six digit code, the **Magic Link** email template needs
+`{{ .Token }}` in it. Supabase only lets you edit templates once custom SMTP is
+set up (Authentication, Emails, SMTP Settings), which needs an email provider, so
+this is optional. Pasting the code works the same way as pasting the link.
+
+### Or use a password
+
+After your first sign-in, Settings, Sync, **Set a password**. Any device can then
+use **Use a password instead**, and the phone can fill it in from its keychain.
 
 ## 4. Create the tables
 
@@ -54,5 +65,4 @@ design; row level security is what protects the data.
 
 ## 6. Sign in
 
-Open the app, Settings, Sync. Enter your email, then the code from the email.
-Do this once on each device.
+Once on each device, as described in section 3.
