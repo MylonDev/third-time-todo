@@ -138,7 +138,10 @@ export async function signInWithPasted(email: string, pasted: string) {
   if (!input) throw new Error('That is not a code or a sign-in link. Copy the whole link from the email.');
   const auth = supabase().auth;
 
-  if (input.kind === 'code') return verifyCode(email, input.token);
+  if (input.kind === 'code') {
+    if (!email.trim()) throw new Error('Enter your email first. A code needs it.');
+    return verifyCode(email, input.token);
+  }
   const { error } =
     input.kind === 'session'
       ? await auth.setSession({ access_token: input.accessToken, refresh_token: input.refreshToken })
