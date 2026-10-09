@@ -47,8 +47,9 @@ labelled with RLS enabled.
 
 ## 5. Give the app the key
 
-Project Settings, API Keys: copy the **anon / publishable** key (never the
-`service_role` key) into `src/sync/config.ts`. The URL and this key are public by
+Project Settings, API Keys: the **publishable** key (or legacy anon key) is already in
+`src/sync/config.ts`. If you ever rotate it, paste the new one there (never the
+`service_role` or secret key). The URL and this key are public by
 design; row level security is what protects the data.
 
 ## 6. Sign in
