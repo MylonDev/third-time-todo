@@ -9,8 +9,12 @@ import {
   uncompleteItem,
   updateItem,
 } from '../utils/items';
+import { stampChanged } from '../sync/merge';
 import { dayKeyOf } from '../utils/time';
 import { useSettings } from './settings';
+
+/** Every local change is stamped newer than the row it replaced, so it wins when synced. */
+const commit = stampChanged<Item>;
 
 const today = () => dayKeyOf(Date.now(), useSettings.getState().dayEndHour);
 
@@ -31,21 +35,22 @@ export const useItems = create<ItemsStore>()(
         const text = fields.text.trim();
         if (!text) return;
         const now = Date.now();
-        set({ items: [...get().items, makeItem(get().items, { ...fields, text }, now)] });
+        set({ items: commit(get().items, [...get().items, makeItem(get().items, { ...fields, text }, now)]) });
       },
       toggle: (id) => {
         const item = get().items.find((i) => i.id === id);
         if (!item) return;
         const now = Date.now();
         set({
-          items: item.done
-            ? uncompleteItem(get().items, id, now)
-            : completeItem(get().items, id, today(), now),
+          items: commit(
+            get().items,
+            item.done ? uncompleteItem(get().items, id, now) : completeItem(get().items, id, today(), now)
+          ),
         });
       },
-      edit: (id, patch) => set({ items: updateItem(get().items, id, patch, Date.now()) }),
-      skip: (id) => set({ items: skipItem(get().items, id, today(), Date.now()) }),
-      remove: (id) => set({ items: removeItem(get().items, id, Date.now()) }),
+      edit: (id, patch) => set({ items: commit(get().items, updateItem(get().items, id, patch, Date.now())) }),
+      skip: (id) => set({ items: commit(get().items, skipItem(get().items, id, today(), Date.now())) }),
+      remove: (id) => set({ items: commit(get().items, removeItem(get().items, id, Date.now())) }),
     }),
     { name: 'tt2-items', version: 1 }
   )

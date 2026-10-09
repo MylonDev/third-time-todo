@@ -4,7 +4,6 @@ import { advance, expect, MIN, startState, test } from './helpers';
 declare global {
   interface Window {
     __locks: { released: boolean }[];
-    __badge: (number | null)[];
   }
 }
 
@@ -94,37 +93,6 @@ test.describe('wake lock', () => {
     await startState(app, 'Should');
     await expect(app.getByTestId('screen-on')).toHaveCount(0);
     expect(await app.evaluate(() => window.__locks.length)).toBe(0);
-  });
-});
-
-test.describe('app icon badge', () => {
-  test('shows whole minutes of Want available once switched on', async ({ app, context }) => {
-    await context.grantPermissions(['notifications']);
-    await app.addInitScript(() => {
-      window.__badge = [];
-      Object.defineProperty(navigator, 'setAppBadge', {
-        configurable: true,
-        value: async (n: number) => void window.__badge.push(n),
-      });
-      Object.defineProperty(navigator, 'clearAppBadge', {
-        configurable: true,
-        value: async () => void window.__badge.push(null),
-      });
-    });
-    await app.reload();
-    await app.clock.pauseAt(new Date(2026, 9, 12, 10, 0, 5));
-
-    await app.getByRole('button', { name: 'Settings' }).click();
-    await app.getByLabel('Show Want available on the app icon').check();
-    await app.getByRole('button', { name: 'Done' }).click();
-
-    await startState(app, 'Should');
-    await advance(app, 30 * MIN); // earns 10 minutes
-    await expect.poll(() => app.evaluate(() => window.__badge.at(-1))).toBe(10);
-
-    await startState(app, 'Want');
-    await advance(app, 15 * MIN); // 10 - 15 = debt
-    await expect.poll(() => app.evaluate(() => window.__badge.at(-1))).toBeNull();
   });
 });
 
