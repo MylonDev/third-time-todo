@@ -148,6 +148,31 @@ test.describe('other ways to sign in', () => {
     expect(mock.auth.some((a) => a.path === 'user')).toBe(true);
   });
 
+  test('a link can be pasted without asking for an email first', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    await app.getByRole('button', { name: 'Settings' }).click();
+    await app.getByRole('button', { name: 'I already have a link' }).click();
+    await app.getByLabel('Code or link').fill(`http://localhost:3000/#access_token=${fakeJwt()}&expires_in=3600&refresh_token=refresh&token_type=bearer&type=magiclink`);
+    await app.getByRole('button', { name: 'Sign in' }).click();
+
+    await expect(app.getByText('Signed in as')).toBeVisible();
+    expect(mock.otpRequests).toHaveLength(0);
+  });
+
+  test('a code needs an email, and says so', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    await app.getByRole('button', { name: 'Settings' }).click();
+    await app.getByRole('button', { name: 'I already have a link' }).click();
+    await app.getByLabel('Code or link').fill('123456');
+    await app.getByRole('button', { name: 'Sign in' }).click();
+    await expect(app.getByRole('alert')).toContainText('Enter your email first');
+    expect(mock.auth).toEqual([]);
+
+    await app.getByLabel('Email (only needed for a code)').fill(USER.email);
+    await app.getByRole('button', { name: 'Sign in' }).click();
+    await expect(app.getByText('Signed in as')).toBeVisible();
+  });
+
   test('says so when what was pasted is neither a code nor a link', async ({ app }) => {
     const mock = await mockSupabase(app);
     await signIn(app, 'not a code');

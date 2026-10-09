@@ -30,6 +30,9 @@ you opening it:
    right-click, Copy link address), and paste it into the **Code or link** box.
 3. **Sign in.**
 
+If you already have a link (for example when Supabase's email limit has been
+reached), tap **I already have a link** to paste it without sending another email.
+
 Opening the link in a browser instead signs in that browser, not the installed
 Home Screen app, which is why it is copied.
 
