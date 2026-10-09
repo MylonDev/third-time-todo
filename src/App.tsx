@@ -1,292 +1,52 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { BreakBank } from './components/BreakBank';
-import { SessionTimer } from './components/SessionTimer';
-import { TaskList } from './components/TaskList';
-import { ProjectList } from './components/ProjectList';
-import { Activity } from './components/Activity';
-import { ModeSelector } from './components/ModeSelector';
-import { OptionsPanel } from './components/OptionsPanel';
-import { RestoreSessionModal } from './components/RestoreSessionModal';
-import { useSession } from './store/session';
+import { FixTimerModal } from './components/FixTimerModal';
+import { InstallHint } from './components/InstallHint';
+import { ItemsView } from './components/ItemsView';
+import { SettingsModal } from './components/SettingsModal';
+import { TimerPanel } from './components/TimerPanel';
 import { useSettings } from './store/settings';
-import { useDayMode } from './hooks/useDayMode';
-import { requestNotificationPermission } from './utils/notifications';
-import { todayKey, dayEndOf } from './utils/thirdTime';
-import type { TabId } from './types';
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'tasks', label: 'Tasks' },
-  { id: 'projects', label: 'Projects' },
-  { id: 'activity', label: 'Activity' },
-];
+/** Apply the chosen theme to the page, following the OS while set to "system". */
+function useTheme() {
+  const theme = useSettings((s) => s.theme);
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-color-scheme: light)');
+    const apply = () => {
+      const light = theme === 'light' || (theme === 'system' && query.matches);
+      document.documentElement.classList.toggle('light', light);
+      document.documentElement.style.colorScheme = light ? 'light' : 'dark';
+    };
+    apply();
+    query.addEventListener('change', apply);
+    return () => query.removeEventListener('change', apply);
+  }, [theme]);
+}
 
 export default function App() {
-  const {
-    timerState,
-    timerStart,
-    sessionClosedAt,
-    restorePrompt,
-    settleClosedSession,
-    continueRestoredSession,
-    resumeRestoredSession,
-    discardRestoredSession,
-    maybeArchivePreviousDay,
-  } = useSession();
-  const { theme, activeTab, setActiveTab, quotes, showQuote, setShowQuote, dayEndHour } = useSettings();
-  const mode = useDayMode();
-  // Close out a day that ended while the app was away. Unfinished tasks are
-  // not moved: they stay on the day they were planned for, and today's
-  // Overdue strip offers them back.
-  useEffect(() => {
-    // First, close any timer that was still running when the app went away, at
-    // the moment it went away. Everything after that is a gap the restore
-    // prompt asks about on its own — and until it does, nothing below may read
-    // the open segment as though it had been running the whole time.
-    settleClosedSession();
-    maybeArchivePreviousDay();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const [showOptions, setShowOptions] = useState(false);
-
-  // Show restore modal if a session was active when the page last closed
-  const [showRestoreModal] = useState(() => useSession.getState().timerState !== 'idle');
-
-  // Record when the page went away so the session can be restored. `pagehide`
-  // and `visibilitychange` fire reliably on mobile, where `beforeunload` does not.
-  useEffect(() => {
-    const record = () => {
-      const { timerState, sessionClosedAt } = useSession.getState();
-      // Only the first stamp is honest: it is when the person actually left.
-      // Backgrounding the tab later — while the restore prompt is still up,
-      // say — would otherwise overwrite it with a moment nobody was here for.
-      if (timerState !== 'idle' && sessionClosedAt === null) {
-        useSession.getState().setClosedAt(Date.now());
-      }
-    };
-    const onVisibility = () => { if (document.visibilityState === 'hidden') record(); };
-    window.addEventListener('pagehide', record);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      window.removeEventListener('pagehide', record);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, []);
-
-  // A tab left open across the day boundary would keep drawing yesterday as
-  // today; roll the ledger and re-render as the day turns. Re-scheduled whenever `dayEndHour`
-  // changes, since that moves when "the day turns" means.
-  const [dayKey, setDayKey] = useState(() => todayKey(dayEndHour));
-  useEffect(() => {
-    const turnover = dayEndOf(todayKey(dayEndHour), dayEndHour);
-    const id = setTimeout(() => {
-      maybeArchivePreviousDay();
-      setDayKey(todayKey(dayEndHour));
-    }, turnover - Date.now());
-    return () => clearTimeout(id);
-  }, [dayKey, dayEndHour, maybeArchivePreviousDay]);
-
-  // Restore handlers
-  const [restoreModalDismissed, setRestoreModalDismissed] = useState(false);
-
-  const handleRestoreReset = () => {
-    discardRestoredSession();
-    setRestoreModalDismissed(true);
-  };
-
-  const handleRestoreContinue = () => {
-    continueRestoredSession();
-    setRestoreModalDismissed(true);
-  };
-
-  const handleRestoreResume = () => {
-    resumeRestoredSession();
-    setRestoreModalDismissed(true);
-  };
-
-  // What the settle filed is what the prompt reports — by the time it is on
-  // screen the timer has already been rewound to the close stamp, so the live
-  // `timerStart` no longer knows how long the stint ran.
-  const closedAt = sessionClosedAt ?? Date.now();
-  const elapsedAtClose =
-    restorePrompt?.settledMs ?? (timerStart ? Math.max(0, closedAt - timerStart) : 0);
-  const timeAway = sessionClosedAt ? Date.now() - sessionClosedAt : 0;
-
-  // Apply theme: dark is default, .light class overrides
-  useEffect(() => {
-    const apply = (dark: boolean) => {
-      document.documentElement.classList.toggle('light', !dark);
-    };
-    if (theme === 'dark') { apply(true); return; }
-    if (theme === 'light') { apply(false); return; }
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    apply(mq.matches);
-    const handler = (e: MediaQueryListEvent) => apply(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, [theme]);
-
-  const handleStart = () => {
-    requestNotificationPermission();
-    useSession.getState().startWork();
-  };
-
-  const sessionActive = timerState !== 'idle';
-  const quote = showQuote && quotes.length > 0 ? quotes[0] : null;
+  useTheme();
+  const [fixing, setFixing] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
-    <div className="min-h-screen py-8 px-4" style={{ background: 'transparent' }}>
-      <motion.div
-        className="mx-auto w-full max-w-[980px] flex flex-col gap-5"
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
-      >
-        {/* ── Header ──────────────────────────────────────────── */}
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-deep) 100%)' }}
-            >
-              <span className="text-white text-sm font-bold select-none" style={{ fontFamily: 'var(--font-mono)' }}>
-                ⅓
-              </span>
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight leading-none" style={{ color: 'var(--color-text)' }}>
-                Third Time
-              </h1>
-              <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                Work freely. Earn your breaks.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowOptions(true)}
-              className="p-2 rounded-xl border transition-opacity opacity-50 hover:opacity-100"
-              style={{
-                background: 'var(--color-surface)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-muted)',
-              }}
-              title="Options"
-              aria-label="Options"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
-          </div>
-        </header>
-
-        {/* ── Pinned session zone ─────────────────────────────── */}
-        {/* The bank is a property of the day, not of a running timer — it stays
-            on screen whether or not one is running. Only the Start control and
-            the quote come and go. */}
-        <section className="flex flex-col gap-3">
-          {!sessionActive && (
-            <>
-              <div className="flex flex-col sm:flex-row gap-3 sm:items-start">
-                <div className="flex-1 min-w-0">
-                  <ModeSelector locked={false} />
-                </div>
-                <button
-                  onClick={handleStart}
-                  className="h-[52px] px-8 rounded-xl font-bold text-sm transition-all"
-                  style={{
-                    background: `var(--color-mode-${mode})`,
-                    color: 'var(--color-bg)',
-                    fontFamily: 'var(--font-display)',
-                    letterSpacing: '0.02em',
-                  }}
-                >
-                  Start →
-                </button>
-              </div>
-              {quote && (
-                <div
-                  className="flex items-center gap-3 rounded-xl px-3 py-2 text-[13px]"
-                  style={{ background: 'var(--color-surface)', color: 'var(--color-text-muted)' }}
-                >
-                  <span className="flex-1">“{quote}”</span>
-                  <button
-                    onClick={() => setShowQuote(false)}
-                    aria-label="Hide the quote"
-                    style={{ color: 'var(--color-text-muted)' }}
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <SessionTimer />
-            <BreakBank />
-          </div>
-        </section>
-
-        {/* ── Tabs ────────────────────────────────────────────── */}
-        <div
-          className="flex gap-6 border-b"
-          style={{ borderColor: 'var(--color-border)' }}
-          role="tablist"
-          aria-label="Sections"
+    <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-4 flex flex-col gap-4">
+      <header className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Third Time</h1>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Settings"
+          className="min-h-11 min-w-11 rounded-lg text-text-muted hover:text-text cursor-pointer text-xl"
         >
-          {TABS.map((t) => {
-            const active = activeTab === t.id;
-            return (
-              <button
-                key={t.id}
-                role="tab"
-                aria-selected={active}
-                onClick={() => setActiveTab(t.id)}
-                className="pb-2.5 -mb-px border-b-2 text-sm font-semibold transition-colors"
-                style={{
-                  color: active ? 'var(--color-text)' : 'var(--color-text-muted)',
-                  borderColor: active ? 'var(--color-accent)' : 'transparent',
-                  fontFamily: 'var(--font-display)',
-                }}
-              >
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
+          ⚙
+        </button>
+      </header>
 
-        {/* ── Active panel ────────────────────────────────────── */}
-        <motion.main
-          key={activeTab}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-        >
-          {activeTab === 'tasks' && <TaskList />}
-          {activeTab === 'projects' && <ProjectList />}
-          {activeTab === 'activity' && <Activity />}
-        </motion.main>
-      </motion.div>
+      <InstallHint />
+      <TimerPanel onFix={() => setFixing(true)} />
+      <ItemsView />
 
-      {/* ── Overlays ─────────────────────────────────────────── */}
-      <OptionsPanel isOpen={showOptions} onClose={() => setShowOptions(false)} />
-
-      {showRestoreModal && !restoreModalDismissed && timerState !== 'idle' && (
-        <RestoreSessionModal
-          timerState={timerState as 'working' | 'on-break'}
-          elapsedAtClose={elapsedAtClose}
-          timeAway={timeAway}
-          onReset={handleRestoreReset}
-          onContinue={handleRestoreContinue}
-          onResume={handleRestoreResume}
-        />
-      )}
+      {fixing && <FixTimerModal onClose={() => setFixing(false)} />}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

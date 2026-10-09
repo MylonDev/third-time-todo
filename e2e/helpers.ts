@@ -1,8 +1,12 @@
 import { expect, type Page, test as base } from '@playwright/test';
 
+/** Monday 12 Oct 2026, 10:00 local. Every spec starts here with the clock paused. */
+export const START = new Date(2026, 9, 12, 10, 0, 0);
+
 /**
- * Every spec starts from an empty store. The app has no backend, so "reset"
- * means clearing localStorage and reloading.
+ * Each test gets a fresh browser context, so localStorage starts empty. The
+ * clock is fake and paused: time moves only when a test says so, which makes
+ * every figure on the timer exact.
  */
 export const test = base.extend<{ app: Page }>({
   app: async ({ page }, use) => {
@@ -12,49 +16,41 @@ export const test = base.extend<{ app: Page }>({
       if (m.type() === 'error') errors.push(`console.error: ${m.text()}`);
     });
 
+    await page.clock.install({ time: new Date(START.getTime() - 10_000) });
     await page.goto('/');
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
+    await page.clock.pauseAt(START);
     await expect(page.getByRole('heading', { name: 'Third Time' })).toBeVisible();
 
     await use(page);
 
-    // A clean console is part of passing. The service worker 404 that used to
-    // fire on every load was found this way.
+    // A clean console is part of passing.
     expect(errors, 'browser reported errors').toEqual([]);
   },
 });
 
 export { expect };
 
-export async function addTask(page: Page, title: string) {
-  const input = page.getByPlaceholder('Add a task…');
-  await input.fill(title);
+/**
+ * Move time forward in one jump. The timer is derived from timestamps, not
+ * counted tick by tick, so one tick after the jump shows the same figures as
+ * thousands would, without the wait.
+ */
+export async function advance(page: Page, ms: number) {
+  await page.clock.fastForward(ms);
+}
+
+export const MIN = 60_000;
+
+export async function startState(page: Page, name: 'Should' | 'Want') {
+  await page.getByRole('group', { name: 'Timer state' }).getByRole('button', { name, exact: true }).click();
+  await expect(
+    page.getByRole('group', { name: 'Timer state' }).getByRole('button', { name, exact: true })
+  ).toHaveAttribute('aria-pressed', 'true');
+}
+
+export async function addItem(page: Page, list: 'Should' | 'Want', text: string) {
+  const input = page.getByRole('textbox', { name: `Add to ${list}` });
+  await input.fill(text);
   await input.press('Enter');
-  await expect(page.getByRole('checkbox', { name: title })).toBeVisible();
-}
-
-export async function startWork(page: Page) {
-  await page.getByRole('button', { name: 'Start →' }).click();
-  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
-}
-
-export async function openTaskMenu(page: Page) {
-  await page.getByRole('button', { name: 'Task actions' }).first().click();
-  await expect(page.getByRole('menu')).toBeVisible();
-}
-
-/** Every M:SS / H:MM:SS figure currently on the page. */
-export function readTimers(page: Page) {
-  return page.evaluate(() =>
-    [...document.querySelectorAll('.font-timer, .num')]
-      .map((e) => e.textContent?.trim() ?? '')
-      .filter((t) => /^\d+:\d\d/.test(t))
-  );
-}
-
-/** Switch to a top-level tab (Projects / Tasks / Activity). */
-export async function switchTab(page: Page, name: string) {
-  await page.getByRole('tab', { name, exact: true }).click();
-  await expect(page.getByRole('tab', { name, exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('checkbox', { name: text })).toBeVisible();
 }

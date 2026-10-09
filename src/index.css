@@ -7,68 +7,41 @@
   --color-surface:   #111111;
   --color-surface-2: #1c1c1c;
 
-  /* Borders — slightly more visible for geometric clarity */
   --color-border:    rgba(255, 255, 255, 0.1);
   /* Borders on interactive controls — must clear 3:1 against their surface */
   --color-border-strong: rgba(255, 255, 255, 0.45);
 
-  /* Accent — electric blue */
+  /* Should — electric blue. It is also the app's accent. */
   --color-accent:     #4f8ef7;
   --color-accent-dim: rgba(79, 142, 247, 0.13);
+  --color-accent-edge: rgba(79, 142, 247, 0.32);
 
-  /* Rest — mint green */
-  --color-rest:     #34d399;
-  --color-rest-dim: rgba(52, 211, 153, 0.12);
-  /* One step up from the dim fill: the border that goes around it */
-  --color-rest-edge: rgba(52, 211, 153, 0.3);
-  /* The sustainable-pace channel. A 0.12 wash disappears on this ground, and
-     the band is the one thing that chart exists to show. */
-  --color-pace-band: rgba(52, 211, 153, 0.17);
+  /* Want — violet. Want available reads in this colour. */
+  --color-want:      #a78bfa;
+  --color-want-dim:  rgba(167, 139, 250, 0.13);
+  --color-want-edge: rgba(167, 139, 250, 0.32);
 
   /* Debt — red */
   --color-debt:     #f87171;
   --color-debt-dim: rgba(248, 113, 113, 0.12);
   --color-debt-edge: rgba(248, 113, 113, 0.3);
 
-  /* Habits — a grass green, kept apart from the rest mint so the two do not
-     read as the same thing where they sit near each other (the Activity view). */
-  --color-habit:     #22c55e;
-  --color-habit-dim: rgba(34, 197, 94, 0.12);
-  --color-habit-edge: rgba(34, 197, 94, 0.3);
-
-  /* The far end of the logo gradient */
-  --color-accent-deep: #1e3a8a;
-
-  /* Anything set on a filled accent, rest or debt surface. White in both
-     themes — every filled colour here is dark enough to carry it. */
+  /* Anything set on a filled accent or debt surface. */
   --color-on-accent: #ffffff;
+  /* The violet is light in the dark theme, so text on it is dark. */
+  --color-on-want: #0b0b0b;
 
   /* Text */
   --color-text:       #e8e8e8;
   --color-text-muted: rgba(232, 232, 232, 0.55); /* 5.1:1+ on every surface */
 
-  /* Modes run cool -> hot as the ratio gets leaner. The Medium green sits
-     close to --color-rest; it is a saturated grass green against the rest
-     mint, so keep them apart if either is ever retuned. */
-  --color-mode-half:        #38bdf8; /* Relaxed   */
-  --color-mode-half-dim:    rgba(56, 189, 248, 0.12);
-  --color-mode-third:       #22c55e; /* Serious   */
-  --color-mode-third-dim:   rgba(34, 197, 94, 0.12);
-  --color-mode-quarter:     #fb923c; /* Locked in */
-  --color-mode-quarter-dim: rgba(251, 146, 60, 0.12);
-
-  /* Lift for a card that is dragging, or otherwise off the page */
   --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.3);
-  /* More again, for something floating clear of the page: a dropdown */
   --shadow-overlay: 0 8px 32px rgba(0, 0, 0, 0.4);
 
-  /* Danger */
   --color-danger:     #e05555;
   --color-danger-dim: rgba(224, 85, 85, 0.12);
 
-  /* Typography — a UI face carries the words, mono carries the numbers.
-     Plex Sans shares JetBrains Mono's mechanical humanism, so the two read
-     as one system while being unmistakably different at a glance. */
+  /* A UI face carries the words, mono carries the numbers. */
   --font-display: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-body:    'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono:    'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
@@ -83,29 +56,20 @@
   --color-border-strong: rgba(0, 0, 0, 0.45);
   --color-accent:     #2563eb;
   --color-accent-dim: rgba(37, 99, 235, 0.12);
-  --color-rest:      #059669;
-  --color-rest-dim:  rgba(5, 150, 105, 0.1);
-  --color-rest-edge: rgba(5, 150, 105, 0.32);
-  --color-pace-band: rgba(5, 150, 105, 0.11);
+  --color-accent-edge: rgba(37, 99, 235, 0.32);
+  --color-want:      #6d28d9;
+  --color-want-dim:  rgba(109, 40, 217, 0.1);
+  --color-want-edge: rgba(109, 40, 217, 0.32);
   --color-debt:      #dc2626;
   --color-debt-dim:  rgba(220, 38, 38, 0.1);
   --color-debt-edge: rgba(220, 38, 38, 0.32);
-  --color-habit:     #15803d;
-  --color-habit-dim: rgba(21, 128, 61, 0.1);
-  --color-habit-edge: rgba(21, 128, 61, 0.32);
-  --color-accent-deep: #1e40af;
   --color-on-accent: #ffffff;
+  --color-on-want: #ffffff;
   /* A black lift this heavy reads as dirt on a light ground */
   --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.12);
   --shadow-overlay: 0 8px 32px rgba(0, 0, 0, 0.16);
   --color-text:       #111111;
   --color-text-muted: rgba(17, 17, 17, 0.62); /* 4.9:1+ on every surface */
-  --color-mode-half:        #0369a1;
-  --color-mode-half-dim:    rgba(3, 105, 161, 0.10);
-  --color-mode-third:       #15803d;
-  --color-mode-third-dim:   rgba(21, 128, 61, 0.10);
-  --color-mode-quarter:     #c2410c;
-  --color-mode-quarter-dim: rgba(194, 65, 12, 0.10);
   --color-danger:     #dc2626;
   --color-danger-dim: rgba(220, 38, 38, 0.1);
 }
@@ -130,6 +94,12 @@ body {
   color: var(--color-text);
   margin: 0;
   min-height: 100dvh;
+  /* Home-screen app: keep content clear of the notch and home indicator. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  /* No pull-to-refresh or rubber banding over the timer. */
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 h1, h2, h3, h4 {
@@ -139,6 +109,11 @@ h1, h2, h3, h4 {
 /* ─── Focus ──────────────────────────────────────────────────────
    Sits outside Tailwind's layers so it beats the `outline-none`
    utility that every input in the app carries. */
+button,
+[role='checkbox'] {
+  touch-action: manipulation;
+}
+
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
