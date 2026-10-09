@@ -30,6 +30,12 @@ thin outlines instead of lifted grey panels, bright fills used sparingly because
 the screen can stay on while timing. Manifest `background_color`, `theme_color` and
 the page background should all be `#000`.
 
+## Screens in the chosen direction
+
+`Dawn` (Today and Later, interactive), `Settings`, `SignIn` (email, code, password),
+`ItemEditor` (edit and new, bottom sheet), `FixTimer` (bottom sheet with live preview).
+The quick add button in the bottom bar is meant to open `ItemEditor` in new mode.
+
 ## Earlier explorations (kept for reference)
 
 `Main`, `ShouldRunning`, `WantDebt`: the app as built. `Language`, `Today`: Instrument

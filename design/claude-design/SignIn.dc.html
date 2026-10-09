@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in, Sun and Wires</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600;700&amp;family=Zen+Kaku+Gothic+New:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#000;font-family:'Space Grotesk',system-ui,sans-serif}
+button,input{font-family:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.press{transition:transform .18s cubic-bezier(.3,1.7,.5,1)}
+.press:active{transform:scale(.95)}
+.drift{animation:drift 22s ease-in-out infinite alternate}
+.fall-petal{animation:fall-petal 11s linear infinite}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(24px)}}
+@keyframes fall-petal{0%{transform:translate(0,-10px)}50%{transform:translate(-40px,170px)}100%{transform:translate(10px,330px)}}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.rise{animation:rise .4s cubic-bezier(.2,.9,.2,1)}
+input::placeholder{color:rgba(237,230,211,0.45)}
+input:focus{border-color:#EDE6D3}
+@media (prefers-reduced-motion:reduce){.drift,.fall-petal,.rise{animation:none}.press{transition:none}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:844px;box-sizing:border-box;background:#000;padding:16px 16px 28px;display:flex;flex-direction:column;gap:18px;color:#EDE6D3;overflow:hidden">
+
+  <div style="display:flex;align-items:center;gap:10px;min-height:44px">
+    <span aria-hidden="true" style="width:30px;height:30px;border-radius:7px;background:#D9503A;color:#EDE6D3;display:flex;align-items:center;justify-content:center;font-family:'Zen Kaku Gothic New',sans-serif;font-size:19px;font-weight:700;transform:rotate(-4deg)">三</span>
+    <span style="font-size:18px;font-weight:700;letter-spacing:-0.01em">Third Time</span>
+  </div>
+
+  <div aria-hidden="true" style="position:relative;height:250px;flex:none;border-radius:28px;overflow:hidden">
+    <div style="position:absolute;left:0;bottom:0"><dc-import name="Scene" mode="should" progress="0.2" season="autumn" time="dawn" weather="clear" hint-size="358px,310px"></dc-import></div>
+  </div>
+
+  <div>
+    <h1 style="margin:0;font-size:32px;line-height:1.05;font-weight:700;letter-spacing:-0.03em">Keep your phone and computer in step.</h1>
+    <p style="margin:10px 0 0;font-size:15px;line-height:1.45;color:rgba(237,230,211,0.7)">Everything works signed out, on this device. Sign in only if you want it everywhere.</p>
+  </div>
+
+  <div class="rise" style="display:flex;flex-direction:column;gap:12px">
+    <sc-if value="{{isEmail}}" hint-placeholder-val="{{ true }}">
+      <label style="display:flex;flex-direction:column;gap:6px"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">EMAIL</span>
+        <input type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" style="min-height:52px;box-sizing:border-box;border-radius:18px;padding:0 16px;background:transparent;border:1px solid rgba(237,230,211,0.3);outline:0;color:#EDE6D3;font-size:16px"></label>
+      <button type="button" class="press" onClick="{{toCode}}" style="min-height:52px;border-radius:26px;border:0;background:#EDE6D3;color:#06120B;font-size:17px;font-weight:700">Email me a code</button>
+      <div style="display:flex;justify-content:space-between;gap:8px">
+        <button type="button" onClick="{{toPassword}}" style="min-height:44px;background:none;border:0;color:#86B594;font-size:15px;font-weight:600;padding:0">Use a password</button>
+        <button type="button" onClick="{{toCode}}" style="min-height:44px;background:none;border:0;color:#86B594;font-size:15px;font-weight:600;padding:0">I have a code or link</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{isCode}}" hint-placeholder-val="{{ false }}">
+      <p style="margin:0;font-size:15px;line-height:1.45;color:rgba(237,230,211,0.7)">We sent a sign-in link and code to your email. Open the link, or paste either one here.</p>
+      <label style="display:flex;flex-direction:column;gap:6px"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">CODE OR LINK</span>
+        <input inputmode="numeric" autocomplete="one-time-code" placeholder="123456" style="min-height:52px;box-sizing:border-box;border-radius:18px;padding:0 16px;background:transparent;border:1px solid rgba(237,230,211,0.3);outline:0;color:#EDE6D3;font-family:'JetBrains Mono',monospace;font-size:20px;letter-spacing:0.2em"></label>
+      <button type="button" class="press" style="min-height:52px;border-radius:26px;border:0;background:#EDE6D3;color:#06120B;font-size:17px;font-weight:700">Sign in</button>
+      <button type="button" onClick="{{toEmail}}" style="min-height:44px;background:none;border:0;color:#86B594;font-size:15px;font-weight:600;padding:0;text-align:left">Back</button>
+    </sc-if>
+    <sc-if value="{{isPassword}}" hint-placeholder-val="{{ false }}">
+      <label style="display:flex;flex-direction:column;gap:6px"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">EMAIL</span>
+        <input type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" style="min-height:52px;box-sizing:border-box;border-radius:18px;padding:0 16px;background:transparent;border:1px solid rgba(237,230,211,0.3);outline:0;color:#EDE6D3;font-size:16px"></label>
+      <label style="display:flex;flex-direction:column;gap:6px"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">PASSWORD</span>
+        <input type="password" autocomplete="current-password" placeholder="Password" style="min-height:52px;box-sizing:border-box;border-radius:18px;padding:0 16px;background:transparent;border:1px solid rgba(237,230,211,0.3);outline:0;color:#EDE6D3;font-size:16px"></label>
+      <button type="button" class="press" style="min-height:52px;border-radius:26px;border:0;background:#EDE6D3;color:#06120B;font-size:17px;font-weight:700">Sign in</button>
+      <button type="button" onClick="{{toEmail}}" style="min-height:44px;background:none;border:0;color:#86B594;font-size:15px;font-weight:600;padding:0;text-align:left">Back</button>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  state = { step: 'email' };
+  renderVals() {
+    const s = this.state;
+    return {
+      isEmail: s.step === 'email', isCode: s.step === 'code', isPassword: s.step === 'password',
+      toEmail: () => this.setState({ step: 'email' }),
+      toCode: () => this.setState({ step: 'code' }),
+      toPassword: () => this.setState({ step: 'password' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

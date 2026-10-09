@@ -31,7 +31,7 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
 @media (prefers-reduced-motion:reduce){.beat,.drift,.fall-rain,.fall-snow,.fall-petal,.float{animation:none}.press{transition:none}}
 </style>
 </helmet>
-<div style="position:relative;width:390px;height:1080px;box-sizing:border-box;background:#000;padding:16px 16px 20px;display:flex;flex-direction:column;gap:14px;color:#EDE6D3;overflow:hidden">
+<div style="position:relative;width:390px;height:1280px;box-sizing:border-box;background:#000;padding:16px 16px 20px;display:flex;flex-direction:column;gap:14px;color:#EDE6D3;overflow:hidden">
 
   <div style="display:flex;align-items:center;justify-content:space-between;min-height:44px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -93,7 +93,9 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
     </div>
     <ul style="list-style:none;margin:0;padding:0">
       <sc-for list="{{shouldItems}}" as="item" hint-placeholder-count="3">
-        <li style="display:flex;align-items:center;gap:6px;min-height:54px;border-top:1px solid rgba(237,230,211,0.12)">
+        <li style="border-top:1px solid rgba(237,230,211,0.12)">
+          <sc-if value="{{item.isHead}}" hint-placeholder-val="{{ false }}"><div style="padding:14px 0 8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">{{item.text}}</div></sc-if>
+          <sc-if value="{{item.isRow}}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:6px;min-height:54px">
           <button type="button" role="checkbox" aria-checked="{{item.done}}" aria-label="{{item.text}}" onClick="{{item.toggle}}" class="press" style="flex:none;width:44px;height:44px;margin-left:-8px;border:0;background:transparent;display:flex;align-items:center;justify-content:center">
             <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26"><rect x="1.5" y="1.5" width="23" height="23" rx="7" stroke="#86B594" stroke-width="2" style="fill:{{item.fill}};transition:fill .22s"/><path d="M7.5 13.5l4 4 7-8" fill="none" stroke="#06120B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" style="stroke-dashoffset:{{item.dash}};transition:stroke-dashoffset .3s cubic-bezier(.3,1,.4,1) .05s"/></svg>
           </button>
@@ -101,6 +103,7 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
             <span style="display:block;font-size:17px;font-weight:500;color:{{item.ink}};text-decoration:{{item.strike}};transition:color .25s">{{item.text}}</span>
             <sc-if value="{{item.note}}" hint-placeholder-val="{{ true }}"><span style="display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.08em;color:{{item.noteColor}}">{{item.note}}</span></sc-if>
           </div>
+          </div></sc-if>
         </li>
       </sc-for>
     </ul>
@@ -115,7 +118,9 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
     </div>
     <ul style="list-style:none;margin:0;padding:0">
       <sc-for list="{{wantItems}}" as="item" hint-placeholder-count="2">
-        <li style="display:flex;align-items:center;gap:6px;min-height:54px;border-top:1px solid rgba(237,230,211,0.12)">
+        <li style="border-top:1px solid rgba(237,230,211,0.12)">
+          <sc-if value="{{item.isHead}}" hint-placeholder-val="{{ false }}"><div style="padding:14px 0 8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">{{item.text}}</div></sc-if>
+          <sc-if value="{{item.isRow}}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:6px;min-height:54px">
           <button type="button" role="checkbox" aria-checked="{{item.done}}" aria-label="{{item.text}}" onClick="{{item.toggle}}" class="press" style="flex:none;width:44px;height:44px;margin-left:-8px;border:0;background:transparent;display:flex;align-items:center;justify-content:center">
             <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" stroke="#EDE6D3" stroke-width="2" style="fill:{{item.fill}};transition:fill .22s"/><path d="M7.5 13.5l4 4 7-8" fill="none" stroke="#06120B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" style="stroke-dashoffset:{{item.dash}};transition:stroke-dashoffset .3s cubic-bezier(.3,1,.4,1) .05s"/></svg>
           </button>
@@ -123,23 +128,24 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
             <span style="display:block;font-size:17px;font-weight:500;color:{{item.ink}};text-decoration:{{item.strike}};transition:color .25s">{{item.text}}</span>
             <sc-if value="{{item.note}}" hint-placeholder-val="{{ true }}"><span style="display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.08em;color:{{item.noteColor}}">{{item.note}}</span></sc-if>
           </div>
+          </div></sc-if>
         </li>
       </sc-for>
     </ul>
   </section>
 
   <nav aria-label="Views" style="margin-top:auto;display:flex;align-items:center;gap:6px;padding:6px;border-radius:30px;background:#000;border:1px solid rgba(237,230,211,0.16)">
-    <button type="button" aria-pressed="true" class="press" style="flex:1;min-height:48px;border-radius:24px;border:0;background:#EDE6D3;color:#06120B;font-size:15px;font-weight:700">Today</button>
-    <button type="button" aria-pressed="false" class="press" style="flex:1;min-height:48px;border-radius:24px;border:0;background:transparent;color:rgba(237,230,211,0.7);font-size:15px;font-weight:600">Later</button>
+    <button type="button" aria-pressed="{{isToday}}" onClick="{{showToday}}" class="press" style="flex:1;min-height:48px;border-radius:24px;border:0;background-color:{{todayBg}};color:{{todayInk}};font-size:15px;font-weight:700;transition:background-color .25s,color .25s">Today</button>
+    <button type="button" aria-pressed="{{isLater}}" onClick="{{showLater}}" class="press" style="flex:1;min-height:48px;border-radius:24px;border:0;background-color:{{laterBg}};color:{{laterInk}};font-size:15px;font-weight:700;transition:background-color .25s,color .25s">Later</button>
     <button type="button" aria-label="Add item" class="press" style="flex:none;width:48px;height:48px;border-radius:50%;border:1px solid rgba(237,230,211,0.5);background:transparent;color:#EDE6D3;display:flex;align-items:center;justify-content:center">
       <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     </button>
   </nav>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"season":{"editor":"enum","options":["auto","spring","summer","autumn","winter"],"default":"auto"},"time":{"editor":"enum","options":["auto","dawn","day","dusk","night"],"default":"auto"},"weather":{"editor":"enum","options":["clear","cloudy","rain","snow","fog"],"default":"clear"},"$preview":{"width":390,"height":1080}}'>
+<script type="text/x-dc" data-dc-script data-props='{"season":{"editor":"enum","options":["auto","spring","summer","autumn","winter"],"default":"auto"},"time":{"editor":"enum","options":["auto","dawn","day","dusk","night"],"default":"auto"},"weather":{"editor":"enum","options":["clear","cloudy","rain","snow","fog"],"default":"clear"},"$preview":{"width":390,"height":1280}}'>
 class Component extends DCLogic {
-  state = { mode: 'rest', elapsed: 0, balance: 1450, should: 4320, want: 0, done: { s3: true } };
+  state = { mode: 'rest', view: 'today', elapsed: 0, balance: 1450, should: 4320, want: 0, done: { s3: true } };
 
   componentDidMount() { this.timer = setInterval(() => this.tick(), 1000); }
   componentWillUnmount() { clearInterval(this.timer); }
@@ -178,23 +184,38 @@ class Component extends DCLogic {
     }[mode];
     const mk = (list, accent) => list.map((it) => {
       const done = !!s.done[it.id];
+      if (it.head) return { isHead: true, isRow: false, text: it.head, note: '', done: false };
       return {
+        isHead: false, isRow: true,
         text: it.text, note: it.note || '', noteColor: it.late ? RED : 'rgba(237,230,211,0.62)',
         done: done, fill: done ? accent : 'transparent', dash: done ? 0 : 20,
         ink: done ? 'rgba(237,230,211,0.5)' : PAPER, strike: done ? 'line-through' : 'none',
         toggle: () => this.setState({ done: { ...s.done, [it.id]: !done } }),
       };
     });
-    const sItems = [
+    const later = s.view === 'later';
+    const sItems = later ? [
+      { head: 'TOMORROW' },
+      { id: 'ls1', text: 'Renew passport' },
+      { head: 'FRI 16 OCT' },
+      { id: 'ls2', text: 'Dentist appointment', note: '↻ EVERY 6 MONTHS' },
+      { head: 'SOMEDAY' },
+      { id: 'ls3', text: 'Sort the garage' },
+    ] : [
       { id: 's1', text: 'Pay the electricity bill', note: '2 DAYS OVERDUE', late: true },
       { id: 's2', text: 'Write the quarterly report' },
       { id: 's3', text: 'Clear the inbox', note: '↻ EVERY WEEKDAY' },
     ];
-    const wItems = [
+    const wItems = later ? [
+      { head: 'SAT 10 OCT' },
+      { id: 'lw1', text: 'Day trip to the coast' },
+      { head: 'SOMEDAY' },
+      { id: 'lw2', text: 'Learn to bake sourdough' },
+    ] : [
       { id: 'w1', text: 'Practice guitar' },
       { id: 'w2', text: 'Read a chapter', note: '↻ DAILY' },
     ];
-    const count = (list) => list.filter((i) => s.done[i.id]).length + '/' + list.length;
+    const count = (list) => { const rows = list.filter((i) => i.id); return rows.filter((i) => s.done[i.id]).length + '/' + rows.length; };
     const elapsedText = rest ? '0:00' : this.clock(s.elapsed);
     return {
       sceneMode: mode, progress: progress,
@@ -215,6 +236,10 @@ class Component extends DCLogic {
       pickShould: () => this.setState({ mode: 'should', elapsed: 0 }),
       pickWant: () => this.setState({ mode: 'want', elapsed: 0 }),
       stop: () => this.setState({ mode: 'rest', elapsed: 0 }),
+      isToday: !later, isLater: later,
+      showToday: () => this.setState({ view: 'today' }), showLater: () => this.setState({ view: 'later' }),
+      todayBg: !later ? PAPER : 'transparent', todayInk: !later ? INK : 'rgba(237,230,211,0.7)',
+      laterBg: later ? PAPER : 'transparent', laterInk: later ? INK : 'rgba(237,230,211,0.7)',
       shouldItems: mk(sItems, MOSS), wantItems: mk(wItems, PAPER),
       shouldCount: count(sItems), wantCount: count(wItems),
     };
