@@ -78,7 +78,7 @@ export function ItemEditor({
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="min-h-12 rounded-lg px-3 bg-surface-2 border border-border text-text outline-none"
+            className="min-h-12 rounded-2xl px-4 text-base bg-surface-2 border border-border text-text outline-none"
           />
         </label>
 
@@ -114,7 +114,7 @@ export function ItemEditor({
               aria-label="Due date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="min-h-12 rounded-lg px-3 bg-surface-2 border border-border text-text outline-none"
+              className="min-h-12 rounded-2xl px-4 text-base bg-surface-2 border border-border text-text outline-none"
             />
           )}
         </div>
@@ -127,7 +127,7 @@ export function ItemEditor({
             id="repeat"
             value={repeatKind}
             onChange={(e) => setRepeatKind(e.target.value as RepeatKind)}
-            className="min-h-12 rounded-lg px-3 bg-surface-2 border border-border text-text outline-none"
+            className="min-h-12 rounded-2xl px-4 text-base bg-surface-2 border border-border text-text outline-none"
           >
             <option value="none">Never</option>
             <option value="daily">Daily</option>
@@ -176,14 +176,14 @@ export function ItemEditor({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-12 rounded-xl border border-border text-text-muted font-medium cursor-pointer hover:text-text"
+            className="press min-h-12 rounded-full border border-border text-text-muted font-medium cursor-pointer hover:text-text"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!valid}
-            className="min-h-12 rounded-xl bg-accent text-on-accent font-semibold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="press min-h-12 rounded-full bg-accent text-on-accent font-semibold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Save
           </button>

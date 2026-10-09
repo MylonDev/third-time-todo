@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today, resting</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#080808;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#e8e8e8}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="width:390px;height:1000px;box-sizing:border-box;background:#080808;padding:16px 16px 48px;display:flex;flex-direction:column;gap:16px;color:#e8e8e8;font-family:'IBM Plex Sans',system-ui,sans-serif">
+  <div style="display:flex;align-items:center;justify-content:space-between">
+    <h1 style="margin:0;font-size:20px;font-weight:600">Third Time</h1>
+    <button type="button" aria-label="Settings" style="min-width:44px;min-height:44px;background:none;border:0;color:rgba(232,232,232,0.55);font-size:20px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </div>
+
+  <section aria-label="Timer" style="border-radius:16px;border:1px solid rgba(255,255,255,0.1);background:#111;padding:16px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px">
+      <div>
+        <p style="margin:0;font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:rgba(232,232,232,0.55)">Resting</p>
+        <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:48px;font-weight:600;line-height:1.15;letter-spacing:-0.02em">0:00</p>
+      </div>
+      <div style="text-align:right">
+        <p style="margin:0;font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:rgba(232,232,232,0.55)">Want available</p>
+        <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:600;letter-spacing:-0.02em;color:#a78bfa">24:10</p>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+      <button type="button" aria-pressed="false" style="min-height:64px;border-radius:12px;font-size:20px;font-weight:600;background:#1c1c1c;border:1px solid rgba(255,255,255,0.1);color:#e8e8e8">Should</button>
+      <button type="button" aria-pressed="false" style="min-height:64px;border-radius:12px;font-size:20px;font-weight:600;background:#1c1c1c;border:1px solid rgba(255,255,255,0.1);color:#e8e8e8">Want</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;font-size:14px;color:rgba(232,232,232,0.55)">
+      <p style="margin:0">Today: Should <span style="font-family:'JetBrains Mono',monospace;color:#e8e8e8">1h 12m</span> · Want <span style="font-family:'JetBrains Mono',monospace;color:#e8e8e8">0m</span></p>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div role="progressbar" aria-label="Daily Should target" aria-valuemin="0" aria-valuemax="100" aria-valuenow="36" style="height:8px;border-radius:999px;background:#1c1c1c;overflow:hidden"><div style="height:100%;width:36%;background:#4f8ef7"></div></div>
+        <p style="margin:0">Target: 1h 12m of 3h 20m</p>
+      </div>
+    </div>
+  </section>
+
+  <div role="group" aria-label="View" style="display:flex;gap:4px;border-radius:12px;padding:4px;background:#1c1c1c">
+    <button type="button" aria-pressed="true" style="flex:1;min-height:40px;border-radius:8px;border:0;font-size:14px;font-weight:500;background:#4f8ef7;color:#fff">Today</button>
+    <button type="button" aria-pressed="false" style="flex:1;min-height:40px;border-radius:8px;border:0;font-size:14px;font-weight:500;background:none;color:rgba(232,232,232,0.55)">Later</button>
+  </div>
+
+  <section aria-label="Should" style="border-radius:16px;border:1px solid rgba(79,142,247,0.32);background:#111">
+    <h2 style="margin:0;padding:12px 16px 8px;font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#4f8ef7">Should</h2>
+    <ul style="list-style:none;margin:0;padding:0">
+      <li style="display:flex;align-items:center;gap:12px;min-height:48px;padding:4px 12px">
+        <input type="checkbox" aria-label="Pay the electricity bill" style="width:24px;height:24px;margin:0;accent-color:#4f8ef7">
+        <div style="flex:1;min-width:0;padding:8px 0"><span style="display:block">Pay the electricity bill</span><span style="font-size:12px;color:#f87171">2 days overdue</span></div>
+      </li>
+      <li style="display:flex;align-items:center;gap:12px;min-height:48px;padding:4px 12px;border-top:1px solid rgba(255,255,255,0.1)">
+        <input type="checkbox" aria-label="Write the quarterly report" style="width:24px;height:24px;margin:0;accent-color:#4f8ef7">
+        <div style="flex:1;min-width:0;padding:8px 0"><span style="display:block">Write the quarterly report</span></div>
+      </li>
+      <li style="display:flex;align-items:center;gap:12px;min-height:48px;padding:4px 12px;border-top:1px solid rgba(255,255,255,0.1)">
+        <input type="checkbox" aria-label="Clear the inbox" checked style="width:24px;height:24px;margin:0;accent-color:#4f8ef7">
+        <div style="flex:1;min-width:0;padding:8px 0"><span style="display:block;text-decoration:line-through;color:rgba(232,232,232,0.55)">Clear the inbox</span><span style="font-size:12px;color:rgba(232,232,232,0.55)">↻ Every weekday</span></div>
+      </li>
+    </ul>
+    <div style="padding:8px;border-top:1px solid rgba(255,255,255,0.1)"><input aria-label="Add to Should" placeholder="Add something you should do…" style="width:100%;box-sizing:border-box;min-height:44px;border:0;outline:0;border-radius:8px;padding:0 12px;background:transparent;color:#e8e8e8;font-size:16px"></div>
+  </section>
+
+  <section aria-label="Want" style="border-radius:16px;border:1px solid rgba(167,139,250,0.32);background:#111">
+    <h2 style="margin:0;padding:12px 16px 8px;font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#a78bfa">Want</h2>
+    <ul style="list-style:none;margin:0;padding:0">
+      <li style="display:flex;align-items:center;gap:12px;min-height:48px;padding:4px 12px">
+        <input type="checkbox" aria-label="Practice guitar" style="width:24px;height:24px;margin:0;accent-color:#a78bfa">
+        <div style="flex:1;min-width:0;padding:8px 0"><span style="display:block">Practice guitar</span></div>
+      </li>
+      <li style="display:flex;align-items:center;gap:12px;min-height:48px;padding:4px 12px;border-top:1px solid rgba(255,255,255,0.1)">
+        <input type="checkbox" aria-label="Read a chapter" style="width:24px;height:24px;margin:0;accent-color:#a78bfa">
+        <div style="flex:1;min-width:0;padding:8px 0"><span style="display:block">Read a chapter</span><span style="font-size:12px;color:rgba(232,232,232,0.55)">↻ Daily</span></div>
+      </li>
+    </ul>
+    <div style="padding:8px;border-top:1px solid rgba(255,255,255,0.1)"><input aria-label="Add to Want" placeholder="Add something you want to do…" style="width:100%;box-sizing:border-box;min-height:44px;border:0;outline:0;border-radius:8px;padding:0 12px;background:transparent;color:#e8e8e8;font-size:16px"></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

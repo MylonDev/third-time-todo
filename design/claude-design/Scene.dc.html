@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scene</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.drift{animation:drift 22s ease-in-out infinite alternate}
+.fall-rain{animation:fall-rain 1s linear infinite}
+.fall-snow{animation:fall-snow 8s linear infinite}
+.fall-petal{animation:fall-petal 11s linear infinite}
+.float{animation:float 4s ease-in-out infinite}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(24px)}}
+@keyframes fall-rain{from{transform:translate(0,-30px)}to{transform:translate(-30px,340px)}}
+@keyframes fall-snow{0%{transform:translate(0,-10px)}50%{transform:translate(10px,170px)}100%{transform:translate(-6px,330px)}}
+@keyframes fall-petal{0%{transform:translate(0,-10px)}50%{transform:translate(-40px,170px)}100%{transform:translate(10px,330px)}}
+@keyframes float{0%,100%{transform:translate(0,0);opacity:0.2}50%{transform:translate(10px,-14px);opacity:1}}
+@media (prefers-reduced-motion:reduce){.drift,.fall-rain,.fall-snow,.fall-petal,.float{animation:none}}
+</style>
+</helmet>
+<div style="position:relative;width:358px;height:310px;overflow:hidden">
+  <svg role="img" aria-label="{{alt}}" width="358" height="310" viewBox="0 0 358 310" style="position:absolute;inset:0">
+    <rect width="358" height="310" style="fill:{{sky}};transition:fill .7s cubic-bezier(.2,.8,.2,1)"/>
+    <ellipse cx="179" cy="236" rx="270" ry="84" style="fill:{{glow}};opacity:{{glowOp}};transition:fill .7s,opacity .7s"/>
+    <g style="fill:{{PAPER}};opacity:{{starOp}};transition:opacity .7s">
+      <sc-for list="{{stars}}" as="s" hint-placeholder-count="10"><circle cx="{{s.x}}" cy="{{s.y}}" r="{{s.r}}"/></sc-for>
+    </g>
+    <g style="transform:translate({{celX}}px,{{celY}}px);opacity:{{celOp}};transition:transform 1.2s cubic-bezier(.3,.8,.3,1),opacity .7s">
+      <circle r="52" style="fill:{{celColor}};opacity:0.14;transition:fill .7s"/>
+      <circle r="36" style="fill:{{celColor}};transition:fill .7s"/>
+      <sc-if value="{{isNight}}" hint-placeholder-val="{{ false }}"><circle cx="13" cy="-8" r="30" style="fill:{{sky}};transition:fill .7s"/></sc-if>
+    </g>
+    <g class="drift" style="fill:{{cloudFill}};opacity:{{cloudOp}};transition:fill .7s,opacity .7s">
+      <sc-for list="{{clouds}}" as="c" hint-placeholder-count="3"><rect x="{{c.x}}" y="{{c.y}}" width="{{c.w}}" height="{{c.h}}" rx="{{c.r}}"/></sc-for>
+    </g>
+    <g style="fill:{{mountain}};transition:fill .7s">
+      <path d="M100 238L188 156Q210 138 232 156L320 238Z"/>
+    </g>
+    <path d="M188 156Q210 138 232 156L222 163L214 154L208 165L200 157L194 165Z" style="fill:{{PAPER}};opacity:0.92"/>
+    <path d="M0 232Q70 192 140 216T290 204T358 222V310H0Z" style="fill:{{hill}};transition:fill .7s"/>
+    <g style="fill:{{city}};transition:fill .7s">
+      <sc-for list="{{buildings}}" as="b" hint-placeholder-count="10"><rect x="{{b.x}}" y="{{b.y}}" width="{{b.w}}" height="{{b.h}}"/></sc-for>
+    </g>
+    <g style="fill:{{PAPER}};opacity:0.92">
+      <sc-for list="{{snowCaps}}" as="b" hint-placeholder-count="0"><rect x="{{b.x}}" y="{{b.y}}" width="{{b.w}}" height="4" rx="2"/></sc-for>
+    </g>
+    <g style="fill:{{PAPER}};opacity:{{litOp}};transition:opacity .7s">
+      <sc-for list="{{windows}}" as="w" hint-placeholder-count="9"><rect x="{{w.x}}" y="{{w.y}}" width="4" height="5"/></sc-for>
+    </g>
+    <g style="stroke:{{city}};fill:none;transition:stroke .7s">
+      <path d="M320 118V310" stroke-width="4"/><path d="M302 136H338" stroke-width="3"/>
+      <path d="M0 150Q120 196 320 136" stroke-width="1.5"/><path d="M0 166Q130 210 320 144" stroke-width="1.5"/><path d="M320 136Q342 148 358 138" stroke-width="1.5"/>
+      <path d="M358 10Q318 24 290 48Q268 64 240 66" stroke-width="3.2"/><path d="M306 36Q304 56 298 72" stroke-width="2"/><path d="M284 54Q276 44 266 34" stroke-width="2"/><path d="M318 26Q326 38 336 36" stroke-width="2"/>
+    </g>
+    <g style="stroke:{{city}};fill:none;stroke-width:1.4;stroke-linecap:round;transition:stroke .7s" class="drift">
+      <sc-for list="{{birds}}" as="b" hint-placeholder-count="3"><path d="M-5 0Q-2.5 -4 0 0Q2.5 -4 5 0" transform="translate({{b.x}} {{b.y}}) scale({{b.s}})"/></sc-for>
+    </g>
+    <sc-for list="{{ornaments}}" as="o" hint-placeholder-count="12">
+      <g transform="translate({{o.x}} {{o.y}})">
+        <sc-if value="{{o.round}}" hint-placeholder-val="{{ true }}"><circle r="{{o.r}}" fill="{{o.fill}}"/></sc-if>
+        <sc-if value="{{o.maple}}" hint-placeholder-val="{{ false }}"><path d="M0 -6L1.6 -2.2L5.6 -3.2L3 0.6L4.4 4.6L0 2.6L-4.4 4.6L-3 0.6L-5.6 -3.2L-1.6 -2.2Z" fill="{{o.fill}}"/></sc-if>
+        <sc-if value="{{o.snow}}" hint-placeholder-val="{{ false }}"><rect x="-6" y="-5" width="12" height="4" rx="2" fill="{{o.fill}}"/></sc-if>
+      </g>
+    </sc-for>
+    <sc-for list="{{particles}}" as="p" hint-placeholder-count="12">
+      <g transform="translate({{p.x}} {{p.y}})"><g class="{{p.cls}}" style="animation-duration:{{p.dur}}s;animation-delay:{{p.delay}}s"><ellipse rx="{{p.rx}}" ry="{{p.ry}}" style="fill:{{p.fill}};opacity:{{p.op}}"/></g></g>
+    </sc-for>
+    <g style="fill:{{fog}}">
+      <sc-for list="{{fogBands}}" as="f" hint-placeholder-count="0"><rect x="-30" y="{{f.y}}" width="420" height="30" rx="15" class="drift"/></sc-for>
+    </g>
+    <rect x="8" y="8" width="342" height="294" rx="20" fill="none" style="stroke:{{ink}};stroke-opacity:0.22;transition:stroke .7s" stroke-width="1"/>
+    <g transform="rotate(-4 339 291)"><rect x="332" y="284" width="14" height="14" rx="2.5" fill="#D9503A"/><circle cx="339" cy="291" r="2.6" fill="#EDE6D3"/></g>
+  </svg>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"mode":{"editor":"enum","options":["rest","should","want"],"default":"should"},"progress":{"editor":"range","min":0,"max":1,"step":0.01,"default":0.36},"season":{"editor":"enum","options":["spring","summer","autumn","winter"],"default":"autumn"},"time":{"editor":"enum","options":["dawn","day","dusk","night"],"default":"day"},"weather":{"editor":"enum","options":["clear","cloudy","rain","snow","fog"],"default":"clear"},"$preview":{"width":358,"height":310}}'>
+class Component extends DCLogic {
+  mix(a, b, t) {
+    const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+    const ch = (s) => { const x = (pa >> s) & 255, y = (pb >> s) & 255; return Math.round(x + (y - x) * t); };
+    return '#' + [16, 8, 0].map((s) => ch(s).toString(16).padStart(2, '0')).join('');
+  }
+  r(i, k) { return ((i * 9301 + k * 49297) % 233280) / 233280; }
+
+  renderVals() {
+    const PAPER = '#EDE6D3', FOREST = '#2F6B4A', RED = '#D9503A', MOSS = '#86B594', PINK = '#EFC1C8';
+    const p = this.props;
+    const mode = p.mode || 'should';
+    const prog = Math.max(0, Math.min(1, p.progress === undefined || p.progress === '' ? 0.36 : Number(p.progress)));
+    const season = p.season || 'autumn', time = p.time || 'day', weather = p.weather || 'clear';
+    const want = mode === 'want';
+    const base = {
+      rest: { sky: '#0F2418', hill: '#0A1A11', city: '#050D08', sun: PAPER, ink: PAPER },
+      should: { sky: FOREST, hill: '#25563B', city: '#0B1F15', sun: PAPER, ink: PAPER },
+      want: { sky: PAPER, hill: '#D9D0B8', city: '#1F4A33', sun: RED, ink: '#06120B' },
+    }[mode];
+    const night = time === 'night', dusk = time === 'dusk', dawn = time === 'dawn';
+    const dim = mode === 'rest' ? 0.5 : 1;
+    const darken = { dawn: 0.12, day: 0, dusk: 0.22, night: 0.55 }[time] * dim;
+    let sky = this.mix(base.sky, want ? '#13261C' : '#000000', darken);
+    const grey = want ? '#B9B3A0' : '#3A4A40';
+    const greyAmt = { clear: 0, cloudy: 0.25, rain: 0.4, snow: 0.2, fog: 0 }[weather];
+    if (greyAmt) sky = this.mix(sky, grey, greyAmt);
+    if (weather === 'fog') sky = this.mix(sky, want ? '#FFFFFF' : PAPER, 0.35);
+    let hill = base.hill;
+    if (weather === 'fog') hill = this.mix(hill, sky, 0.5);
+    const mountain = this.mix(hill, sky, weather === 'fog' ? 0.7 : 0.4);
+    const glowOn = (dawn || dusk) && weather !== 'rain' && weather !== 'fog';
+    const glow = dusk ? RED : (want ? RED : PAPER);
+    const celColor = night ? PAPER : (dusk ? RED : base.sun);
+    const celOp = { clear: 1, cloudy: 0.85, rain: 0, snow: 0.35, fog: 0.5 }[weather];
+    const dark = !want;
+    const cloudSets = {
+      clear: [[150, 118, 80, 10], [172, 106, 46, 10], [250, 150, 60, 9]],
+      cloudy: [[10, 110, 120, 16], [40, 96, 70, 16], [150, 120, 130, 16], [170, 106, 80, 16], [240, 90, 100, 16], [60, 160, 110, 14], [210, 170, 120, 14]],
+      rain: [[0, 60, 150, 22], [40, 44, 90, 22], [120, 80, 160, 22], [170, 60, 120, 22], [250, 90, 108, 22], [0, 110, 110, 20], [210, 120, 148, 20]],
+      snow: [[10, 110, 120, 16], [40, 96, 70, 16], [150, 120, 130, 16], [240, 90, 100, 16], [60, 160, 110, 14]],
+      fog: [],
+    };
+    const clouds = cloudSets[weather].map((c) => ({ x: c[0], y: c[1], w: c[2], h: c[3], r: c[3] / 2 }));
+    const cloudFill = weather === 'rain' ? (dark ? 'rgba(0,0,0,0.3)' : 'rgba(47,107,74,0.3)') : (dark ? 'rgba(237,230,211,0.22)' : 'rgba(47,107,74,0.14)');
+    const buildings = [[0, 238, 40, 72], [40, 258, 30, 52], [70, 228, 36, 82], [106, 252, 28, 58], [134, 242, 44, 68], [178, 264, 26, 46], [204, 234, 38, 76], [242, 254, 32, 56], [274, 224, 40, 86], [314, 248, 44, 62]].map((b) => ({ x: b[0], y: b[1], w: b[2], h: b[3] }));
+    const windows = [[10, 250], [24, 266], [80, 240], [92, 262], [146, 256], [214, 248], [226, 270], [284, 238], [296, 262]].map((w) => ({ x: w[0], y: w[1] }));
+    const stars = [[210, 24], [250, 52], [286, 20], [326, 44], [300, 96], [340, 110], [230, 120], [270, 140], [120, 130], [60, 150]].map((s, i) => ({ x: s[0], y: s[1], r: i % 3 === 0 ? 1.8 : 1.2 }));
+    const clearish = weather === 'clear' || weather === 'cloudy';
+    const birds = ((dawn || time === 'day') && clearish) ? [{ x: 96, y: 150, s: 1.1 }, { x: 118, y: 140, s: 0.8 }, { x: 140, y: 154, s: 0.9 }] : [];
+    const snowCaps = season === 'winter' ? buildings.filter((b, i) => i % 2 === 0).map((b) => ({ x: b.x, y: b.y - 2, w: b.w })) : [];
+    const spots = [[346, 14], [332, 19], [318, 26], [306, 36], [296, 44], [284, 54], [272, 60], [258, 64], [244, 66], [300, 60], [292, 72], [312, 48], [274, 44], [262, 36], [336, 34]];
+    const orn = {
+      spring: (s, i) => ({ round: true, maple: false, snow: false, r: 3 + (i % 3), fill: PINK }),
+      summer: (s, i) => ({ round: true, maple: false, snow: false, r: 4 + (i % 2), fill: MOSS }),
+      autumn: (s, i) => ({ round: false, maple: true, snow: false, r: 0, fill: RED }),
+      winter: (s, i) => ({ round: false, maple: false, snow: i % 3 === 0, r: 0, fill: PAPER }),
+    }[season];
+    const ornaments = spots.map((s, i) => Object.assign({ x: s[0], y: s[1] }, orn(s, i)));
+    const particles = [];
+    const add = (n, mk) => { for (let i = 0; i < n; i++) particles.push(mk(i, this.r(i, 1), this.r(i, 2), this.r(i, 3))); };
+    if (weather === 'rain') {
+      add(24, (i, a, b, c) => ({ x: Math.round(a * 380) - 10, y: 0, cls: 'fall-rain', dur: (0.8 + b * 0.5).toFixed(2), delay: (-c * 1.5).toFixed(2), rx: 0.8, ry: 7, fill: dark ? PAPER : FOREST, op: 0.5 }));
+    } else if (weather === 'snow') {
+      add(22, (i, a, b, c) => ({ x: Math.round(a * 358), y: 0, cls: 'fall-snow', dur: (6 + b * 4).toFixed(2), delay: (-c * 8).toFixed(2), rx: 1.6 + b * 1.4, ry: 1.6 + b * 1.4, fill: dark ? PAPER : FOREST, op: dark ? 0.9 : 0.55 }));
+    } else if (clearish && !night && season === 'spring') {
+      add(9, (i, a, b, c) => ({ x: Math.round(150 + a * 208), y: 0, cls: 'fall-petal', dur: (9 + b * 4).toFixed(2), delay: (-c * 11).toFixed(2), rx: 3, ry: 2, fill: PINK, op: 0.95 }));
+    } else if (clearish && !night && season === 'autumn') {
+      add(8, (i, a, b, c) => ({ x: Math.round(150 + a * 208), y: 0, cls: 'fall-petal', dur: (9 + b * 4).toFixed(2), delay: (-c * 11).toFixed(2), rx: 3.2, ry: 2.4, fill: RED, op: 0.95 }));
+    } else if (clearish && season === 'summer' && (night || dusk)) {
+      add(8, (i, a, b, c) => ({ x: Math.round(a * 330) + 10, y: Math.round(170 + b * 90), cls: 'float', dur: (3 + c * 3).toFixed(2), delay: (-c * 4).toFixed(2), rx: 1.8, ry: 1.8, fill: '#CFE8A8', op: 1 }));
+    }
+    const fogBands = weather === 'fog' ? [{ y: 150 }, { y: 196 }, { y: 244 }] : [];
+    return {
+      PAPER, sky, hill, mountain, city: base.city, ink: base.ink,
+      glow, glowOp: glowOn ? 0.3 : 0,
+      starOp: night && clearish ? (weather === 'clear' ? 0.85 : 0.4) : 0, stars,
+      celX: 70 + 218 * prog, celY: 218 - 140 * prog, celColor, celOp, isNight: night,
+      clouds, cloudFill, cloudOp: 1,
+      buildings, windows, snowCaps, birds, ornaments, particles, fogBands,
+      fog: want ? 'rgba(47,107,74,0.10)' : 'rgba(237,230,211,0.18)',
+      litOp: { dawn: 0.7, day: 0.25, dusk: 0.9, night: 1 }[time],
+      alt: season + ' ' + time + ', ' + weather,
+    };
+  }
+}
+</script>
+</body>
+</html>

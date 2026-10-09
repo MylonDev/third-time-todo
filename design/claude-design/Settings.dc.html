@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings, Sun and Wires</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#000;font-family:'Space Grotesk',system-ui,sans-serif}
+button,input{font-family:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.press{transition:transform .18s cubic-bezier(.3,1.7,.5,1)}
+.press:active{transform:scale(.95)}
+.drift{animation:drift 22s ease-in-out infinite alternate}
+.fall-petal{animation:fall-petal 11s linear infinite}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(24px)}}
+@keyframes fall-petal{0%{transform:translate(0,-10px)}50%{transform:translate(-40px,170px)}100%{transform:translate(10px,330px)}}
+@media (prefers-reduced-motion:reduce){.drift,.fall-petal{animation:none}.press{transition:none}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:1060px;box-sizing:border-box;background:#000;padding:16px 16px 28px;display:flex;flex-direction:column;gap:18px;color:#EDE6D3;overflow:hidden">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;min-height:44px">
+    <h1 style="margin:0;font-size:30px;font-weight:700;letter-spacing:-0.03em">Settings</h1>
+    <button type="button" class="press" style="min-height:44px;padding:0 22px;border-radius:22px;border:0;background:#EDE6D3;color:#06120B;font-size:15px;font-weight:700">Done</button>
+  </div>
+
+  <div aria-hidden="true" style="position:relative;height:96px;flex:none;border-radius:28px;overflow:hidden">
+    <div style="position:absolute;left:0;bottom:0"><dc-import name="Scene" mode="should" progress="0.3" season="autumn" time="day" weather="clear" hint-size="358px,310px"></dc-import></div>
+  </div>
+
+  <section aria-label="Timer">
+    <p style="margin:0 0 8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;color:#86B594">TIMER</p>
+    <div style="border:1px solid rgba(237,230,211,0.16);border-radius:24px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;min-height:64px">
+        <div style="min-width:0"><span style="display:block;font-size:17px;font-weight:600">Daily Should target</span><span style="display:block;font-size:13px;line-height:1.35;color:rgba(237,230,211,0.62)">Tells you when you can stop for the day.</span></div>
+        <div style="display:flex;align-items:center;gap:4px;flex:none">
+          <button type="button" aria-label="Less" class="press" onClick="{{dec}}" style="width:44px;height:44px;border-radius:50%;border:1px solid rgba(237,230,211,0.5);background:transparent;color:#EDE6D3;font-size:22px;line-height:1">−</button>
+          <span data-testid="target" style="min-width:58px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700">{{targetText}}</span>
+          <button type="button" aria-label="More" class="press" onClick="{{inc}}" style="width:44px;height:44px;border-radius:50%;border:1px solid rgba(237,230,211,0.5);background:transparent;color:#EDE6D3;font-size:22px;line-height:1">+</button>
+        </div>
+      </div>
+      <button type="button" class="press" onClick="{{cycleDay}}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;box-sizing:border-box;text-align:left;padding:14px 16px;min-height:64px;border:0;border-top:1px solid rgba(237,230,211,0.12);background:transparent;color:#EDE6D3">
+        <span style="min-width:0"><span style="display:block;font-size:17px;font-weight:600">Day ends at</span><span style="display:block;font-size:13px;line-height:1.35;color:rgba(237,230,211,0.62)">Want resets then. Push it past midnight if you work late.</span></span>
+        <span style="flex:none;display:flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:18px;border:1px solid rgba(237,230,211,0.3);font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600">{{dayText}}<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+      </button>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;min-height:64px;border-top:1px solid rgba(237,230,211,0.12)">
+        <div style="min-width:0"><span style="display:block;font-size:17px;font-weight:600">Keep screen on while timing</span><span style="display:block;font-size:13px;line-height:1.35;color:rgba(237,230,211,0.62)">Stops the phone locking mid-session.</span></div>
+        <button type="button" role="switch" aria-checked="{{wake}}" aria-label="Keep screen on while timing" onClick="{{toggleWake}}" style="flex:none;position:relative;width:56px;height:34px;padding:0;border-radius:17px;box-sizing:border-box;border:1px solid {{wakeBorder}};background-color:{{wakeBg}};transition:background-color .25s,border-color .25s">
+          <span style="position:absolute;left:3px;top:3px;width:26px;height:26px;border-radius:50%;background:{{wakeKnob}};transform:translateX({{wakeX}}px);transition:transform .3s cubic-bezier(.3,1.5,.5,1),background-color .25s"></span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Look">
+    <p style="margin:0 0 8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;color:#86B594">LOOK</p>
+    <div style="border:1px solid rgba(237,230,211,0.16);border-radius:24px;overflow:hidden">
+      <div style="padding:14px 16px">
+        <span style="display:block;font-size:17px;font-weight:600">Theme</span>
+        <span style="display:block;font-size:13px;line-height:1.35;color:rgba(237,230,211,0.62);margin-bottom:10px">Dark is true black, easiest on OLED screens.</span>
+        <div role="group" aria-label="Theme" style="display:flex;gap:4px;padding:4px;border-radius:24px;border:1px solid rgba(237,230,211,0.16)">
+          <sc-for list="{{themes}}" as="t" hint-placeholder-count="3"><button type="button" aria-pressed="{{t.sel}}" onClick="{{t.pick}}" class="press" style="flex:1;min-height:44px;border-radius:20px;border:0;font-size:15px;font-weight:600;background-color:{{t.bg}};color:{{t.ink}};transition:background-color .25s,color .25s">{{t.label}}</button></sc-for>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;min-height:64px;border-top:1px solid rgba(237,230,211,0.12)">
+        <div style="min-width:0"><span style="display:block;font-size:17px;font-weight:600">Weather in the scene</span><span style="display:block;font-size:13px;line-height:1.35;color:rgba(237,230,211,0.62)">Rain, snow and fog from your approximate location. Off by default.</span></div>
+        <button type="button" role="switch" aria-checked="{{wx}}" aria-label="Weather in the scene" onClick="{{toggleWx}}" style="flex:none;position:relative;width:56px;height:34px;padding:0;border-radius:17px;box-sizing:border-box;border:1px solid {{wxBorder}};background-color:{{wxBg}};transition:background-color .25s,border-color .25s">
+          <span style="position:absolute;left:3px;top:3px;width:26px;height:26px;border-radius:50%;background:{{wxKnob}};transform:translateX({{wxX}}px);transition:transform .3s cubic-bezier(.3,1.5,.5,1),background-color .25s"></span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Account">
+    <p style="margin:0 0 8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;color:#86B594">SYNC</p>
+    <div style="border:1px solid rgba(237,230,211,0.16);border-radius:24px;padding:16px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="flex:none;width:44px;height:44px;border-radius:50%;background:#2F6B4A;display:flex;align-items:center;justify-content:center"><span style="width:12px;height:12px;border-radius:50%;background:#EDE6D3"></span></span>
+        <div style="min-width:0"><span style="display:block;font-size:17px;font-weight:600">Synced just now</span><span style="display:block;font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(237,230,211,0.62)">you@example.com</span></div>
+      </div>
+      <p style="margin:0;font-size:13px;line-height:1.4;color:rgba(237,230,211,0.62)">Your phone and computer stay in step. Everything also works signed out, on this device.</p>
+      <button type="button" class="press" style="min-height:48px;border-radius:24px;border:1px solid rgba(237,230,211,0.5);background:transparent;color:#EDE6D3;font-size:16px;font-weight:600">Sign out</button>
+    </div>
+  </section>
+
+  <p style="margin:auto 0 0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.14em;color:rgba(237,230,211,0.4)">THIRD TIME</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1060}}'>
+class Component extends DCLogic {
+  state = { target: 200, dayIdx: 0, wake: true, wx: false, theme: 'dark' };
+
+  sw(on) { return on ? { bg: '#2F6B4A', border: '#2F6B4A', knob: '#EDE6D3', x: 22 } : { bg: 'transparent', border: 'rgba(237,230,211,0.5)', knob: 'rgba(237,230,211,0.62)', x: 0 }; }
+
+  renderVals() {
+    const s = this.state;
+    const days = ['Midnight', '1:00 AM', '2:00 AM', '3:00 AM', '4:00 AM'];
+    const h = Math.floor(s.target / 60), m = s.target % 60;
+    const w = this.sw(s.wake), x = this.sw(s.wx);
+    return {
+      targetText: s.target === 0 ? 'None' : (h ? h + 'h' : '') + (m ? (h ? ' ' : '') + m + 'm' : ''),
+      dec: () => this.setState({ target: Math.max(0, s.target - 30) }),
+      inc: () => this.setState({ target: Math.min(720, s.target + 30) }),
+      dayText: days[s.dayIdx],
+      cycleDay: () => this.setState({ dayIdx: (s.dayIdx + 1) % days.length }),
+      wake: s.wake, wakeBg: w.bg, wakeBorder: w.border, wakeKnob: w.knob, wakeX: w.x,
+      toggleWake: () => this.setState({ wake: !s.wake }),
+      wx: s.wx, wxBg: x.bg, wxBorder: x.border, wxKnob: x.knob, wxX: x.x,
+      toggleWx: () => this.setState({ wx: !s.wx }),
+      themes: [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']].map((t) => ({
+        label: t[1], sel: s.theme === t[0],
+        bg: s.theme === t[0] ? '#EDE6D3' : 'transparent', ink: s.theme === t[0] ? '#06120B' : 'rgba(237,230,211,0.7)',
+        pick: () => this.setState({ theme: t[0] }),
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today, Instrument Panel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#15181D;font-family:'Space Grotesk',system-ui,sans-serif;color:#EDE3CF}
+button,input{font-family:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.press{transition:transform .18s cubic-bezier(.3,1.7,.5,1)}
+.press:active{transform:scale(.95)}
+@keyframes beat{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+.beat{animation:beat 1.6s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.beat{animation:none}.press{transition:none}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:980px;box-sizing:border-box;background:#15181D;padding:16px 16px 20px;display:flex;flex-direction:column;gap:12px;color:#EDE3CF;overflow:hidden">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;min-height:44px">
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <span style="font-size:18px;font-weight:700;letter-spacing:-0.01em">Third Time</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.08em;color:rgba(237,227,207,0.62)">FRI 09·10</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:4px">
+      <span aria-label="Synced" role="img" style="width:8px;height:8px;border-radius:50%;background:#9ECBC9;margin-right:6px"></span>
+      <button type="button" aria-label="Settings" class="press" style="width:44px;height:44px;border-radius:14px;border:1px solid rgba(237,227,207,0.12);background:#1E232A;color:#EDE3CF;display:flex;align-items:center;justify-content:center">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <section aria-label="Timer" style="position:relative;overflow:hidden;border-radius:28px;padding:20px;display:flex;flex-direction:column;gap:18px;border:1px solid rgba(237,227,207,0.12);background-color:{{heroBg}};color:{{heroInk}};transition:background-color .5s cubic-bezier(.2,.8,.2,1),color .5s cubic-bezier(.2,.8,.2,1)">
+    <div aria-hidden="true" style="position:absolute;inset:0;opacity:0.07;background-image:linear-gradient(currentColor 1px,transparent 1px),linear-gradient(90deg,currentColor 1px,transparent 1px);background-size:28px 28px"></div>
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div>
+        <p style="margin:0;display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.12em">
+          <span class="beat" style="width:8px;height:8px;border-radius:50%;background:currentColor"></span>{{label}}
+        </p>
+        <p data-testid="elapsed" style="margin:6px 0 0;font-family:'JetBrains Mono',monospace;font-size:60px;font-weight:700;line-height:1;letter-spacing:-0.04em">{{elapsedText}}</p>
+      </div>
+      <svg role="img" aria-label="Daily Should target {{targetPct}} percent" width="92" height="92" viewBox="0 0 92 92" style="flex:none">
+        <circle cx="46" cy="46" r="36" fill="none" stroke="{{trackColor}}" stroke-width="6"/>
+        <circle cx="46" cy="46" r="36" fill="none" stroke="{{ringColor}}" stroke-width="6" stroke-linecap="round" stroke-dasharray="226.2" style="stroke-dashoffset:{{ringOffset}};transition:stroke-dashoffset 1s linear,stroke .5s;transform:rotate(-90deg);transform-origin:46px 46px"/>
+        <circle cx="46" cy="46" r="14" fill="{{ringColor}}" style="transition:fill .5s"/>
+        <circle cx="52" cy="40" r="3.5" fill="{{heroBg}}" style="transition:fill .5s"/>
+      </svg>
+    </div>
+    <div style="position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:14px;border-top:1px solid {{trackColor}}">
+      <div><p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.1em;opacity:0.75">{{balanceLabel}}</p><p style="margin:2px 0 0;font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700;color:{{balanceColor}};transition:color .4s">{{balanceText}}</p></div>
+      <div><p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.1em;opacity:0.75">SHOULD</p><p style="margin:2px 0 0;font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700">{{shouldText}}</p></div>
+      <div><p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.1em;opacity:0.75">WANT</p><p style="margin:2px 0 0;font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700">{{wantText}}</p></div>
+    </div>
+  </section>
+
+  <div role="group" aria-label="Timer state" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+    <button type="button" class="press" aria-pressed="{{isShould}}" onClick="{{pickShould}}" style="min-height:84px;border-radius:22px;padding:14px 16px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(237,227,207,0.12);background-color:{{shouldTileBg}};color:{{shouldTileInk}};transition:background-color .3s,color .3s">
+      <span style="font-size:22px;font-weight:700;letter-spacing:-0.01em">Should</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.08em;opacity:0.8">EARNS 1:3</span>
+    </button>
+    <button type="button" class="press" aria-pressed="{{isWant}}" onClick="{{pickWant}}" style="min-height:84px;border-radius:22px;padding:14px 16px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(237,227,207,0.12);background-color:{{wantTileBg}};color:{{wantTileInk}};transition:background-color .3s,color .3s">
+      <span style="font-size:22px;font-weight:700;letter-spacing:-0.01em">Want</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.08em;opacity:0.8">SPENDS 1:1</span>
+    </button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+    <button type="button" class="press" onClick="{{stop}}" disabled="{{isRest}}" style="min-height:48px;border-radius:16px;border:1px solid rgba(237,227,207,0.45);background:transparent;color:#EDE3CF;font-size:16px;font-weight:600;opacity:{{runOpacity}};transition:opacity .3s">Stop</button>
+    <button type="button" class="press" disabled="{{isRest}}" style="min-height:48px;border-radius:16px;border:1px solid rgba(237,227,207,0.12);background:transparent;color:rgba(237,227,207,0.62);font-size:16px;font-weight:500;opacity:{{runOpacity}};transition:opacity .3s">Fix timer</button>
+  </div>
+
+  <section aria-label="Should" style="border-radius:24px;border:1px solid rgba(237,227,207,0.12);background:#1E232A;padding:6px 6px 8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 4px">
+      <h2 style="margin:0;display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.12em;color:#E5A84B"><span style="width:8px;height:8px;border-radius:3px;background:#E5A84B"></span>SHOULD</h2>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(237,227,207,0.62)">{{shouldCount}}</span>
+    </div>
+    <ul style="list-style:none;margin:0;padding:0">
+      <sc-for list="{{shouldItems}}" as="item" hint-placeholder-count="3">
+        <li style="display:flex;align-items:center;gap:4px;min-height:52px;padding:0 10px 0 2px">
+          <button type="button" role="checkbox" aria-checked="{{item.done}}" aria-label="{{item.text}}" onClick="{{item.toggle}}" class="press" style="flex:none;width:44px;height:44px;border:0;background:transparent;display:flex;align-items:center;justify-content:center">
+            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26"><rect x="1.5" y="1.5" width="23" height="23" rx="8" stroke="#E5A84B" stroke-width="2" style="fill:{{item.fill}};transition:fill .22s"/><path d="M7.5 13.5l4 4 7-8" fill="none" stroke="#14171B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" style="stroke-dashoffset:{{item.dash}};transition:stroke-dashoffset .3s cubic-bezier(.3,1,.4,1) .05s"/></svg>
+          </button>
+          <div style="flex:1;min-width:0;padding:6px 0">
+            <span style="display:block;font-size:16px;font-weight:500;color:{{item.ink}};text-decoration:{{item.strike}};transition:color .25s">{{item.text}}</span>
+            <sc-if value="{{item.note}}" hint-placeholder-val="{{ true }}"><span style="display:block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.04em;color:{{item.noteColor}}">{{item.note}}</span></sc-if>
+          </div>
+        </li>
+      </sc-for>
+    </ul>
+  </section>
+
+  <section aria-label="Want" style="border-radius:24px;border:1px solid rgba(237,227,207,0.12);background:#1E232A;padding:6px 6px 8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 4px">
+      <h2 style="margin:0;display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.12em;color:#9ECBC9"><span style="width:8px;height:8px;border-radius:50%;background:#9ECBC9"></span>WANT</h2>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(237,227,207,0.62)">{{wantCount}}</span>
+    </div>
+    <ul style="list-style:none;margin:0;padding:0">
+      <sc-for list="{{wantItems}}" as="item" hint-placeholder-count="2">
+        <li style="display:flex;align-items:center;gap:4px;min-height:52px;padding:0 10px 0 2px">
+          <button type="button" role="checkbox" aria-checked="{{item.done}}" aria-label="{{item.text}}" onClick="{{item.toggle}}" class="press" style="flex:none;width:44px;height:44px;border:0;background:transparent;display:flex;align-items:center;justify-content:center">
+            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" stroke="#9ECBC9" stroke-width="2" style="fill:{{item.fill}};transition:fill .22s"/><path d="M7.5 13.5l4 4 7-8" fill="none" stroke="#14171B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" style="stroke-dashoffset:{{item.dash}};transition:stroke-dashoffset .3s cubic-bezier(.3,1,.4,1) .05s"/></svg>
+          </button>
+          <div style="flex:1;min-width:0;padding:6px 0">
+            <span style="display:block;font-size:16px;font-weight:500;color:{{item.ink}};text-decoration:{{item.strike}};transition:color .25s">{{item.text}}</span>
+            <sc-if value="{{item.note}}" hint-placeholder-val="{{ true }}"><span style="display:block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.04em;color:{{item.noteColor}}">{{item.note}}</span></sc-if>
+          </div>
+        </li>
+      </sc-for>
+    </ul>
+  </section>
+
+  <nav aria-label="Views" style="margin-top:auto;display:flex;align-items:center;gap:6px;padding:6px;border-radius:26px;background:#1E232A;border:1px solid rgba(237,227,207,0.12)">
+    <button type="button" aria-pressed="true" class="press" style="flex:1;min-height:48px;border-radius:20px;border:0;background:#EDE3CF;color:#14171B;font-size:15px;font-weight:700">Today</button>
+    <button type="button" aria-pressed="false" class="press" style="flex:1;min-height:48px;border-radius:20px;border:0;background:transparent;color:rgba(237,227,207,0.62);font-size:15px;font-weight:600">Later</button>
+    <button type="button" aria-label="Add item" class="press" style="flex:none;width:48px;height:48px;border-radius:20px;border:1px solid rgba(237,227,207,0.45);background:transparent;color:#EDE3CF;display:flex;align-items:center;justify-content:center">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":980}}'>
+class Component extends DCLogic {
+  state = { mode: 'rest', elapsed: 0, balance: 1450, should: 4320, want: 0, done: { s3: true } };
+
+  componentDidMount() { this.timer = setInterval(() => this.tick(), 1000); }
+  componentWillUnmount() { clearInterval(this.timer); }
+
+  tick() {
+    const s = this.state;
+    if (s.mode === 'should') this.setState({ elapsed: s.elapsed + 1, balance: s.balance + 1 / 3, should: s.should + 1 });
+    else if (s.mode === 'want') this.setState({ elapsed: s.elapsed + 1, balance: s.balance - 1, want: s.want + 1 });
+  }
+
+  pad(n) { return String(n).padStart(2, '0'); }
+  clock(sec) {
+    const a = Math.floor(Math.abs(sec));
+    const h = Math.floor(a / 3600), m = Math.floor((a % 3600) / 60), s = a % 60;
+    return (sec < 0 ? '-' : '') + (h ? h + ':' + this.pad(m) : m) + ':' + this.pad(s);
+  }
+  dur(sec) {
+    const m = Math.floor(sec / 60), h = Math.floor(m / 60);
+    return h ? h + 'h ' + (m % 60) + 'm' : m + 'm';
+  }
+
+  renderVals() {
+    const s = this.state;
+    const mode = s.mode;
+    const rest = mode === 'rest';
+    const debt = s.balance < 0;
+    const hero = {
+      rest: { bg: '#1E232A', ink: '#EDE3CF', label: 'RESTING' },
+      should: { bg: '#E5A84B', ink: '#14171B', label: 'SHOULD RUNNING' },
+      want: { bg: '#9ECBC9', ink: '#14171B', label: 'WANT RUNNING' },
+    }[mode];
+    const progress = Math.min(1, s.should / 12000);
+    const trackColor = rest ? 'rgba(237,227,207,0.14)' : 'rgba(20,23,27,0.2)';
+    const mk = (list, accent, tick) => list.map((it) => {
+      const done = !!s.done[it.id];
+      return {
+        text: it.text, note: it.note || '', noteColor: it.late ? '#E0634F' : 'rgba(237,227,207,0.62)',
+        done: done, fill: done ? accent : 'transparent', dash: done ? 0 : 20,
+        ink: done ? 'rgba(237,227,207,0.5)' : '#EDE3CF', strike: done ? 'line-through' : 'none',
+        toggle: () => this.setState({ done: { ...s.done, [it.id]: !done } }),
+      };
+    });
+    const sItems = [
+      { id: 's1', text: 'Pay the electricity bill', note: '2 DAYS OVERDUE', late: true },
+      { id: 's2', text: 'Write the quarterly report' },
+      { id: 's3', text: 'Clear the inbox', note: '↻ EVERY WEEKDAY' },
+    ];
+    const wItems = [
+      { id: 'w1', text: 'Practice guitar' },
+      { id: 'w2', text: 'Read a chapter', note: '↻ DAILY' },
+    ];
+    const count = (list) => list.filter((i) => s.done[i.id]).length + '/' + list.length;
+    return {
+      heroBg: hero.bg, heroInk: hero.ink, label: hero.label,
+      elapsedText: rest ? '0:00' : this.clock(s.elapsed),
+      trackColor, ringColor: rest ? '#E5A84B' : hero.ink,
+      ringOffset: 226.2 * (1 - progress), targetPct: Math.round(progress * 100),
+      balanceLabel: debt ? 'WANT DEBT' : 'WANT AVAIL',
+      balanceText: this.clock(s.balance),
+      balanceColor: rest ? (debt ? '#E0634F' : '#9ECBC9') : hero.ink,
+      shouldText: this.dur(s.should), wantText: this.dur(s.want),
+      isRest: rest, isShould: mode === 'should', isWant: mode === 'want', runOpacity: rest ? 0.35 : 1,
+      shouldTileBg: mode === 'should' ? '#E5A84B' : '#1E232A', shouldTileInk: mode === 'should' ? '#14171B' : '#EDE3CF',
+      wantTileBg: mode === 'want' ? '#9ECBC9' : '#1E232A', wantTileInk: mode === 'want' ? '#14171B' : '#EDE3CF',
+      pickShould: () => this.setState({ mode: 'should', elapsed: 0 }),
+      pickWant: () => this.setState({ mode: 'want', elapsed: 0 }),
+      stop: () => this.setState({ mode: 'rest', elapsed: 0 }),
+      shouldItems: mk(sItems, '#E5A84B'), wantItems: mk(wItems, '#9ECBC9'),
+      shouldCount: count(sItems), wantCount: count(wItems),
+    };
+  }
+}
+</script>
+</body>
+</html>
