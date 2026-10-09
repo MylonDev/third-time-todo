@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Item editor, Sun and Wires</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#000;font-family:'Space Grotesk',system-ui,sans-serif}
+button,input{font-family:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.press{transition:transform .18s cubic-bezier(.3,1.7,.5,1)}
+.press:active{transform:scale(.95)}
+.drift{animation:drift 22s ease-in-out infinite alternate}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(24px)}}
+@keyframes sheet{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
+.sheet{animation:sheet .5s cubic-bezier(.2,.9,.2,1)}
+input:focus{border-color:#EDE6D3}
+@media (prefers-reduced-motion:reduce){.drift,.sheet{animation:none}.press{transition:none}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:900px;background:#000;color:#EDE6D3;overflow:hidden">
+
+  <div aria-hidden="true" style="position:absolute;inset:0;padding:16px;box-sizing:border-box">
+    <p style="margin:0 0 14px;font-size:18px;font-weight:700;min-height:44px;display:flex;align-items:center">Third Time</p>
+    <div style="position:relative;height:310px;border-radius:28px;overflow:hidden"><dc-import name="Scene" mode="should" progress="0.36" season="autumn" time="day" weather="clear" hint-size="358px,310px"></dc-import></div>
+    <p style="margin:24px 0 0;font-size:22px;font-weight:700">Should</p>
+    <p style="margin:14px 0 0;font-size:17px">Pay the electricity bill</p>
+    <p style="margin:26px 0 0;font-size:17px">Write the quarterly report</p>
+  </div>
+  <div aria-hidden="true" style="position:absolute;inset:0;background:#000;opacity:0.7"></div>
+
+  <section class="sheet" aria-label="{{title}}" style="position:absolute;left:0;right:0;bottom:0;box-sizing:border-box;border-radius:32px 32px 0 0;border:1px solid rgba(237,230,211,0.2);border-bottom:0;background:#000;padding:10px 20px 24px;display:flex;flex-direction:column;gap:16px">
+    <span aria-hidden="true" style="align-self:center;width:44px;height:5px;border-radius:3px;background:rgba(237,230,211,0.3)"></span>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <h2 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.02em">{{title}}</h2>
+      <button type="button" aria-label="Close" class="press" style="width:44px;height:44px;border-radius:50%;border:1px solid rgba(237,230,211,0.3);background:transparent;color:#EDE6D3;display:flex;align-items:center;justify-content:center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+
+    <label style="display:flex;flex-direction:column;gap:6px"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">WHAT</span>
+      <input placeholder="Something to do" value="{{text}}" onInput="{{setText}}" style="min-height:54px;box-sizing:border-box;border-radius:18px;padding:0 16px;background:transparent;border:1px solid rgba(237,230,211,0.3);outline:0;color:#EDE6D3;font-size:19px;font-weight:500"></label>
+
+    <div role="group" aria-label="List" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+      <button type="button" aria-pressed="{{isShould}}" onClick="{{pickShould}}" class="press" style="min-height:52px;border-radius:18px;display:flex;align-items:center;gap:10px;padding:0 16px;font-size:18px;font-weight:700;border:1px solid {{shouldBorder}};background-color:{{shouldBg}};color:{{shouldInk}};transition:background-color .25s,color .25s,border-color .25s"><span aria-hidden="true" style="width:16px;height:16px;box-sizing:border-box;border:2.5px solid currentColor;border-radius:5px"></span>Should</button>
+      <button type="button" aria-pressed="{{isWant}}" onClick="{{pickWant}}" class="press" style="min-height:52px;border-radius:18px;display:flex;align-items:center;gap:10px;padding:0 16px;font-size:18px;font-weight:700;border:1px solid {{wantBorder}};background-color:{{wantBg}};color:{{wantInk}};transition:background-color .25s,color .25s,border-color .25s"><span aria-hidden="true" style="width:16px;height:16px;box-sizing:border-box;border:2.5px solid currentColor;border-radius:50%"></span>Want</button>
+    </div>
+
+    <div>
+      <span style="display:block;margin-bottom:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">WHEN</span>
+      <div role="group" aria-label="When" style="display:flex;flex-wrap:wrap;gap:8px">
+        <sc-for list="{{whens}}" as="c" hint-placeholder-count="4"><button type="button" aria-pressed="{{c.sel}}" onClick="{{c.pick}}" class="press" style="min-height:44px;padding:0 16px;border-radius:22px;font-size:15px;font-weight:600;border:1px solid {{c.border}};background-color:{{c.bg}};color:{{c.ink}};transition:background-color .2s,color .2s,border-color .2s">{{c.label}}</button></sc-for>
+      </div>
+    </div>
+
+    <div>
+      <span style="display:block;margin-bottom:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">REPEAT</span>
+      <div role="group" aria-label="Repeat" style="display:flex;flex-wrap:wrap;gap:8px">
+        <sc-for list="{{repeats}}" as="c" hint-placeholder-count="5"><button type="button" aria-pressed="{{c.sel}}" onClick="{{c.pick}}" class="press" style="min-height:44px;padding:0 16px;border-radius:22px;font-size:15px;font-weight:600;border:1px solid {{c.border}};background-color:{{c.bg}};color:{{c.ink}};transition:background-color .2s,color .2s,border-color .2s">{{c.label}}</button></sc-for>
+      </div>
+      <sc-if value="{{showDays}}" hint-placeholder-val="{{ false }}">
+        <div role="group" aria-label="Days" style="display:flex;justify-content:space-between;margin-top:10px">
+          <sc-for list="{{dayChips}}" as="d" hint-placeholder-count="7"><button type="button" aria-pressed="{{d.sel}}" aria-label="{{d.name}}" onClick="{{d.pick}}" class="press" style="width:44px;height:44px;border-radius:50%;font-size:14px;font-weight:700;border:1px solid {{d.border}};background-color:{{d.bg}};color:{{d.ink}};transition:background-color .2s,color .2s">{{d.label}}</button></sc-for>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+      <button type="button" class="press" style="min-height:52px;border-radius:26px;border:1px solid rgba(237,230,211,0.5);background:transparent;color:#EDE6D3;font-size:17px;font-weight:600">Cancel</button>
+      <button type="button" class="press" style="min-height:52px;border-radius:26px;border:0;background:#EDE6D3;color:#06120B;font-size:17px;font-weight:700">Save</button>
+    </div>
+    <sc-if value="{{isEdit}}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;gap:10px;border-top:1px solid rgba(237,230,211,0.12);padding-top:14px">
+        <button type="button" class="press" style="min-height:44px;padding:0 16px;border-radius:22px;border:1px solid rgba(237,230,211,0.3);background:transparent;color:rgba(237,230,211,0.7);font-size:14px;font-weight:600">Skip this one</button>
+        <button type="button" class="press" style="min-height:44px;padding:0 16px;border-radius:22px;border:1px solid rgba(229,96,74,0.5);background:transparent;color:#E5604A;font-size:14px;font-weight:600">Delete and stop repeating</button>
+      </div>
+    </sc-if>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"mode":{"editor":"enum","options":["edit","new"],"default":"edit"},"$preview":{"width":390,"height":900}}'>
+class Component extends DCLogic {
+  state = { text: 'Clear the inbox', kind: 'should', when: 'today', repeat: 'weekdays', days: [0, 1, 2, 3, 4] };
+
+  chip(label, sel, pick) {
+    return { label, sel, pick, bg: sel ? '#EDE6D3' : 'transparent', ink: sel ? '#06120B' : '#EDE6D3', border: sel ? '#EDE6D3' : 'rgba(237,230,211,0.3)' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const isEdit = this.props.mode !== 'new';
+    const whens = [['today', 'Today'], ['tomorrow', 'Tomorrow'], ['date', 'Pick day'], ['someday', 'Someday']]
+      .map((w) => this.chip(w[1], s.when === w[0], () => this.setState({ when: w[0] })));
+    const repeats = [['none', 'Never'], ['daily', 'Daily'], ['weekdays', 'Chosen days'], ['weekly', 'Weekly'], ['everyN', 'Every N days']]
+      .map((r) => this.chip(r[1], s.repeat === r[0], () => this.setState({ repeat: r[0] })));
+    const names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const dayChips = ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((l, d) => {
+      const c = this.chip(l, s.days.indexOf(d) >= 0, () => this.setState({ days: s.days.indexOf(d) >= 0 ? s.days.filter((x) => x !== d) : s.days.concat([d]) }));
+      c.name = names[d];
+      return c;
+    });
+    const sh = s.kind === 'should', wa = s.kind === 'want';
+    return {
+      title: isEdit ? 'Edit item' : 'New item', isEdit,
+      text: isEdit ? s.text : (s.text === 'Clear the inbox' ? '' : s.text),
+      setText: (e) => this.setState({ text: e.target.value }),
+      isShould: sh, isWant: wa,
+      shouldBg: sh ? '#2F6B4A' : 'transparent', shouldInk: '#EDE6D3', shouldBorder: sh ? '#2F6B4A' : 'rgba(237,230,211,0.3)',
+      wantBg: wa ? '#EDE6D3' : 'transparent', wantInk: wa ? '#06120B' : '#EDE6D3', wantBorder: wa ? '#EDE6D3' : 'rgba(237,230,211,0.3)',
+      pickShould: () => this.setState({ kind: 'should' }), pickWant: () => this.setState({ kind: 'want' }),
+      whens, repeats, dayChips, showDays: s.repeat === 'weekdays',
+    };
+  }
+}
+</script>
+</body>
+</html>

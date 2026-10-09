@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fix timer, Sun and Wires</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#000;font-family:'Space Grotesk',system-ui,sans-serif}
+button,input{font-family:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.press{transition:transform .18s cubic-bezier(.3,1.7,.5,1)}
+.press:active{transform:scale(.95)}
+.drift{animation:drift 22s ease-in-out infinite alternate}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(24px)}}
+@keyframes sheet{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
+.sheet{animation:sheet .5s cubic-bezier(.2,.9,.2,1)}
+input:focus{border-color:#EDE6D3}
+@media (prefers-reduced-motion:reduce){.drift,.sheet{animation:none}.press{transition:none}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:844px;background:#000;color:#EDE6D3;overflow:hidden">
+
+  <div aria-hidden="true" style="position:absolute;inset:0;padding:16px;box-sizing:border-box">
+    <p style="margin:0 0 14px;font-size:18px;font-weight:700;min-height:44px;display:flex;align-items:center">Third Time</p>
+    <div style="position:relative;height:310px;border-radius:28px;overflow:hidden"><dc-import name="Scene" mode="want" progress="0.36" season="autumn" time="day" weather="clear" hint-size="358px,310px"></dc-import></div>
+  </div>
+  <div aria-hidden="true" style="position:absolute;inset:0;background:#000;opacity:0.7"></div>
+
+  <section class="sheet" aria-label="Fix timer" style="position:absolute;left:0;right:0;bottom:0;box-sizing:border-box;border-radius:32px 32px 0 0;border:1px solid rgba(237,230,211,0.2);border-bottom:0;background:#000;padding:10px 20px 24px;display:flex;flex-direction:column;gap:18px">
+    <span aria-hidden="true" style="align-self:center;width:44px;height:5px;border-radius:3px;background:rgba(237,230,211,0.3)"></span>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+      <div>
+        <h2 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.02em">Fix timer</h2>
+        <p style="margin:4px 0 0;font-size:14px;line-height:1.4;color:rgba(237,230,211,0.7)">Forgot to switch or stop? Say what really happened.</p>
+      </div>
+      <button type="button" aria-label="Close" class="press" style="flex:none;width:44px;height:44px;border-radius:50%;border:1px solid rgba(237,230,211,0.3);background:transparent;color:#EDE6D3;display:flex;align-items:center;justify-content:center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+
+    <div>
+      <span style="display:block;margin-bottom:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">HOW LONG AGO</span>
+      <div role="group" aria-label="How long ago" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+        <sc-for list="{{chips}}" as="c" hint-placeholder-count="4"><button type="button" aria-pressed="{{c.sel}}" onClick="{{c.pick}}" class="press" style="min-height:44px;padding:0 16px;border-radius:22px;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;border:1px solid {{c.border}};background-color:{{c.bg}};color:{{c.ink}};transition:background-color .2s,color .2s,border-color .2s">{{c.label}}</button></sc-for>
+        <label style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:13px;color:rgba(237,230,211,0.7)"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Minutes</span>
+          <input type="number" inputmode="numeric" min="1" aria-label="Minutes" value="{{minutes}}" onInput="{{setMinutes}}" style="width:72px;min-height:44px;box-sizing:border-box;border-radius:22px;padding:0 12px;text-align:center;background:transparent;border:1px solid rgba(237,230,211,0.3);outline:0;color:#EDE6D3;font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600">min</label>
+      </div>
+    </div>
+
+    <div>
+      <span style="display:block;margin-bottom:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">THOSE MINUTES WERE</span>
+      <div role="group" aria-label="Those minutes were" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+        <sc-for list="{{wasOpts}}" as="o" hint-placeholder-count="3"><button type="button" aria-pressed="{{o.sel}}" onClick="{{o.pick}}" class="press" style="min-height:48px;border-radius:18px;font-size:16px;font-weight:700;border:1px solid {{o.border}};background-color:{{o.bg}};color:{{o.ink}};transition:background-color .25s,color .25s,border-color .25s">{{o.label}}</button></sc-for>
+      </div>
+    </div>
+
+    <div>
+      <span style="display:block;margin-bottom:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">SINCE THEN I HAVE BEEN</span>
+      <div role="group" aria-label="Since then" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+        <sc-for list="{{thenOpts}}" as="o" hint-placeholder-count="3"><button type="button" aria-pressed="{{o.sel}}" onClick="{{o.pick}}" class="press" style="min-height:48px;border-radius:18px;font-size:16px;font-weight:700;border:1px solid {{o.border}};background-color:{{o.bg}};color:{{o.ink}};transition:background-color .25s,color .25s,border-color .25s">{{o.label}}</button></sc-for>
+      </div>
+    </div>
+
+    <p data-testid="fix-preview" style="margin:0;border:1px dashed rgba(237,230,211,0.3);border-radius:18px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.5;color:{{previewColor}}">{{preview}}</p>
+
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+      <button type="button" class="press" style="min-height:52px;border-radius:26px;border:1px solid rgba(237,230,211,0.5);background:transparent;color:#EDE6D3;font-size:17px;font-weight:600">Cancel</button>
+      <button type="button" class="press" disabled="{{invalid}}" style="min-height:52px;border-radius:26px;border:0;background:#EDE6D3;color:#06120B;font-size:17px;font-weight:700;opacity:{{applyOpacity}};transition:opacity .25s">Apply</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  state = { minutes: 10, was: 'should', then: 'want' };
+
+  clock(t) { return new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); }
+  opts(current, set) {
+    const look = {
+      should: { bg: '#2F6B4A', ink: '#EDE6D3', border: '#2F6B4A' },
+      want: { bg: '#EDE6D3', ink: '#06120B', border: '#EDE6D3' },
+      rest: { bg: 'transparent', ink: '#EDE6D3', border: '#EDE6D3' },
+    };
+    return (list) => list.map((o) => {
+      const sel = current === o[0];
+      return {
+        label: o[1], sel: sel, pick: () => set(o[0]),
+        bg: sel ? look[o[0]].bg : 'transparent', ink: sel ? look[o[0]].ink : 'rgba(237,230,211,0.7)',
+        border: sel ? look[o[0]].border : 'rgba(237,230,211,0.3)',
+      };
+    });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const m = Number(s.minutes);
+    const valid = Number.isFinite(m) && m >= 1;
+    const NAME = { should: 'Should', want: 'Want', rest: 'Rest' };
+    const now = Date.now();
+    const preview = valid
+      ? NAME[s.was] + ' from ' + this.clock(now - m * 60000) + ' to ' + this.clock(now) + ', ' + (s.then === 'rest' ? 'then the timer stops.' : 'then ' + NAME[s.then] + '.')
+      : 'Enter a number of minutes, 1 or more.';
+    const chips = [5, 10, 15, 30].map((v) => {
+      const sel = m === v;
+      return { label: v + ' min', sel: sel, pick: () => this.setState({ minutes: v }), bg: sel ? '#EDE6D3' : 'transparent', ink: sel ? '#06120B' : '#EDE6D3', border: sel ? '#EDE6D3' : 'rgba(237,230,211,0.3)' };
+    });
+    return {
+      chips, minutes: s.minutes, setMinutes: (e) => this.setState({ minutes: e.target.value === '' ? '' : Number(e.target.value) }),
+      wasOpts: this.opts(s.was, (v) => this.setState({ was: v }))([['should', 'Should'], ['want', 'Want'], ['rest', 'Rest']]),
+      thenOpts: this.opts(s.then, (v) => this.setState({ then: v }))([['should', 'Should'], ['want', 'Want'], ['rest', 'Stopped']]),
+      preview, previewColor: valid ? '#EDE6D3' : '#E5604A', invalid: !valid, applyOpacity: valid ? 1 : 0.4,
+    };
+  }
+}
+</script>
+</body>
+</html>
