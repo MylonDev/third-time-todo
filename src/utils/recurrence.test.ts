@@ -1,37 +1,47 @@
 import { describe, expect, it } from 'vitest';
-import { isDueOn } from './goalPeriod';
-import { recurrenceLabel } from './recurrence';
+import type { Recurrence } from '../types';
+import { nextDueKey, recurrenceLabel } from './recurrence';
 
-const anchor = new Date(2026, 8, 20).getTime(); // Sun 20 Sep 2026
-
-describe('isDueOn', () => {
-  it('takes a rule and an anchor, not a habit', () => {
-    expect(isDueOn({ kind: 'daily' }, anchor, new Date(2026, 8, 25))).toBe(true);
+// 2026-10-12 is a Monday.
+describe('nextDueKey', () => {
+  it('daily is tomorrow', () => {
+    expect(nextDueKey({ kind: 'daily' }, '2026-10-12', '2026-10-12')).toBe('2026-10-13');
   });
 
-  it('honours weekdays (Mon=0)', () => {
-    const rule = { kind: 'weekdays' as const, days: [0, 2] }; // Mon, Wed
-    expect(isDueOn(rule, anchor, new Date(2026, 8, 21))).toBe(true);  // Mon
-    expect(isDueOn(rule, anchor, new Date(2026, 8, 22))).toBe(false); // Tue
-    expect(isDueOn(rule, anchor, new Date(2026, 8, 23))).toBe(true);  // Wed
+  it('counts from today when the item is overdue, so no backlog', () => {
+    expect(nextDueKey({ kind: 'daily' }, '2026-10-05', '2026-10-12')).toBe('2026-10-13');
   });
 
-  it('counts everyN from the anchor', () => {
-    const rule = { kind: 'everyN' as const, n: 3 };
-    expect(isDueOn(rule, anchor, new Date(2026, 8, 20))).toBe(true);
-    expect(isDueOn(rule, anchor, new Date(2026, 8, 21))).toBe(false);
-    expect(isDueOn(rule, anchor, new Date(2026, 8, 23))).toBe(true);
+  it('counts from the due date when finished early', () => {
+    expect(nextDueKey({ kind: 'daily' }, '2026-10-14', '2026-10-12')).toBe('2026-10-15');
   });
 
-  it('is never due before the anchor', () => {
-    expect(isDueOn({ kind: 'daily' }, anchor, new Date(2026, 8, 19))).toBe(false);
+  it('every N days', () => {
+    expect(nextDueKey({ kind: 'everyN', n: 3 }, '2026-10-12', '2026-10-12')).toBe('2026-10-15');
+  });
+
+  it('weekly repeats on the weekday it was due', () => {
+    expect(nextDueKey({ kind: 'weekly' }, '2026-10-12', '2026-10-12')).toBe('2026-10-19');
+    // Due Monday, finished Wednesday: next Monday.
+    expect(nextDueKey({ kind: 'weekly' }, '2026-10-12', '2026-10-14')).toBe('2026-10-19');
+  });
+
+  it('chosen weekdays skip to the next one that matches', () => {
+    const rule: Recurrence = { kind: 'weekdays', days: [0, 2, 4] }; // Mon Wed Fri
+    expect(nextDueKey(rule, '2026-10-12', '2026-10-12')).toBe('2026-10-14');
+    expect(nextDueKey(rule, '2026-10-14', '2026-10-14')).toBe('2026-10-16');
+    expect(nextDueKey(rule, '2026-10-16', '2026-10-16')).toBe('2026-10-19');
+  });
+
+  it('crosses month and year ends', () => {
+    expect(nextDueKey({ kind: 'daily' }, '2026-12-31', '2026-12-31')).toBe('2027-01-01');
   });
 });
 
 describe('recurrenceLabel', () => {
-  it('names the cadence', () => {
+  it('names each rule', () => {
     expect(recurrenceLabel({ kind: 'daily' })).toBe('Daily');
     expect(recurrenceLabel({ kind: 'everyN', n: 3 })).toBe('Every 3 days');
-    expect(recurrenceLabel({ kind: 'weekdays', days: [0, 2] })).toBe('Mon · Wed');
+    expect(recurrenceLabel({ kind: 'weekdays', days: [4, 0] })).toBe('Mon · Fri');
   });
 });

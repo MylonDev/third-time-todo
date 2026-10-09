@@ -1,119 +1,164 @@
-import type { Mode, TimeEntry } from '../types';
-import { earnBreak } from './thirdTime';
+import type { TimeEntry, TimerState } from '../types';
+import type { DayWindow } from './time';
 
-/** A timer that is still running — not an entry until it stops. */
-export interface OpenSegment {
-  kind: 'work' | 'break';
-  startedAt: number;
-  mode: Mode;
-  projectId?: string;
-  taskId?: string;
+/** Every 3 seconds in Should earns 1 second of Want. */
+export const RATIO = 3;
+
+/** The longest stretch "Fix timer" will rewrite. */
+export const MAX_FIX_MS = 12 * 3_600_000;
+
+export type Painted = TimerState | 'rest';
+
+const isLive = (e: TimeEntry) => e.deletedAt === undefined;
+
+export function runningEntry(entries: TimeEntry[]): TimeEntry | undefined {
+  return entries.find((e) => isLive(e) && e.endedAt === null);
 }
 
-export function durationOf(e: { startedAt: number; endedAt: number }): number {
-  return Math.max(0, e.endedAt - e.startedAt);
-}
+// ── Reading ───────────────────────────────────────────────────────────────────
 
-export function workMsOf(entries: TimeEntry[]): number {
-  return entries.filter((e) => e.kind === 'work').reduce((a, e) => a + durationOf(e), 0);
-}
-
-export function breakMsOf(entries: TimeEntry[]): number {
-  return entries.filter((e) => e.kind === 'break').reduce((a, e) => a + durationOf(e), 0);
-}
-
-/**
- * The bank is not stored anywhere — it is this sum over the day's entries, plus
- * whatever the running timer has accrued so far. Deriving it is what makes
- * retroactive edits to the timeline trustworthy: trim a work block and the rest
- * it earned goes with it, with no delta arithmetic to get wrong.
- */
-export function bankOf(entries: TimeEntry[], open?: OpenSegment | null, now = Date.now()): number {
-  const all: { kind: 'work' | 'break'; startedAt: number; endedAt: number; mode: Mode }[] = [
-    ...entries,
-    ...(open && now > open.startedAt
-      ? [{ kind: open.kind, startedAt: open.startedAt, endedAt: now, mode: open.mode }]
-      : []),
-  ];
-  return all.reduce(
-    (bank, e) =>
-      e.kind === 'work' ? bank + earnBreak(durationOf(e), e.mode) : bank - durationOf(e),
-    0
-  );
+export interface Totals {
+  shouldMs: number;
+  wantMs: number;
 }
 
 /**
- * A timer left running across the end of the day. With no End Session button,
- * this is the ordinary case for anyone who forgets to stop — so the day is not
- * allowed to stall on it. The entry is closed at the boundary and an identical
- * one opens on the far side; the timeline then shows an honest (if long) block
- * on each day, which the user can trim.
+ * A day's time in each state. Entries are clipped to the day's window rather
+ * than split, so a stint that crosses the boundary counts toward both days and
+ * the running timer never has to be restarted.
  */
-export function splitAtBoundary(
-  open: OpenSegment,
-  boundary: number,
+export function totalsFor(entries: TimeEntry[], win: DayWindow, now: number): Totals {
+  const totals: Totals = { shouldMs: 0, wantMs: 0 };
+  for (const e of entries) {
+    if (!isLive(e)) continue;
+    const start = Math.max(e.startedAt, win.start);
+    const end = Math.min(e.endedAt ?? now, win.end);
+    if (end <= start) continue;
+    if (e.state === 'should') totals.shouldMs += end - start;
+    else totals.wantMs += end - start;
+  }
+  return totals;
+}
+
+/** Want time available (positive) or owed (negative). Derived, never stored. */
+export function balanceOf(t: Totals): number {
+  return t.shouldMs / RATIO - t.wantMs;
+}
+
+// ── Writing ───────────────────────────────────────────────────────────────────
+//
+// Every function here is pure: it takes the entries and returns new ones. A
+// removed entry is tombstoned, not dropped, so the removal can sync.
+
+function make(state: TimerState, startedAt: number, endedAt: number | null, now: number): TimeEntry {
+  return { id: crypto.randomUUID(), state, startedAt, endedAt, updatedAt: now };
+}
+
+function tombstone(e: TimeEntry, now: number): TimeEntry {
+  return { ...e, deletedAt: now, updatedAt: now };
+}
+
+/** Close the running entry at `at`. An entry that would be empty is removed. */
+function closeRunning(entries: TimeEntry[], at: number): TimeEntry[] {
+  const running = runningEntry(entries);
+  if (!running) return entries;
+  return entries.map((e) => {
+    if (e !== running) return e;
+    return at > e.startedAt ? { ...e, endedAt: at, updatedAt: at } : tombstone(e, at);
+  });
+}
+
+/** Start `state`, closing whatever was running. Starting the running state is a no-op. */
+export function startState(entries: TimeEntry[], state: TimerState, at: number): TimeEntry[] {
+  if (runningEntry(entries)?.state === state) return entries;
+  return normalize([...closeRunning(entries, at), make(state, at, null, at)], at);
+}
+
+export function stopTimer(entries: TimeEntry[], at: number): TimeEntry[] {
+  return closeRunning(entries, at);
+}
+
+/**
+ * Overwrite [from, to) with a state, or with rest. Entries inside the range are
+ * removed, entries that straddle an edge are trimmed, and one that spans the
+ * whole range is split around it. This one operation is every correction.
+ */
+export function paint(
+  entries: TimeEntry[],
+  from: number,
+  to: number,
+  state: Painted,
   now: number
-): { closed: TimeEntry; reopened: OpenSegment } {
-  // `now` isn't needed to compute the split — both halves are dated off
-  // `boundary` — but it's part of the call's contract for callers, so it's
-  // named rather than dropped.
-  void now;
-  return {
-    closed: {
-      id: crypto.randomUUID(),
-      kind: open.kind,
-      startedAt: open.startedAt,
-      endedAt: boundary,
-      projectId: open.projectId,
-      taskId: open.taskId,
-      mode: open.mode,
-    },
-    reopened: { ...open, startedAt: boundary },
-  };
-}
-
-/** Entries are a partition of the day: they may touch, never overlap. */
-export function entriesOverlap(
-  a: { startedAt: number; endedAt: number },
-  b: { startedAt: number; endedAt: number }
-): boolean {
-  return a.startedAt < b.endedAt && b.startedAt < a.endedAt;
-}
-
-function clock(t: number): string {
-  return new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+): TimeEntry[] {
+  if (to <= from) return entries;
+  const out: TimeEntry[] = [];
+  for (const e of entries) {
+    if (!isLive(e)) {
+      out.push(e);
+      continue;
+    }
+    const end = e.endedAt ?? Infinity;
+    if (end <= from || e.startedAt >= to) {
+      out.push(e);
+    } else if (e.startedAt >= from && end <= to) {
+      out.push(tombstone(e, now));
+    } else if (e.startedAt < from && end <= to) {
+      out.push({ ...e, endedAt: from, updatedAt: now });
+    } else if (e.startedAt >= from && end > to) {
+      out.push({ ...e, startedAt: to, updatedAt: now });
+    } else {
+      // Spans the range: keep the left part, and give the right part a new id.
+      out.push({ ...e, endedAt: from, updatedAt: now });
+      out.push(make(e.state, to, e.endedAt, now));
+    }
+  }
+  if (state !== 'rest') out.push(make(state, from, to, now));
+  return normalize(out, now);
 }
 
 /**
- * Why an entry can't go into a day as drawn, or null if it can. The timeline's
- * rules, in one place so the store enforces exactly what the editor explains:
- *
- * - it ends after it starts;
- * - it stays inside its own day — crossing the boundary means splitting;
- * - it claims nothing past `claimableUntil` (now, or where the running timer
- *   began — that stretch belongs to the open segment);
- * - it overlaps no other entry. An edit that would swallow a neighbour is
- *   refused, never resolved by quietly trimming the neighbour.
+ * Tidy the ledger: sort, and merge entries of the same state that touch. The
+ * earlier entry survives and absorbs the later one, which is tombstoned.
  */
-export function refusalFor(
-  candidate: { startedAt: number; endedAt: number },
-  others: TimeEntry[],
-  day: { start: number; end: number },
-  claimableUntil: number
-): string | null {
-  if (!(candidate.endedAt > candidate.startedAt)) return 'An entry has to end after it starts.';
-  if (candidate.startedAt < day.start || candidate.endedAt > day.end) {
-    return 'An entry can’t cross into another day. Split it at the boundary instead.';
+export function normalize(entries: TimeEntry[], now: number): TimeEntry[] {
+  const live = entries.filter(isLive).sort((a, b) => a.startedAt - b.startedAt);
+  const dead = entries.filter((e) => !isLive(e));
+  const merged: TimeEntry[] = [];
+  for (const e of live) {
+    const last = merged[merged.length - 1];
+    if (last && last.endedAt !== null && last.endedAt === e.startedAt && last.state === e.state) {
+      merged[merged.length - 1] = { ...last, endedAt: e.endedAt, updatedAt: now };
+      dead.push(tombstone(e, now));
+    } else {
+      merged.push(e);
+    }
   }
-  if (candidate.endedAt > claimableUntil) {
-    return claimableUntil < Date.now()
-      ? 'That runs into the timer that’s going now.'
-      : 'That ends in the future.';
-  }
-  const clash = others.find((o) => entriesOverlap(o, candidate));
-  if (clash) {
-    const what = clash.kind === 'work' ? 'active' : 'rest';
-    return `That overlaps the ${what} block from ${clock(clash.startedAt)} to ${clock(clash.endedAt)}.`;
-  }
+  return [...dead, ...merged];
+}
+
+export interface Fix {
+  /** How far back the correction reaches. */
+  ms: number;
+  /** What the time since then actually was. */
+  was: Painted;
+  /** What is happening now. `rest` stops the timer. */
+  then: Painted;
+}
+
+/** Why a fix can't be applied, or null. */
+export function fixRefusal(fix: Pick<Fix, 'ms'>): string | null {
+  if (!(fix.ms > 0)) return 'Enter how long ago it should have changed.';
+  if (fix.ms > MAX_FIX_MS) return 'That reaches back more than 12 hours.';
   return null;
+}
+
+/**
+ * "The last X minutes were actually Was, and since then I've been Then."
+ * Closes the timer, paints the last X minutes, and reopens in `then`.
+ */
+export function applyFix(entries: TimeEntry[], fix: Fix, now: number): TimeEntry[] {
+  const frozen = closeRunning(entries, now);
+  const painted = paint(frozen, now - fix.ms, now, fix.was, now);
+  if (fix.then === 'rest') return painted;
+  return normalize([...painted, make(fix.then, now, null, now)], now);
 }
