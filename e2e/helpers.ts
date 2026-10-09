@@ -8,8 +8,13 @@ export const START = new Date(2026, 9, 12, 10, 0, 0);
  * clock is fake and paused: time moves only when a test says so, which makes
  * every figure on the timer exact.
  */
-export const test = base.extend<{ app: Page }>({
-  app: async ({ page }, use) => {
+export const test = base.extend<{ app: Page; allowedErrors: RegExp[] }>({
+  /** Console errors a test expects, such as the browser's note of a refused request. */
+  // eslint-disable-next-line no-empty-pattern -- Playwright fixtures must destructure their first argument
+  allowedErrors: async ({}, use) => {
+    await use([]);
+  },
+  app: async ({ page, allowedErrors }, use) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     page.on('console', (m) => {
@@ -24,7 +29,8 @@ export const test = base.extend<{ app: Page }>({
     await use(page);
 
     // A clean console is part of passing.
-    expect(errors, 'browser reported errors').toEqual([]);
+    const unexpected = errors.filter((e) => !allowedErrors.some((re) => re.test(e)));
+    expect(unexpected, 'browser reported errors').toEqual([]);
   },
 });
 

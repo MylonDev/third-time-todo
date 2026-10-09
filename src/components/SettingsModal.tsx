@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSettings } from '../store/settings';
 import type { Theme } from '../types';
+import { AccountSection } from './AccountSection';
 import { Modal } from './Modal';
 import { Segmented } from './Segmented';
 
@@ -87,6 +88,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           onChange={setTheme}
         />
       </div>
+
+      <AccountSection />
 
       <button
         type="button"

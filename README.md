@@ -33,8 +33,9 @@ Live at **https://mylondev.github.io/third-time-todo/**
 - **A configurable end of day**, for anyone who works past midnight. A stint
   that crosses the boundary simply counts toward both days.
 
-State lives in `localStorage` on this device. Sync across devices is planned
-(Supabase); see the spec.
+State lives on the device first, in `localStorage`, and works signed out. Sign in
+with an emailed code (Settings, Sync) and it syncs between devices through
+Supabase. Setup is in [`docs/supabase-setup.md`](docs/supabase-setup.md).
 
 ## Development
 
@@ -62,6 +63,10 @@ React 19, TypeScript, Vite, Tailwind CSS 4 and zustand with `persist`.
 - `src/utils/items.ts`, `recurrence.ts`: which view an item belongs in, and
   what completing a repeating item does.
 - `src/utils/time.ts`: day keys and formatting.
+- `src/sync/`: sync. `engine.ts` and `merge.ts` are pure and unit-tested against
+  a simulated server; `remote.ts` is the Supabase side; `runtime.ts` wires it to
+  the stores, auth and realtime.
+- `supabase/migrations/`: the schema, with row level security.
 - `src/store/`: three persisted stores, `timer` (the ledger), `items` and
   `settings`, under `tt2-*` keys.
 

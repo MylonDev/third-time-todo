@@ -3,6 +3,7 @@ import { FixTimerModal } from './components/FixTimerModal';
 import { InstallHint } from './components/InstallHint';
 import { ItemsView } from './components/ItemsView';
 import { SettingsModal } from './components/SettingsModal';
+import { SyncIndicator } from './components/SyncIndicator';
 import { TimerPanel } from './components/TimerPanel';
 import { useSettings } from './store/settings';
 
@@ -31,14 +32,17 @@ export default function App() {
     <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-4 flex flex-col gap-4">
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Third Time</h1>
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          aria-label="Settings"
-          className="min-h-11 min-w-11 rounded-lg text-text-muted hover:text-text cursor-pointer text-xl"
-        >
-          ⚙
-        </button>
+        <div className="flex items-center gap-2">
+          <SyncIndicator />
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Settings"
+            className="min-h-11 min-w-11 rounded-lg text-text-muted hover:text-text cursor-pointer text-xl"
+          >
+            ⚙
+          </button>
+        </div>
       </header>
 
       <InstallHint />
