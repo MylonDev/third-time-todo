@@ -18,6 +18,8 @@ const session = () => ({
 });
 
 interface Mock {
+  /** Every request the app made to the auth API, in order. */
+  auth: { method: string; path: string; body: unknown }[];
   writes: { table: string; url: string; body: unknown }[];
   /** Rows the "server" returns for a table, as if another device had written them. */
   serve: Record<string, object[]>;
@@ -26,13 +28,16 @@ interface Mock {
 }
 
 async function mockSupabase(page: Page): Promise<Mock> {
-  const mock: Mock = { writes: [], serve: {}, otpRequests: [], codeIsGood: true };
+  const mock: Mock = { auth: [], writes: [], serve: {}, otpRequests: [], codeIsGood: true };
+  const userJson = { id: USER.id, aud: 'authenticated', role: 'authenticated', email: USER.email, app_metadata: {}, user_metadata: {} };
 
   await page.route('**/auth/v1/otp**', async (route) => {
     mock.otpRequests.push(route.request().postDataJSON());
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
   await page.route('**/auth/v1/verify**', async (route) => {
+    const req = route.request();
+    mock.auth.push({ method: req.method(), path: 'verify', body: req.postDataJSON() });
     if (!mock.codeIsGood) {
       await route.fulfill({
         status: 403,
@@ -42,6 +47,16 @@ async function mockSupabase(page: Page): Promise<Mock> {
       return;
     }
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(session()) });
+  });
+  await page.route('**/auth/v1/token**', async (route) => {
+    const req = route.request();
+    mock.auth.push({ method: req.method(), path: `token?${new URL(req.url()).searchParams.get('grant_type')}`, body: req.postDataJSON() });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(session()) });
+  });
+  await page.route('**/auth/v1/user', async (route) => {
+    const req = route.request();
+    mock.auth.push({ method: req.method(), path: 'user', body: req.method() === 'PUT' ? req.postDataJSON() : null });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(userJson) });
   });
   await page.route('**/auth/v1/logout**', (route) => route.fulfill({ status: 204, body: '' }));
   await page.route('**/rest/v1/**', async (route) => {
@@ -57,11 +72,12 @@ async function mockSupabase(page: Page): Promise<Mock> {
   return mock;
 }
 
-async function signIn(page: Page) {
+/** Ask for the email, then paste what it contained (a code by default). */
+async function signIn(page: Page, pasted = '123456') {
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByLabel('Email').fill(USER.email);
-  await page.getByRole('button', { name: 'Send code' }).click();
-  await page.getByLabel('Code').fill('123456');
+  await page.getByRole('button', { name: 'Email me a sign-in code or link' }).click();
+  await page.getByLabel('Code or link').fill(pasted);
   await page.getByRole('button', { name: 'Sign in' }).click();
 }
 
@@ -107,9 +123,67 @@ test.describe('signing in', () => {
     await addItem(app, 'Should', 'Keep me');
     await signIn(app);
     await app.getByRole('button', { name: 'Sign out' }).click();
-    await expect(app.getByRole('button', { name: 'Send code' })).toBeVisible();
+    await expect(app.getByRole('button', { name: 'Email me a sign-in code or link' })).toBeVisible();
     await app.getByRole('button', { name: 'Done' }).click();
     await expect(app.getByRole('checkbox', { name: 'Keep me' })).toBeVisible();
+  });
+});
+
+
+test.describe('other ways to sign in', () => {
+  test('a link copied from the email signs in without opening it', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    await signIn(
+      app,
+      'https://adsovripnuawbofptgml.supabase.co/auth/v1/verify?token=hash_from_email&type=magiclink&redirect_to=https%3A%2F%2Fexample.com%2F'
+    );
+    await expect(app.getByText('Signed in as')).toBeVisible();
+    expect(mock.auth.find((a) => a.path === 'verify')?.body).toMatchObject({ token_hash: 'hash_from_email', type: 'magiclink' });
+  });
+
+  test('a link that was already opened still signs in, from the address it landed on', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    await signIn(app, `http://localhost:3000/#access_token=${fakeJwt()}&expires_in=3600&refresh_token=refresh&token_type=bearer&type=magiclink`);
+    await expect(app.getByText('Signed in as')).toBeVisible();
+    expect(mock.auth.some((a) => a.path === 'user')).toBe(true);
+  });
+
+  test('says so when what was pasted is neither a code nor a link', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    await signIn(app, 'not a code');
+    await expect(app.getByRole('alert')).toContainText('not a code or a sign-in link');
+    expect(mock.auth).toEqual([]);
+  });
+
+  test('signs in with a password, and nothing is emailed', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    await app.getByRole('button', { name: 'Settings' }).click();
+    await app.getByRole('button', { name: 'Use a password instead' }).click();
+    await app.getByLabel('Email').fill(USER.email);
+    await app.getByLabel('Password').fill('correct horse battery');
+    await app.getByRole('button', { name: 'Sign in' }).click();
+
+    await expect(app.getByText('Signed in as')).toBeVisible();
+    expect(mock.otpRequests).toHaveLength(0);
+    expect(mock.auth.find((a) => a.path === 'token?password')?.body).toMatchObject({
+      email: USER.email,
+      password: 'correct horse battery',
+    });
+  });
+
+  test('sets a password once signed in', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    await signIn(app);
+    await expect(app.getByText('Signed in as')).toBeVisible();
+
+    const save = app.getByRole('button', { name: 'Save password' });
+    await app.getByLabel('Set a password').fill('short');
+    await expect(save).toBeDisabled();
+    await app.getByLabel('Set a password').fill('a long enough one');
+    await save.click();
+
+    await expect(app.getByText('Password saved')).toBeVisible();
+    expect(mock.auth.find((a) => a.method === 'PUT')?.body).toMatchObject({ password: 'a long enough one' });
   });
 });
 
