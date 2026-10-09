@@ -4,6 +4,7 @@ import { useSettings } from '../store/settings';
 import { useTimer } from '../store/timer';
 import { FRESH_CURSORS, mergeIncoming, syncOnce, type Local } from './engine';
 import { supabaseRemote } from './remote';
+import { parseSignInInput } from './signin';
 import { useSyncMeta, useSyncStatus } from './status';
 import { supabase, syncConfigured } from './supabase';
 
@@ -125,6 +126,34 @@ export async function sendCode(email: string) {
 
 export async function verifyCode(email: string, token: string) {
   const { error } = await supabase().auth.verifyOtp({ email: email.trim(), token: token.trim(), type: 'email' });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Finish signing in from whatever was pasted: the code from the email, or its
+ * link (copied from the message, or from the address bar after opening it).
+ */
+export async function signInWithPasted(email: string, pasted: string) {
+  const input = parseSignInInput(pasted);
+  if (!input) throw new Error('That is not a code or a sign-in link. Copy the whole link from the email.');
+  const auth = supabase().auth;
+
+  if (input.kind === 'code') return verifyCode(email, input.token);
+  const { error } =
+    input.kind === 'session'
+      ? await auth.setSession({ access_token: input.accessToken, refresh_token: input.refreshToken })
+      : await auth.verifyOtp({ token_hash: input.tokenHash, type: input.type as 'magiclink' });
+  if (error) throw new Error(error.message);
+}
+
+export async function signInWithPassword(email: string, password: string) {
+  const { error } = await supabase().auth.signInWithPassword({ email: email.trim(), password });
+  if (error) throw new Error(error.message);
+}
+
+/** Set (or change) the password for the account you are signed in to. */
+export async function setPassword(password: string) {
+  const { error } = await supabase().auth.updateUser({ password });
   if (error) throw new Error(error.message);
 }
 
