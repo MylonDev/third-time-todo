@@ -225,7 +225,10 @@ These three were named as important.
 - **Supabase** provides Postgres, auth and realtime, with **row-level security**
   so a login can only read and write its own rows. The anon key is public by
   design and safe to ship, and the service key never goes in the client.
-- **Login is an emailed one-time code**, not a magic link. Sign-ups are closed:
+- **Login is an emailed code or link, pasted into the app**, or a password. A link
+  opened in a browser would sign in Safari, not the installed app, so the app
+  accepts the link copied from the email (or the code, if the template shows one).
+  Sign-ups are closed:
   the account is created once in the dashboard and the app never creates one. On iOS an installed
   app does not share storage with Safari, so a magic link would sign in Safari
   and leave the app signed out. A passkey option can follow if Supabase supports
