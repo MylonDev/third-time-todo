@@ -21,7 +21,7 @@ function shouldShow(): boolean {
   return ios && !standalone && !read();
 }
 
-/** Nudges iOS users to install, since the badge and full-screen need the Home Screen app. */
+/** Nudges iOS users to install, since full screen and a reliable wake lock need the Home Screen app. */
 export function InstallHint() {
   const [visible, setVisible] = useState(shouldShow);
   if (!visible) return null;
@@ -31,7 +31,7 @@ export function InstallHint() {
       className="flex items-start gap-3 rounded-xl border border-accent-edge bg-accent-dim px-3 py-2 text-sm"
     >
       <p className="flex-1">
-        For full screen and the icon badge, tap Share, then <strong>Add to Home Screen</strong>, and open it from there.
+        For full screen, tap Share, then <strong>Add to Home Screen</strong>, and open it from there.
       </p>
       <button
         type="button"

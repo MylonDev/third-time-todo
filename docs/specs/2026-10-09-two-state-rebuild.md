@@ -184,8 +184,6 @@ These three were named as important.
 - JavaScript does not run while an iOS web app is backgrounded. That is fine for
   correctness. It matters only for alerts, which need web push (optional,
   later). Live Activities and Dynamic Island are not available to web apps.
-- Set the app icon badge (Badging API) to the balance in minutes whenever the
-  app is open, so the icon carries a last-known value.
 
 ### Reliable sync
 - **Local first.** Every action writes to local storage first, then to a queue.
@@ -245,7 +243,7 @@ safe-area insets. Unit tests for balance, boundary and correction edge cases;
 e2e for the main flows.
 
 **Phase 2: iOS-grade PWA.** Wake lock with re-acquire. Resume and recompute
-handling. Icon badge. Manifest and install fixes. Install guidance. A manual
+handling. Manifest and install fixes. Install guidance. A manual
 device test checklist, since none of this can be tested headless.
 
 **Phase 3: Supabase and sync.** Needs your setup, listed above. Schema, RLS

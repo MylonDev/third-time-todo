@@ -9,13 +9,10 @@ interface SettingsState {
   shouldTargetMin: number | null;
   /** Keep the screen on while a timer runs. */
   wakeLock: boolean;
-  /** Show Want available (in minutes) on the app icon. */
-  badge: boolean;
   theme: Theme;
   setDayEndHour: (h: number) => void;
   setShouldTargetMin: (m: number | null) => void;
   setWakeLock: (on: boolean) => void;
-  setBadge: (on: boolean) => void;
   setTheme: (t: Theme) => void;
 }
 
@@ -25,12 +22,10 @@ export const useSettings = create<SettingsState>()(
       dayEndHour: 0,
       shouldTargetMin: null,
       wakeLock: true,
-      badge: false,
       theme: 'system',
       setDayEndHour: (dayEndHour) => set({ dayEndHour: Math.min(4, Math.max(0, Math.round(dayEndHour))) }),
       setShouldTargetMin: (shouldTargetMin) => set({ shouldTargetMin }),
       setWakeLock: (wakeLock) => set({ wakeLock }),
-      setBadge: (badge) => set({ badge }),
       setTheme: (theme) => set({ theme }),
     }),
     { name: 'tt2-settings', version: 1 }
