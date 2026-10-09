@@ -22,17 +22,19 @@ export function Segmented<T extends string>({
   className?: string;
 }) {
   return (
-    <div role="group" aria-label={label} className={`flex gap-1 rounded-xl p-1 bg-surface-2 ${className}`}>
+    <div
+      role="group"
+      aria-label={label}
+      className={`flex gap-1 rounded-full border border-border p-1 ${className}`}
+    >
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`flex-1 min-h-10 rounded-lg px-3 text-sm font-medium transition-colors cursor-pointer ${
-            value === o.value
-              ? 'bg-accent text-on-accent'
-              : 'text-text-muted hover:text-text'
+          className={`press flex-1 min-h-11 rounded-full px-3 text-sm font-semibold transition-colors cursor-pointer ${
+            value === o.value ? 'bg-accent text-on-accent' : 'text-text-muted hover:text-text'
           }`}
         >
           {o.label}

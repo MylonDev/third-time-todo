@@ -111,10 +111,10 @@ export function Modal({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-50 flex ${isSheet ? 'justify-end' : 'items-center justify-center p-4'}`}
+      className={`fixed inset-0 z-50 flex ${isSheet ? 'justify-end' : 'items-end justify-center sm:items-center sm:p-4'}`}
     >
       <div
-        className="absolute inset-0 backdrop-blur-sm bg-black/50"
+        className="absolute inset-0 bg-black/70"
         onClick={dismissible ? onClose : undefined}
         aria-hidden="true"
       />
@@ -127,14 +127,21 @@ export function Modal({
         className={
           isSheet
             ? `relative w-full max-w-sm h-full flex flex-col shadow-2xl overflow-y-auto border-l outline-none ${className}`
-            : `relative rounded-2xl shadow-2xl w-full ${SIZES[size]} flex flex-col border outline-none max-h-[calc(100dvh-2rem)] overflow-y-auto ${className}`
+            : `relative rounded-t-[32px] sm:rounded-[32px] w-full ${SIZES[size]} flex flex-col border border-b-0 sm:border-b outline-none max-h-[92dvh] overflow-y-auto ${className}`
         }
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-        initial={isSheet ? { x: '100%' } : { opacity: 0, y: 40, scale: 0.97 }}
-        animate={isSheet ? { x: 0 } : { opacity: 1, y: 0, scale: 1 }}
-        exit={isSheet ? { x: '100%' } : { opacity: 0, y: 20, scale: 0.97 }}
-        transition={{ type: 'spring', damping: 22, stiffness: 280 }}
+        style={{
+          background: 'var(--color-bg)',
+          borderColor: 'var(--color-border-strong)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}
+        initial={isSheet ? { x: '100%' } : { opacity: 0, y: 60 }}
+        animate={isSheet ? { x: 0 } : { opacity: 1, y: 0 }}
+        exit={isSheet ? { x: '100%' } : { opacity: 0, y: 30 }}
+        transition={{ type: 'spring', damping: 26, stiffness: 300 }}
       >
+        {!isSheet && (
+          <span aria-hidden="true" className="mx-auto mt-2.5 h-[5px] w-11 flex-none rounded-full bg-border-strong sm:hidden" />
+        )}
         {children}
       </motion.div>
     </div>,

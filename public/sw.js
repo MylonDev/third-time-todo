@@ -1,6 +1,6 @@
 // The app is served from a subpath on GitHub Pages, so nothing here may assume
 // the site root: every URL is derived from this worker's own scope.
-const CACHE_NAME = 'third-time-v2';
+const CACHE_NAME = 'third-time-v3';
 const SCOPE = self.registration.scope;
 
 self.addEventListener('install', (event) => {

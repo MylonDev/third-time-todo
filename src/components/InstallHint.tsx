@@ -28,7 +28,7 @@ export function InstallHint() {
   return (
     <div
       role="note"
-      className="flex items-start gap-3 rounded-xl border border-accent-edge bg-accent-dim px-3 py-2 text-sm"
+      className="flex items-start gap-3 rounded-2xl border border-accent-edge bg-accent-dim px-3 py-2 text-sm"
     >
       <p className="flex-1">
         For full screen, tap Share, then <strong>Add to Home Screen</strong>, and open it from there.
