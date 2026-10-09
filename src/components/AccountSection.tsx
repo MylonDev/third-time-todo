@@ -27,6 +27,7 @@ export function AccountSection() {
   const [password, setPasswordText] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [step, setStep] = useState<'email' | 'paste' | 'password'>('email');
+  const [emailed, setEmailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -59,6 +60,7 @@ export function AccountSection() {
             e.preventDefault();
             void run(async () => {
               await sendCode(email);
+              setEmailed(true);
               setStep('paste');
             });
           }}
@@ -92,6 +94,17 @@ export function AccountSection() {
           >
             Use a password instead
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEmailed(false);
+              setStep('paste');
+              setProblem(null);
+            }}
+            className="min-h-10 text-sm text-text-muted underline cursor-pointer hover:text-text"
+          >
+            I already have a link
+          </button>
         </form>
       )}
 
@@ -107,10 +120,28 @@ export function AccountSection() {
             });
           }}
         >
-          <p className="text-sm text-text-muted">
-            We emailed {email}. Paste the code from it, or the link. On a phone, press and hold the link in the email,
-            choose Copy Link, and paste it here without opening it.
-          </p>
+          {emailed ? (
+            <p className="text-sm text-text-muted">
+              We emailed {email}. Paste the code from it, or the link. On a phone, press and hold the link in the email,
+              choose Copy Link, and paste it here without opening it.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-text-muted">
+                Paste a sign-in link you already have. A code also works if you enter your email below.
+              </p>
+              <label className="flex flex-col gap-1.5">
+                <span className="section-label">Email (only needed for a code)</span>
+                <input
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={FIELD}
+                />
+              </label>
+            </>
+          )}
           <label className="flex flex-col gap-1.5">
             <span className="section-label">Code or link</span>
             <textarea
@@ -135,7 +166,7 @@ export function AccountSection() {
               }}
               className="min-h-12 rounded-xl border border-border text-text-muted font-medium cursor-pointer hover:text-text"
             >
-              Change email
+              {emailed ? 'Change email' : 'Back'}
             </button>
             <button
               type="submit"
