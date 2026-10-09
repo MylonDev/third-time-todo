@@ -10,8 +10,8 @@ Canvas: https://claude.ai/artifact/6oaydnk3GURVUPqdwkZZzV (private)
 
 - **Palette:** true black ground (AMOLED), paper `#EDE6D3`, forest `#2F6B4A`, moss
   `#86B594`. Vermilion `#D9503A` only for the seal, debt and overdue.
-- **Should is forest, Want is paper.** Should uses a square marker, Want a circle.
-  Shape carries the meaning as well as color.
+- **Should is forest, Want is paper.** Color alone tells them apart. No shape markers;
+  checkboxes are the same rounded square in both lists.
 - **Type:** Space Grotesk for words, JetBrains Mono for numbers and labels.
 - **Japanese influence through design language, not text.** Flat color, a framed
   print border, a red square seal, asymmetric spacing, one branch in the corner,
