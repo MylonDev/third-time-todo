@@ -1,7 +1,8 @@
 # Two-state rebuild: Should earns Want
 
-**Status:** Phases 0, 1 and 2 built and tested headlessly. Phase 2 still needs the
-device run in `docs/device-testing.md`. Phase 3 (Supabase sync) is next.
+**Status:** Phases 0 to 2 are built and device-tested. Phase 3 (Supabase sync) is built
+and tested against a simulated server and a real local Postgres, and waits on
+the project's anon key and the schema being run.
 
 The app stops being a work/break timer with a todo list attached. It becomes a
 balance between two kinds of time you spend on purpose: things you **should**
@@ -186,23 +187,34 @@ These three were named as important.
   later). Live Activities and Dynamic Island are not available to web apps.
 
 ### Reliable sync
-- **Local first.** Every action writes to local storage first, then to a queue.
-  The app never waits on the network.
-- **Idempotent writes.** Client-generated uuids and upserts, so replaying the
-  queue is safe.
-- **Per-row last-writer-wins** on `updatedAt`, with soft deletes.
-- **Timer transitions are server-side.** A Postgres function `transition(state,
-  at)` closes the open entry and opens the next in one transaction, so two
-  devices can never leave two open entries. An offline queue replays
-  transitions in timestamp order.
-- **Overlap repair.** If two devices disagree, entries are resolved to a
-  non-overlapping timeline by truncating the earlier entry. This is the
-  riskiest piece and gets the heaviest tests.
-- **Live updates.** Supabase Realtime pushes changes to the other device while
-  it is open. Pull-on-resume covers everything else.
-- **Timestamps.** Entries use device clocks, so a large skew between devices
-  would distort times. The server stamps `updatedAt` for ordering, and a
-  warning appears if the device clock is more than a minute off.
+- **Local first.** Every action writes to local storage first. The app never
+  waits on the network, and works signed out.
+- **Row level sync.** Each table row carries the device's own `updatedAt`. The
+  newest version of a row wins, on the server (a trigger ignores older updates)
+  and on the device (`mergeById`). Deletes are tombstones.
+- **Sending.** A device keeps the newest `updatedAt` it has sent per table;
+  anything above it is unsent. Pushes are idempotent upserts, so a failed or
+  repeated push is safe.
+- **Fetching.** The server stamps every accepted write with `server_updated_at`,
+  and a device keeps the last one it has seen per table. It asks for rows stamped
+  at or after that, which a merge makes harmless to repeat.
+- **Edits always win against what they replace.** A local edit is stamped one
+  tick newer than the row it changed if the device clock is behind, so an edit
+  can't lose to the very row it edited. This replaces the clock-skew warning.
+- **One timeline, repaired on the device.** If two devices disagree (one left
+  Should running, the other started Want offline), a deterministic rule ends the
+  earlier entry where the later one begins. It depends only on the rows, so every
+  device repairs them the same way. This replaces the planned server-side
+  `transition` function: plain tables keep the server simple and offline use works.
+- **Repeating items** create their next occurrence under a derived id, so two
+  devices completing the same item make one occurrence.
+- **Live updates.** Supabase Realtime tells the other device to fetch. The app
+  also syncs when it returns to the foreground, when the network returns, and
+  every five minutes while open, since a phone can drop the socket quietly.
+- **Failure.** If the server can't be reached, everything stays local, the header
+  says "Offline", and it retries every 15 seconds and on every trigger above.
+- **Settings.** Only the day end and the daily target sync, since they change the
+  numbers. Theme and wake lock are per device.
 
 ## Hosting and auth
 
@@ -213,21 +225,16 @@ These three were named as important.
 - **Supabase** provides Postgres, auth and realtime, with **row-level security**
   so a login can only read and write its own rows. The anon key is public by
   design and safe to ship, and the service key never goes in the client.
-- **Login is an emailed one-time code**, not a magic link. On iOS an installed
+- **Login is an emailed one-time code**, not a magic link. Sign-ups are closed:
+  the account is created once in the dashboard and the app never creates one. On iOS an installed
   app does not share storage with Safari, so a magic link would sign in Safari
   and leave the app signed out. A passkey option can follow if Supabase supports
   it by then.
 - Sign in once per device. The session persists.
 
-### Needed from you when we reach Phase 3
-1. Create a Supabase project (free tier is enough).
-2. Give me the project URL and the anon key. Both are safe to put in the repo.
-3. Add `https://mylondev.github.io/third-time-todo/` and
-   `http://localhost:5173` to the project's allowed redirect URLs.
-4. Tell me which email you will sign in with.
-
-I will write the schema and policies as SQL migrations in the repo for you to
-run in the Supabase SQL editor.
+Setup steps are in [`docs/supabase-setup.md`](../supabase-setup.md). The schema is
+`supabase/migrations/20261009120000_sync_schema.sql`, with row level security on
+every table.
 
 ## Build order
 
