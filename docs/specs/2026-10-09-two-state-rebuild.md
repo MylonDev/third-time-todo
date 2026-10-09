@@ -1,6 +1,7 @@
 # Two-state rebuild: Should earns Want
 
-**Status:** decisions settled; Phases 0 and 1 in progress.
+**Status:** Phases 0, 1 and 2 built and tested headlessly. Phase 2 still needs the
+device run in `docs/device-testing.md`. Phase 3 (Supabase sync) is next.
 
 The app stops being a work/break timer with a todo list attached. It becomes a
 balance between two kinds of time you spend on purpose: things you **should**
