@@ -20,6 +20,10 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
 .beat{animation:beat 1.6s ease-in-out infinite}
 @keyframes drift{from{transform:translateX(0)}to{transform:translateX(24px)}}
 .drift{animation:drift 22s ease-in-out infinite alternate}
+@keyframes pop{0%{transform:scale(.92) translateY(8px);opacity:0}60%{transform:scale(1.02);opacity:1}100%{transform:none;opacity:1}}
+.pop{animation:pop .55s cubic-bezier(.2,.9,.2,1)}
+@keyframes halo{0%{transform:scale(1);opacity:.5}100%{transform:scale(2.1);opacity:0}}
+.halo{animation:halo 2.4s ease-out infinite}
 .fall-rain{animation:fall-rain 1s linear infinite}
 .fall-snow{animation:fall-snow 8s linear infinite}
 .fall-petal{animation:fall-petal 11s linear infinite}
@@ -28,10 +32,10 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
 @keyframes fall-snow{0%{transform:translate(0,-10px)}50%{transform:translate(10px,170px)}100%{transform:translate(-6px,330px)}}
 @keyframes fall-petal{0%{transform:translate(0,-10px)}50%{transform:translate(-40px,170px)}100%{transform:translate(10px,330px)}}
 @keyframes float{0%,100%{transform:translate(0,0);opacity:0.2}50%{transform:translate(10px,-14px);opacity:1}}
-@media (prefers-reduced-motion:reduce){.beat,.drift,.fall-rain,.fall-snow,.fall-petal,.float{animation:none}.press{transition:none}}
+@media (prefers-reduced-motion:reduce){.pop,.halo,.beat,.drift,.fall-rain,.fall-snow,.fall-petal,.float{animation:none}.press{transition:none}}
 </style>
 </helmet>
-<div style="position:relative;width:390px;height:1280px;box-sizing:border-box;background:#000;padding:16px 16px 20px;display:flex;flex-direction:column;gap:14px;color:#EDE6D3;overflow:hidden">
+<div style="position:relative;width:390px;height:{{rootH}}px;box-sizing:border-box;background:#000;padding:16px 16px 20px;display:flex;flex-direction:column;gap:14px;color:#EDE6D3;overflow:hidden">
 
   <div style="display:flex;align-items:center;justify-content:space-between;min-height:44px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -62,6 +66,19 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
     </div>
   </div>
 
+  <sc-if value="{{reached}}" hint-placeholder-val="{{ false }}">
+    <div class="pop" role="status" style="display:flex;align-items:center;gap:14px;border:1px solid rgba(134,181,148,0.6);border-radius:24px;padding:14px 16px">
+      <span aria-hidden="true" style="position:relative;flex:none;width:40px;height:40px;display:flex;align-items:center;justify-content:center">
+        <span class="halo" style="position:absolute;width:22px;height:22px;border-radius:50%;background:#86B594"></span>
+        <span style="position:relative;width:22px;height:22px;border-radius:50%;background:#86B594"></span>
+      </span>
+      <div style="min-width:0">
+        <p style="margin:0;font-size:18px;font-weight:700;letter-spacing:-0.01em">Target reached</p>
+        <p style="margin:2px 0 0;font-size:14px;line-height:1.35;color:rgba(237,230,211,0.72)">{{reachText}}</p>
+      </div>
+    </div>
+  </sc-if>
+
   <div role="group" aria-label="Timer state" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
     <button type="button" class="press" aria-pressed="{{isShould}}" onClick="{{pickShould}}" style="position:relative;min-height:92px;border-radius:24px;padding:14px 18px;text-align:left;display:flex;flex-direction:column;justify-content:flex-end;border:0;background-color:#2F6B4A;color:#EDE6D3;opacity:{{shouldOpacity}};box-shadow:{{shouldRing}};transition:opacity .3s,box-shadow .3s">
       <span style="font-size:28px;font-weight:700;letter-spacing:-0.02em;line-height:1">Should</span>
@@ -88,13 +105,19 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
       <span aria-hidden="true" style="flex:1;border-top:1px solid rgba(237,230,211,0.12)"></span>
       <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(237,230,211,0.62)">{{shouldCount}}</span>
     </div>
+    <sc-if value="{{shouldEmpty}}" hint-placeholder-val="{{ false }}">
+      <div class="pop" style="display:flex;align-items:center;gap:14px;border:1px dashed rgba(237,230,211,0.28);border-radius:24px;padding:16px">
+        <svg aria-hidden="true" width="56" height="36" viewBox="0 0 56 36" style="flex:none"><path d="M0 29H56" stroke="#86B594" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M14 29a14 14 0 0 1 28 0Z" fill="#86B594"/></svg>
+        <div style="min-width:0"><p style="margin:0;font-size:17px;font-weight:600">{{emptyTitle}}</p><p style="margin:2px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.04em;line-height:1.4;color:rgba(237,230,211,0.62)">Tap + to add something you should do.</p></div>
+      </div>
+    </sc-if>
     <ul style="list-style:none;margin:0;padding:0">
       <sc-for list="{{shouldItems}}" as="item" hint-placeholder-count="3">
         <li style="border-top:1px solid rgba(237,230,211,0.12)">
           <sc-if value="{{item.isHead}}" hint-placeholder-val="{{ false }}"><div style="padding:14px 0 8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">{{item.text}}</div></sc-if>
           <sc-if value="{{item.isRow}}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:6px;min-height:54px">
           <button type="button" role="checkbox" aria-checked="{{item.done}}" aria-label="{{item.text}}" onClick="{{item.toggle}}" class="press" style="flex:none;width:44px;height:44px;margin-left:-8px;border:0;background:transparent;display:flex;align-items:center;justify-content:center">
-            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26"><rect x="1.5" y="1.5" width="23" height="23" rx="7" stroke="#86B594" stroke-width="2" style="fill:{{item.fill}};transition:fill .22s"/><path d="M7.5 13.5l4 4 7-8" fill="none" stroke="#06120B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" style="stroke-dashoffset:{{item.dash}};transition:stroke-dashoffset .3s cubic-bezier(.3,1,.4,1) .05s"/></svg>
+            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" stroke="#86B594" stroke-width="2" style="fill:{{item.fill}};transition:fill .22s"/><path d="M7.5 13.5l4 4 7-8" fill="none" stroke="#06120B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" style="stroke-dashoffset:{{item.dash}};transition:stroke-dashoffset .3s cubic-bezier(.3,1,.4,1) .05s"/></svg>
           </button>
           <div style="flex:1;min-width:0;padding:6px 0">
             <span style="display:block;font-size:17px;font-weight:500;color:{{item.ink}};text-decoration:{{item.strike}};transition:color .25s">{{item.text}}</span>
@@ -112,13 +135,19 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
       <span aria-hidden="true" style="flex:1;border-top:1px solid rgba(237,230,211,0.12)"></span>
       <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(237,230,211,0.62)">{{wantCount}}</span>
     </div>
+    <sc-if value="{{wantEmpty}}" hint-placeholder-val="{{ false }}">
+      <div class="pop" style="display:flex;align-items:center;gap:14px;border:1px dashed rgba(237,230,211,0.28);border-radius:24px;padding:16px">
+        <svg aria-hidden="true" width="56" height="36" viewBox="0 0 56 36" style="flex:none"><path d="M0 29H56" stroke="#EDE6D3" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M14 29a14 14 0 0 1 28 0Z" fill="#EDE6D3"/></svg>
+        <div style="min-width:0"><p style="margin:0;font-size:17px;font-weight:600">{{emptyTitle}}</p><p style="margin:2px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.04em;line-height:1.4;color:rgba(237,230,211,0.62)">Tap + to add something you want to do.</p></div>
+      </div>
+    </sc-if>
     <ul style="list-style:none;margin:0;padding:0">
       <sc-for list="{{wantItems}}" as="item" hint-placeholder-count="2">
         <li style="border-top:1px solid rgba(237,230,211,0.12)">
           <sc-if value="{{item.isHead}}" hint-placeholder-val="{{ false }}"><div style="padding:14px 0 8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:rgba(237,230,211,0.62)">{{item.text}}</div></sc-if>
           <sc-if value="{{item.isRow}}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:6px;min-height:54px">
           <button type="button" role="checkbox" aria-checked="{{item.done}}" aria-label="{{item.text}}" onClick="{{item.toggle}}" class="press" style="flex:none;width:44px;height:44px;margin-left:-8px;border:0;background:transparent;display:flex;align-items:center;justify-content:center">
-            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26"><rect x="1.5" y="1.5" width="23" height="23" rx="7" stroke="#EDE6D3" stroke-width="2" style="fill:{{item.fill}};transition:fill .22s"/><path d="M7.5 13.5l4 4 7-8" fill="none" stroke="#06120B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" style="stroke-dashoffset:{{item.dash}};transition:stroke-dashoffset .3s cubic-bezier(.3,1,.4,1) .05s"/></svg>
+            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" stroke="#EDE6D3" stroke-width="2" style="fill:{{item.fill}};transition:fill .22s"/><path d="M7.5 13.5l4 4 7-8" fill="none" stroke="#06120B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" style="stroke-dashoffset:{{item.dash}};transition:stroke-dashoffset .3s cubic-bezier(.3,1,.4,1) .05s"/></svg>
           </button>
           <div style="flex:1;min-width:0;padding:6px 0">
             <span style="display:block;font-size:17px;font-weight:500;color:{{item.ink}};text-decoration:{{item.strike}};transition:color .25s">{{item.text}}</span>
@@ -139,11 +168,15 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manip
   </nav>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"season":{"editor":"enum","options":["auto","spring","summer","autumn","winter"],"default":"auto"},"time":{"editor":"enum","options":["auto","dawn","day","dusk","night"],"default":"auto"},"weather":{"editor":"enum","options":["clear","cloudy","rain","snow","fog"],"default":"clear"},"$preview":{"width":390,"height":1280}}'>
+<script type="text/x-dc" data-dc-script data-props='{"preview":{"editor":"enum","options":["live","reached","empty"],"default":"live"},"startMode":{"editor":"enum","options":["rest","should","want"],"default":"rest"},"startView":{"editor":"enum","options":["today","later"],"default":"today"},"season":{"editor":"enum","options":["auto","spring","summer","autumn","winter"],"default":"auto"},"time":{"editor":"enum","options":["auto","dawn","day","dusk","night"],"default":"auto"},"weather":{"editor":"enum","options":["clear","cloudy","rain","snow","fog"],"default":"clear"},"$preview":{"width":390,"height":1280}}'>
 class Component extends DCLogic {
   state = { mode: 'rest', view: 'today', elapsed: 0, balance: 1450, should: 4320, want: 0, done: { s3: true } };
 
-  componentDidMount() { this.timer = setInterval(() => this.tick(), 1000); }
+  componentDidMount() {
+    const m = this.props.startMode, v = this.props.startView;
+    if ((m && m !== 'rest') || (v && v !== 'today')) this.setState({ mode: m || 'rest', view: v || 'today' });
+    this.timer = setInterval(() => this.tick(), 1000);
+  }
   componentWillUnmount() { clearInterval(this.timer); }
 
   tick() {
@@ -171,7 +204,11 @@ class Component extends DCLogic {
     const s = this.state;
     const PAPER = '#EDE6D3', FOREST = '#2F6B4A', MOSS = '#86B594', RED = '#E5604A', INK = '#06120B';
     const mode = s.mode, rest = mode === 'rest', debt = s.balance < 0;
-    const progress = Math.min(1, s.should / 12000);
+    const preview = this.props.preview || 'live';
+    const empty = preview === 'empty';
+    const shouldSec = preview === 'reached' ? Math.max(s.should, 12000) : s.should;
+    const progress = Math.min(1, shouldSec / 12000);
+    const reached = shouldSec >= 12000;
     const ring = (on) => on ? '0 0 0 3px #000, 0 0 0 5px ' + PAPER : '0 0 0 0 #000';
     const scenes = {
       rest: { sky: '#0F2418', hill: '#0A1A11', city: '#050D08', lit: PAPER, sun: PAPER, cloud: 'rgba(237,230,211,0.1)', ink: PAPER },
@@ -236,8 +273,12 @@ class Component extends DCLogic {
       showToday: () => this.setState({ view: 'today' }), showLater: () => this.setState({ view: 'later' }),
       todayBg: !later ? PAPER : 'transparent', todayInk: !later ? INK : 'rgba(237,230,211,0.7)',
       laterBg: later ? PAPER : 'transparent', laterInk: later ? INK : 'rgba(237,230,211,0.7)',
-      shouldItems: mk(sItems, MOSS), wantItems: mk(wItems, PAPER),
-      shouldCount: count(sItems), wantCount: count(wItems),
+      shouldItems: mk(empty ? [] : sItems, MOSS), wantItems: mk(empty ? [] : wItems, PAPER),
+      shouldCount: empty ? '0' : count(sItems), wantCount: empty ? '0' : count(wItems),
+      shouldEmpty: empty, wantEmpty: empty,
+      emptyTitle: later ? 'Nothing saved for later.' : 'Nothing for today.',
+      reached: reached, rootH: empty ? 1040 : 1280,
+      reachText: rest ? 'Enjoy the rest of the day.' : 'You can stop for the day.',
     };
   }
 }

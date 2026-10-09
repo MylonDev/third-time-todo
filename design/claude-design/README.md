@@ -11,7 +11,7 @@ Canvas: https://claude.ai/artifact/6oaydnk3GURVUPqdwkZZzV (private)
 - **Palette:** true black ground (AMOLED), paper `#EDE6D3`, forest `#2F6B4A`, moss
   `#86B594`. Vermilion `#D9503A` only for the seal, debt and overdue.
 - **Should is forest, Want is paper.** Color alone tells them apart. No shape markers;
-  checkboxes are the same rounded square in both lists.
+  checkboxes are circles in both lists.
 - **Type:** Space Grotesk for words, JetBrains Mono for numbers and labels.
 - **Japanese influence through design language, not text.** Flat color, a framed
   print border, a red square seal, asymmetric spacing, one branch in the corner,
@@ -35,6 +35,8 @@ the page background should all be `#000`.
 `Dawn` (Today and Later, interactive), `Settings`, `SignIn` (email, code, password),
 `ItemEditor` (edit and new, bottom sheet), `FixTimer` (bottom sheet with live preview).
 The quick add button in the bottom bar is meant to open `ItemEditor` in new mode.
+`TargetReached` (running and resting) and `EmptyToday` / `EmptyLater` are Dawn with its
+`preview`, `startMode` and `startView` tweaks set.
 
 ## Earlier explorations (kept for reference)
 
