@@ -19,16 +19,29 @@ const listeners = new Set<Listener>();
 let intervalId: ReturnType<typeof setInterval> | null = null;
 let now = Date.now();
 
+function tick() {
+  now = Date.now();
+  for (const l of listeners) l();
+}
+
+/**
+ * A suspended page stops ticking and may be thawed with an old `now`. Catch up
+ * the moment it is visible again instead of waiting for the next interval.
+ */
+function onResume() {
+  if (document.visibilityState === 'visible') tick();
+}
+
 function subscribe(listener: Listener): () => void {
   // The shared `now` goes stale while nobody is watching, so refresh it as the
   // first listener arrives. Later listeners join the running phase instead,
   // which is the whole point of sharing one ticker.
   if (listeners.size === 0) {
     now = Date.now();
-    intervalId = setInterval(() => {
-      now = Date.now();
-      for (const l of listeners) l();
-    }, 1000);
+    intervalId = setInterval(tick, 1000);
+    document.addEventListener('visibilitychange', onResume);
+    window.addEventListener('pageshow', onResume);
+    window.addEventListener('focus', onResume);
   }
   listeners.add(listener);
 
@@ -37,6 +50,9 @@ function subscribe(listener: Listener): () => void {
     if (listeners.size === 0 && intervalId !== null) {
       clearInterval(intervalId);
       intervalId = null;
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('pageshow', onResume);
+      window.removeEventListener('focus', onResume);
     }
   };
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { badgeSupported } from '../hooks/useBadge';
 import { useSettings } from '../store/settings';
 import type { Theme } from '../types';
 import { Modal } from './Modal';
@@ -11,6 +12,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const setTargetMin = useSettings((s) => s.setShouldTargetMin);
   const wakeLock = useSettings((s) => s.wakeLock);
   const setWakeLock = useSettings((s) => s.setWakeLock);
+  const badge = useSettings((s) => s.badge);
+  const setBadge = useSettings((s) => s.setBadge);
   const theme = useSettings((s) => s.theme);
   const setTheme = useSettings((s) => s.setTheme);
 
@@ -73,6 +76,33 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           className="size-6 accent-accent cursor-pointer"
         />
       </label>
+
+      {badgeSupported() && (
+        <label className="flex items-center justify-between gap-4 min-h-12">
+          <span>
+            <span className="block">Show Want available on the app icon</span>
+            <span className="block text-xs text-text-muted">
+              Needs the app added to your Home Screen and notification permission. Updates when the app is open.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={badge}
+            onChange={async (e) => {
+              const on = e.target.checked;
+              if (on && 'Notification' in window && Notification.permission === 'default') {
+                try {
+                  await Notification.requestPermission();
+                } catch {
+                  // The badge may still work without it.
+                }
+              }
+              setBadge(on);
+            }}
+            className="size-6 accent-accent cursor-pointer"
+          />
+        </label>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <span className="section-label">Theme</span>

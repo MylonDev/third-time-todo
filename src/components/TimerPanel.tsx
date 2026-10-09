@@ -1,4 +1,6 @@
+import { useBadge } from '../hooks/useBadge';
 import { useDay } from '../hooks/useDay';
+import { useWakeLock } from '../hooks/useWakeLock';
 import { useSettings } from '../store/settings';
 import { useTimer } from '../store/timer';
 import type { TimerState } from '../types';
@@ -17,10 +19,15 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   const start = useTimer((s) => s.start);
   const stop = useTimer((s) => s.stop);
   const targetMin = useSettings((s) => s.shouldTargetMin);
+  const wakeLockOn = useSettings((s) => s.wakeLock);
+  const badgeOn = useSettings((s) => s.badge);
 
   const state = running?.state ?? null;
   const elapsed = running ? now - running.startedAt : 0;
   const inDebt = balance < 0;
+
+  const screenOn = useWakeLock(running !== undefined && wakeLockOn);
+  useBadge(badgeOn, Math.floor(balance / 60_000));
 
   const targetMs = targetMin ? targetMin * 60_000 : null;
   const progress = targetMs ? Math.min(1, totals.shouldMs / targetMs) : 0;
@@ -95,6 +102,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           Today: Should <span className="num text-text">{formatDuration(totals.shouldMs)}</span> · Want{' '}
           <span className="num text-text">{formatDuration(totals.wantMs)}</span>
         </p>
+        {screenOn && <p data-testid="screen-on">Screen stays on while timing.</p>}
         {targetMs !== null && (
           <div className="flex flex-col gap-1.5">
             <div

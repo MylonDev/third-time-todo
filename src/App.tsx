@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FixTimerModal } from './components/FixTimerModal';
+import { InstallHint } from './components/InstallHint';
 import { ItemsView } from './components/ItemsView';
 import { SettingsModal } from './components/SettingsModal';
 import { TimerPanel } from './components/TimerPanel';
@@ -40,6 +41,7 @@ export default function App() {
         </button>
       </header>
 
+      <InstallHint />
       <TimerPanel onFix={() => setFixing(true)} />
       <ItemsView />
 
