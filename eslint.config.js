@@ -51,4 +51,10 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // The scene is a fixed print: its sky, hills and sun keep one palette in
+    // both themes, and its colours are blended in code, so they can't be tokens.
+    files: ['src/components/Scene.tsx', 'src/components/sceneTheme.ts'],
+    rules: { 'no-restricted-syntax': 'off' },
+  },
 ])

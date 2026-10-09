@@ -36,7 +36,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             const h = Number(e.target.value);
             setTargetMin(e.target.value !== '' && h > 0 ? Math.round(h * 60) : null);
           }}
-          className="min-h-12 rounded-lg px-3 bg-surface-2 border border-border text-text outline-none"
+          className="min-h-12 rounded-2xl px-4 text-base bg-surface-2 border border-border text-text outline-none"
         />
         <span className="text-xs text-text-muted">
           Optional. When you reach it the app says you can stop for the day.
@@ -48,7 +48,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <select
           value={dayEndHour}
           onChange={(e) => setDayEndHour(Number(e.target.value))}
-          className="min-h-12 rounded-lg px-3 bg-surface-2 border border-border text-text outline-none"
+          className="min-h-12 rounded-2xl px-4 text-base bg-surface-2 border border-border text-text outline-none"
         >
           <option value={0}>Midnight</option>
           {[1, 2, 3, 4].map((h) => (
@@ -71,7 +71,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           type="checkbox"
           checked={wakeLock}
           onChange={(e) => setWakeLock(e.target.checked)}
-          className="size-6 accent-accent cursor-pointer"
+          className="switch"
         />
       </label>
 
@@ -94,7 +94,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       <button
         type="button"
         onClick={onClose}
-        className="min-h-12 rounded-xl bg-accent text-on-accent font-semibold cursor-pointer"
+        className="press min-h-12 rounded-full bg-accent text-on-accent font-semibold cursor-pointer"
       >
         Done
       </button>

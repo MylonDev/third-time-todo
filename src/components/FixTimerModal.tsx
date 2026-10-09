@@ -123,7 +123,7 @@ export function FixTimerModal({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           onClick={onClose}
-          className="min-h-12 rounded-xl border border-border text-text-muted font-medium cursor-pointer hover:text-text"
+          className="press min-h-12 rounded-full border border-border text-text-muted font-medium cursor-pointer hover:text-text"
         >
           Cancel
         </button>
@@ -131,7 +131,7 @@ export function FixTimerModal({ onClose }: { onClose: () => void }) {
           type="button"
           onClick={apply}
           disabled={refusal !== null}
-          className="min-h-12 rounded-xl bg-accent text-on-accent font-semibold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          className="press min-h-12 rounded-full bg-accent text-on-accent font-semibold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Apply
         </button>
