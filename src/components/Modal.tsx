@@ -127,7 +127,7 @@ export function Modal({
         className={
           isSheet
             ? `relative w-full max-w-sm h-full flex flex-col shadow-2xl overflow-y-auto border-l outline-none ${className}`
-            : `relative rounded-2xl shadow-2xl w-full ${SIZES[size]} flex flex-col border outline-none ${className}`
+            : `relative rounded-2xl shadow-2xl w-full ${SIZES[size]} flex flex-col border outline-none max-h-[calc(100dvh-2rem)] overflow-y-auto ${className}`
         }
         style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
         initial={isSheet ? { x: '100%' } : { opacity: 0, y: 40, scale: 0.97 }}

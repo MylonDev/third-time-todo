@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { watchOtherWindows } from './store/crossTab'
+import { startSync } from './sync/runtime'
 
 watchOtherWindows()
+startSync()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
