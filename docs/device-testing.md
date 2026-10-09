@@ -1,6 +1,6 @@
 # Testing on the phone
 
-Wake lock, backgrounding and the icon badge behave differently on a real iPhone
+Wake lock and backgrounding behave differently on a real iPhone
 from anything a desktop browser or the test suite can show. Run this on the
 installed app, not in Safari, and note the iOS version.
 
@@ -30,13 +30,6 @@ Target device: iPhone on iOS 27.2 (developer build).
 3. Start Should, force quit the app from the app switcher, wait 2 minutes, reopen.
    The timer should still be running with the elapsed time correct.
 4. Try the Fix timer control after each of these.
-
-## Icon badge
-1. Settings, switch on "Show Want available on the app icon". Allow notifications
-   when asked.
-2. Start Should and run a few minutes. Leave the app. The icon badge should show
-   the whole minutes of Want available as they were when you left.
-3. Run into debt: the badge should clear.
 
 ## Day boundary
 1. Set the day end to 1:00 AM, leave a timer running past midnight, and check the

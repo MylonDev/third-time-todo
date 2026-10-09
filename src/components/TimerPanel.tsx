@@ -1,4 +1,3 @@
-import { useBadge } from '../hooks/useBadge';
 import { useDay } from '../hooks/useDay';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useSettings } from '../store/settings';
@@ -20,14 +19,12 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   const stop = useTimer((s) => s.stop);
   const targetMin = useSettings((s) => s.shouldTargetMin);
   const wakeLockOn = useSettings((s) => s.wakeLock);
-  const badgeOn = useSettings((s) => s.badge);
 
   const state = running?.state ?? null;
   const elapsed = running ? now - running.startedAt : 0;
   const inDebt = balance < 0;
 
   const screenOn = useWakeLock(running !== undefined && wakeLockOn);
-  useBadge(badgeOn, Math.floor(balance / 60_000));
 
   const targetMs = targetMin ? targetMin * 60_000 : null;
   const progress = targetMs ? Math.min(1, totals.shouldMs / targetMs) : 0;

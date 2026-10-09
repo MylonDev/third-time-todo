@@ -25,5 +25,8 @@ export default defineConfig({
     url: 'http://localhost:5173/third-time-todo/',
     reuseExistingServer: !process.env.CI,
     stdout: 'ignore',
+    // A key makes sync switch on, so the sign-in flow can be tested against
+    // mocked Supabase routes. Nothing here reaches the real project.
+    env: { VITE_SUPABASE_ANON_KEY: 'test-anon-key', VITE_SYNC_REALTIME: 'off' },
   },
 });
