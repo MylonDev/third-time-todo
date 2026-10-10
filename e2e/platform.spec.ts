@@ -4,6 +4,7 @@ import { advance, expect, MIN, startState, test } from './helpers';
 declare global {
   interface Window {
     __locks: { released: boolean }[];
+    __refuse: boolean;
   }
 }
 
@@ -11,11 +12,12 @@ declare global {
 async function mockWakeLock(page: Page, { refuse = false } = {}) {
   await page.addInitScript((refuseRequests) => {
     window.__locks = [];
+    window.__refuse = refuseRequests;
     Object.defineProperty(navigator, 'wakeLock', {
       configurable: true,
       value: {
         request: async () => {
-          if (refuseRequests) throw new DOMException('no', 'NotAllowedError');
+          if (window.__refuse) throw new DOMException('no', 'NotAllowedError');
           const listeners: (() => void)[] = [];
           const lock = {
             released: false,
@@ -66,11 +68,40 @@ test.describe('wake lock', () => {
     await expect(app.getByTestId('screen-on')).toBeVisible();
 
     // The browser releases it when hidden.
-    await app.evaluate(() => window.__locks[0].released === false && (window.__locks[0] as unknown as { release: () => void }).release());
+    await setVisibility(app, 'hidden');
+    await app.evaluate(() => (window.__locks[0] as unknown as { release: () => void }).release());
     await expect(app.getByTestId('screen-on')).toHaveCount(0);
     await setVisibility(app, 'visible');
     await expect(app.getByTestId('screen-on')).toBeVisible();
     expect(await app.evaluate(() => window.__locks.length)).toBe(2);
+  });
+
+  test('is taken again when the release lands after the page is visible', async ({ app }) => {
+    await mockWakeLock(app);
+    await app.reload();
+    await app.clock.pauseAt(new Date(2026, 9, 12, 10, 0, 5));
+    await startState(app, 'Should');
+    await expect(app.getByTestId('screen-on')).toBeVisible();
+
+    await setVisibility(app, 'hidden');
+    await setVisibility(app, 'visible');
+    // The old lock is only now released, after the page came back.
+    await app.evaluate(() => (window.__locks[0] as unknown as { release: () => void }).release());
+    await expect.poll(() => app.evaluate(() => window.__locks.length)).toBe(2);
+    await expect(app.getByTestId('screen-on')).toBeVisible();
+  });
+
+  test('a refused lock is asked for again on the next tap', async ({ app }) => {
+    await mockWakeLock(app, { refuse: true });
+    await app.reload();
+    await app.clock.pauseAt(new Date(2026, 9, 12, 10, 0, 5));
+    await startState(app, 'Should');
+    await expect(app.getByTestId('screen-on')).toHaveCount(0);
+
+    await app.evaluate(() => (window.__refuse = false));
+    await app.getByTestId('balance').click();
+    await expect(app.getByTestId('screen-on')).toBeVisible();
+    expect(await app.evaluate(() => window.__locks.length)).toBe(1);
   });
 
   test('a refused lock leaves a working timer and no error', async ({ app }) => {
