@@ -4,6 +4,8 @@
 the centre of the two-state spec ([2026-10-09-two-state-rebuild.md](2026-10-09-two-state-rebuild.md)):
 the Should/Want timer becomes one of two timer modes instead of the whole app.
 Work is tracked in kata (project `third-time-todo`), one epic per section below.
+The brainstorm items were settled in a second pass on 18 Oct; each decision is
+recorded on its kata issue, and this document is updated to match.
 
 ## The problem
 
@@ -30,40 +32,56 @@ doesn't take the steps, or overdoes it, burns out, and then does nothing.
   days. It never locks or blocks.
 - **Protect against overdoing it.** Commitments have a weekly cap the user sets.
 - **Practical, relaxed, plain words.** No quirky or poetic names.
+- **For one person.** No sharing or partner features.
 
 ## Timer modes
 
 | Mode | Logic | For |
 | --- | --- | --- |
-| **Flow** | Counts up. Active time earns rest at 1:3, debt allowed. This is the current Should/Want timer. | Sustained, open-ended work over several hours. |
+| **Flow** | Counts up. Focus earns Rest at 1:3, debt allowed. This is the current Should/Want timer, renamed. | Sustained, open-ended work over several hours. |
 | **Timed** | Counts down from a chosen length, chimes at the end, and the session is done. | "This one session is what I have", or a set block for a practice. |
 
+- **Flow's states are Focus, Rest and Stopped** (a260). Focus replaces Should and
+  earns Rest. Rest replaces Want and spends the balance, which reads "Rest
+  available" or "Rest debt". Stopped is the third state: the timer is off and
+  nothing is spent. The wording must keep Rest (spends) apart from Stopped (free).
 - Starting Flow opens a short **planning step**: "What's the most important task
   today?", picked from the Inbox or typed, then optionally more items for Today.
 - Timed skips planning.
 - Either mode can be attached to a practice, so its time adds to that practice.
-- Whether Flow keeps the words Should/Want is still open (brainstorm).
+- **Past the day end** (7mfa): if the timer is running in Focus or Rest at the day
+  end, the balance (rest or debt) carries on. It resets at the first Stop after the
+  day end, which asks to confirm when rest is left ("Stopping clears 25m of rest").
+  History still splits time at the day end.
+- **Alerts** (asyj, n7tv): a chime when Timed ends and once when Rest goes into
+  debt. With the phone locked these come by **scheduled web push**: both times are
+  known when the state starts, so the client writes a "send at" row to Supabase and
+  replaces it on every change; pg_cron and an Edge Function send it as a Declarative
+  Web Push. Push needs the Home Screen install, sign-in and permission from a tap.
 
 ## Practices
 
 A practice is a hobby, skill or interest with no end point: guitar, digital art,
-photography, a language. ("Practice" is the working name; see brainstorm.)
+photography, a language. The name **Practices** is settled (jr9h).
 
 Each practice has:
 
-- **A commitment level** that sets a weekly target:
+- **A commitment level** that sets a weekly target, counted in **sessions** (y51x):
 
-  | Level | Rhythm | Session | ≈ per week |
-  | --- | --- | --- | --- |
-  | Paused | — | — | 0 |
-  | Minimal | 1× a week | 10–15 min | 15 min |
-  | Light | 2–3× a week | 15–20 min | 45 min |
-  | Steady | 4–5× a week | 20–30 min | 2 h |
-  | Serious | daily | 30–60 min | 5 h |
-  | Deep | daily | 1–2 h | 10 h |
+  | Level | Sessions a week | Session (counts from) | ≈ per week | For |
+  | --- | --- | --- | --- | --- |
+  | Paused | 0 | — | 0 | — |
+  | Minimal | 1 | 10–15 min (10) | 15 min | Keep in touch: no long gaps, slows decay. Not a habit. |
+  | Light | 3 | 15–20 min (15) | 50 min | Maintain, about a third of Steady. |
+  | Steady | 4 | 20–30 min (20) | 1.5–2 h | Build the habit and progress. |
+  | Serious | 6 (daily, one miss allowed) | 30 min–2 h (30) | 3–10 h | Faster progress. |
 
-  These numbers are a starting point. They are to be checked against habit and
-  skill-retention research before they are fixed (kata ticket).
+  A session counts once it reaches the level's minimum length. The numbers were
+  checked against habit research (one missed day doesn't matter, but a habit took
+  about four sessions a week), skill-decay research (decay follows the time since
+  the last practice) and maintenance dosing (about a third of the building volume).
+  Sources are on kata y51x. Deep was merged into Serious, since the evidence
+  doesn't separate them.
 - **A small step**: the smallest session that still counts, with a smaller
   version for low days. Each is tagged with what it needs (clarity, physical
   energy, little of either) so the daily check can match it.
@@ -73,12 +91,13 @@ Each practice has:
   the next, so starting is already decided.
 
 **Weekly cap.** The user sets a weekly total, e.g. 8 h. The sum of all practices'
-levels must stay under it. Raising one practice past the cap means lowering
-another. This is where burnout is caught: when planning, not after the crash.
+levels (their typical minutes) must stay under it. Raising one practice past the
+cap means lowering another. This is where burnout is caught: when planning, not
+after the crash.
 
-**Needs attention.** Practices are ranked by how far behind their weekly target
-they are, given how much of the week is left. The top one to three show on the
-home screen as suggestions.
+**Needs attention.** Practices are ranked by how many sessions behind their weekly
+target they are, given how much of the week is left. The top one to three show on
+the home screen as suggestions.
 
 ## Daily check and effort level
 
@@ -99,6 +118,12 @@ The answers set the day's **effort level**:
 Which answer is lowest also shapes what gets suggested: low clarity points to
 hands-on, repetitive things; low physical condition points to seated, mental ones.
 
+**Return card** (9xes). When the app opens after a long Stopped stretch (2 h by
+default, not the day's first open), the home screen leads with one small step: the
+top "needs attention" practice's small step, fitted to the effort level, or a
+get-ready item. One tap starts it, one tap dismisses it. It never mentions drift.
+There is no other drift detection and no nudging notification.
+
 ## Get ready
 
 The user's own checklist for clearing the cobwebs: desk, water, food, air,
@@ -112,9 +137,19 @@ On a Low day, a get-ready item on its own makes the day non-zero.
 - **Today**: picked from the Inbox, in order. The top unfinished item is "now";
   work goes top-down.
 - **Most important task**: set in Flow's planning step and pinned on top.
-- Unfinished items go back to the Inbox when the day ends.
-- Whether Today has a size limit, and how big, is still open (brainstorm). The
-  firm cap in this concept is the weekly hours for practices.
+- **No cap on Today** (kq83). Once Today holds more than you usually finish, a
+  quiet line says so ("You usually finish about 4"). It shows only after about a
+  week of history, and never blocks.
+- **Morning review** (8f2k). On the first open after the day end, yesterday's
+  unticked Today items are listed. Each can be marked done (it counts for
+  yesterday) or kept for today; the rest go to the Inbox. Skipping the review, or
+  never opening it, sends them all to the Inbox. There is no evening ritual.
+
+**Moving the current lists** (mbgt). The Should and Want lists become one Inbox
+with no tag. Due dates are dropped: items due today or overdue go to Today, the
+rest to the Inbox, with a future date kept as text on the line. Repeating items go
+through a one-time review sheet after the update: each becomes a practice, a
+get-ready item, a Today repeat (it lands in Today on its day), or is dropped.
 
 ## First-run check
 
@@ -138,11 +173,44 @@ It can be retaken from Settings.
   task got done, and one suggestion (e.g. lower a practice that has been behind
   for three weeks).
 
+## Layout
+
+- **Phone** (zfbg): a bottom tab bar with Today (timer and scene on top, the Today
+  list below), Inbox, Practices and Days. Settings sits behind an icon.
+- **Desktop**, from 1024 px: two columns. Left, sticky: scene, timer, then Today.
+  Right: tabs for Inbox, Practices and Days.
+- Tab title shows the running clock, and keys drive the timer (b478).
+
+## Scene
+
+Direction only; the detailed design is a later deep-dive (zw69, 86dq).
+
+- The sun and moon follow the real clock: real sunrise and sunset for the user's
+  area, and the real moon phase at night.
+- Weather is real (Open-Meteo, opt-in rough location), and the user can pick a
+  weather by hand instead.
+- The deep-dive starts with a spec table of every dimension and the aesthetic (the
+  mostly-green look is probably not staying), then mocks, then the build with a
+  dev-only playground.
+- How practices show in the scene is open. One idea: a motif per month (falling
+  leaves in autumn, sakura in spring) that practices tie into.
+
+## Name
+
+Open (heb4). The direction is a short, real word with a helpful second layer,
+Japanese-inspired or a mix, written without kanji, like *kata*. **Kotsu** leads:
+*kotsu-kotsu* is steady, bit-by-bit effort, and *kotsu* alone is a knack. "Third
+Time" is Bytesize's protocol name and now describes only Flow.
+
 ## Dropped in discussion
 
 - Asking "was it worth it?" after each session.
 - Daily item caps tied to effort level. The cap is weekly hours instead.
 - Aims on a running Flow stint, which Timed covers.
+- Growing-gap repeats (1, 2, 4, 8 days) for practices: a technique for memorising
+  facts, and against "repeated often" for skills (2rbp).
+- Partner or body-double mode (4bs1), and a share card for a day or week (47zh).
+- An evening closing ritual, replaced by the morning review.
 
 ## Prototype
 
