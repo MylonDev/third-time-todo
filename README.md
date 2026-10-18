@@ -51,7 +51,7 @@ npm test           # playwright end-to-end suite
 npm run preview    # serve the production build locally
 ```
 
-Requires Node 20+. Lint, build and both test suites run on every PR via
+Runs on Node 26 (pinned in `.nvmrc`). Lint, build and both test suites run on every PR via
 `.github/workflows/ci.yml`.
 
 ## Code
