@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node node_modules/typescript7/bin/tsc -b && vite build",
     "lint": "eslint .",
     "knip": "knip",
     "test": "playwright test",
@@ -37,8 +37,9 @@
     "knip": "6.39.0",
     "sharp": "^0.35.5",
     "tailwindcss": "^4.2.2",
-    "typescript": "~5.9.3",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.71.2",
+    "typescript7": "npm:typescript@^7.0.2",
     "vite": "^8.0.1",
     "vitest": "^5.0.5"
   }

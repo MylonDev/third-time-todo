@@ -54,6 +54,11 @@ npm run preview    # serve the production build locally
 Runs on Node 26 (pinned in `.nvmrc`). Lint, build and both test suites run on every PR via
 `.github/workflows/ci.yml`.
 
+Type-checking uses TypeScript 7, installed as `typescript7`; `npm run build` calls its `tsc` by path.
+The `typescript` entry is TypeScript 6's API package (`@typescript/typescript6`), because
+typescript-eslint still needs that API and supports TypeScript only below 6.1. Once
+typescript-eslint supports TypeScript 7, make `typescript` the real 7.x package and drop the alias.
+
 ## Code
 
 React 19, TypeScript, Vite, Tailwind CSS 4 and zustand with `persist`.
