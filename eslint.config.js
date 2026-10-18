@@ -13,13 +13,22 @@ export default defineConfig([
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,
+      // Rules that need the type checker: unawaited promises, promises passed
+      // where a plain callback is expected, awaiting something that isn't one.
+      tseslint.configs.recommendedTypeCheckedOnly,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
+  },
+  {
+    // Test fakes stand in for async APIs without awaiting anything.
+    files: ['src/**/*.test.{ts,tsx}'],
+    rules: { '@typescript-eslint/require-await': 'off' },
   },
   {
     // The end-to-end suite. Node, no React — Playwright's fixtures take a
