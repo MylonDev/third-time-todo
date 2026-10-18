@@ -46,12 +46,13 @@ npx playwright install chromium   # once, for the e2e suite
 npm run dev        # vite dev server on http://localhost:5173/third-time-todo/
 npm run build      # typecheck (tsc -b) + production build to dist/
 npm run lint       # oxlint, including type-aware rules
+npm run format     # oxfmt (npm run format:check only checks)
 npm run test:unit  # vitest: the ledger, recurrence, items, day keys
 npm test           # playwright end-to-end suite
 npm run preview    # serve the production build locally
 ```
 
-Runs on Node 26 (pinned in `.nvmrc`). Lint, build and both test suites run on every PR via
+Runs on Node 26 (pinned in `.nvmrc`). The format check, lint, build and both test suites run on every PR via
 `.github/workflows/ci.yml`.
 
 Lint is oxlint (`.oxlintrc.json`); its type-aware rules run on TypeScript 7 through `oxlint-tsgolint`.
