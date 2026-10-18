@@ -1,7 +1,7 @@
 import { expect, type Page, test as base } from '@playwright/test';
 
 /** Monday 12 Oct 2026, 10:00 local. Every spec starts here with the clock paused. */
-export const START = new Date(2026, 9, 12, 10, 0, 0);
+const START = new Date(2026, 9, 12, 10, 0, 0);
 
 /**
  * Each test gets a fresh browser context, so localStorage starts empty. The

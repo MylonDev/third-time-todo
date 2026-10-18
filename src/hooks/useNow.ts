@@ -71,13 +71,3 @@ export function useNow(active = true): number {
     getSnapshot
   );
 }
-
-/**
- * Milliseconds since `startedAt`, advancing once a second. Returns 0 when
- * there is nothing to count from, or when `active` is false.
- */
-export function useElapsed(startedAt: number | null | undefined, active = true): number {
-  const current = useNow(active && startedAt != null);
-  if (!active || startedAt == null) return 0;
-  return Math.max(0, current - startedAt);
-}
