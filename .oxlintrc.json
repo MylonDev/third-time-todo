@@ -136,7 +136,11 @@
             "allowConstantExport": true
           }
         ],
-        "design-tokens/no-colour-literals": "error"
+        "design-tokens/no-colour-literals": "error",
+        "no-var": "error",
+        "prefer-const": "error",
+        "prefer-rest-params": "error",
+        "prefer-spread": "error"
       },
       "plugins": ["typescript", "react"],
       "env": {
@@ -229,7 +233,11 @@
         "typescript/no-wrapper-object-types": "error",
         "typescript/prefer-as-const": "error",
         "typescript/prefer-namespace-keyword": "error",
-        "typescript/triple-slash-reference": "error"
+        "typescript/triple-slash-reference": "error",
+        "no-var": "error",
+        "prefer-const": "error",
+        "prefer-rest-params": "error",
+        "prefer-spread": "error"
       },
       "plugins": ["typescript"],
       "env": {
@@ -241,6 +249,12 @@
       "files": ["src/components/Scene.tsx", "src/components/sceneTheme.ts"],
       "rules": {
         "design-tokens/no-colour-literals": "off"
+      }
+    },
+    {
+      "files": ["scripts/**/*.mjs"],
+      "rules": {
+        "no-undef": "error"
       }
     }
   ],
