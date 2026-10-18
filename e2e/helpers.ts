@@ -10,7 +10,7 @@ const START = new Date(2026, 9, 12, 10, 0, 0);
  */
 export const test = base.extend<{ app: Page; allowedErrors: RegExp[] }>({
   /** Console errors a test expects, such as the browser's note of a refused request. */
-  // eslint-disable-next-line no-empty-pattern -- Playwright fixtures must destructure their first argument
+  // oxlint-disable-next-line no-empty-pattern -- Playwright fixtures must destructure their first argument
   allowedErrors: async ({}, use) => {
     await use([]);
   },
