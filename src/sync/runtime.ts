@@ -124,7 +124,7 @@ export async function sendCode(email: string) {
   if (error) throw new Error(error.message);
 }
 
-export async function verifyCode(email: string, token: string) {
+async function verifyCode(email: string, token: string) {
   const { error } = await supabase().auth.verifyOtp({ email: email.trim(), token: token.trim(), type: 'email' });
   if (error) throw new Error(error.message);
 }

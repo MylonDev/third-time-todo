@@ -55,7 +55,7 @@ function upsert(items: Item[], next: Item): Item[] {
     : [...items, next];
 }
 
-export function nextOrder(items: Item[]): number {
+function nextOrder(items: Item[]): number {
   return items.reduce((m, i) => Math.max(m, i.order), 0) + 1;
 }
 

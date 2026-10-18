@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { FRESH_CURSORS, type Cursors } from './engine';
 
-export type Phase = 'off' | 'signed-out' | 'idle' | 'syncing' | 'offline' | 'error';
+type Phase = 'off' | 'signed-out' | 'idle' | 'syncing' | 'offline' | 'error';
 
 interface SyncStatus {
   phase: Phase;

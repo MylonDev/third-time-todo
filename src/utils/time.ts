@@ -22,7 +22,7 @@ export function formatDuration(ms: number): string {
 // ── Day keys ──────────────────────────────────────────────────────────────────
 
 /** YYYY-MM-DD for a Date, in local time. */
-export function dateKey(d: Date): string {
+function dateKey(d: Date): string {
   return [
     d.getFullYear(),
     String(d.getMonth() + 1).padStart(2, '0'),
@@ -61,13 +61,13 @@ export function shiftDayKey(key: string, n: number): string {
 }
 
 /** The instant the day named by `key` begins. */
-export function dayStartOf(key: string, dayEndHour: number): number {
+function dayStartOf(key: string, dayEndHour: number): number {
   const [y, m, d] = parseKey(key);
   return new Date(y, m - 1, d, dayEndHour, 0, 0, 0).getTime();
 }
 
 /** The instant it ends, which is the next day's start. */
-export function dayEndOf(key: string, dayEndHour: number): number {
+function dayEndOf(key: string, dayEndHour: number): number {
   const [y, m, d] = parseKey(key);
   return new Date(y, m - 1, d + 1, dayEndHour, 0, 0, 0).getTime();
 }
