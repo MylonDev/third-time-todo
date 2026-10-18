@@ -2,7 +2,7 @@ import type { TimeEntry, TimerState } from '../types';
 import type { DayWindow } from './time';
 
 /** Every 3 seconds in Should earns 1 second of Want. */
-export const RATIO = 3;
+const RATIO = 3;
 
 /** The longest stretch "Fix timer" will rewrite. */
 export const MAX_FIX_MS = 12 * 3_600_000;
@@ -120,7 +120,7 @@ export function paint(
  * Tidy the ledger: sort, and merge entries of the same state that touch. The
  * earlier entry survives and absorbs the later one, which is tombstoned.
  */
-export function normalize(entries: TimeEntry[], now: number): TimeEntry[] {
+function normalize(entries: TimeEntry[], now: number): TimeEntry[] {
   const live = entries.filter(isLive).sort((a, b) => a.startedAt - b.startedAt);
   const dead = entries.filter((e) => !isLive(e));
   const merged: TimeEntry[] = [];

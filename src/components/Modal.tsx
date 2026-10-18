@@ -69,7 +69,7 @@ export function Modal({
   // On `document`, not on the panel: closing an inline editor inside the dialog
   // drops focus back to <body>, and a handler bound to the panel would never
   // see the keystroke again. Anything inside that wants to keep an Escape for
-  // itself stops the native event — see InlineInput.
+  // itself stops the native event.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
