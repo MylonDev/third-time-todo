@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["scripts/*.mjs"],
+  "ignore": ["public/**"],
+  "ignoreFiles": ["src/utils/sounds.ts", "src/utils/notifications.ts"]
+}

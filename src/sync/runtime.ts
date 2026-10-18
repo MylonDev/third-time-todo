@@ -43,7 +43,7 @@ let started = false;
 function schedule(kind: Kind, delayMs: number) {
   pending = pending === 'full' || kind === 'full' ? 'full' : 'push';
   clearTimeout(timer);
-  timer = setTimeout(flush, delayMs);
+  timer = setTimeout(() => void flush(), delayMs);
 }
 
 async function flush() {
@@ -70,7 +70,7 @@ async function flush() {
     // Whatever failed, it is retried: nothing is lost, the rows are still local.
     pending = 'full';
     clearTimeout(timer);
-    timer = setTimeout(flush, RETRY_MS);
+    timer = setTimeout(() => void flush(), RETRY_MS);
   } finally {
     running = false;
     if (pending && useSyncStatus.getState().phase !== 'offline' && useSyncStatus.getState().phase !== 'error') {
