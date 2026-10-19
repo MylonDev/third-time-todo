@@ -84,6 +84,11 @@ export function PracticesView() {
                   {describeLevel(p.level)}
                 </span>
                 <TimeLine entries={entries} practiceId={p.id} week={week} now={now} />
+                {p.nextStep && (
+                  <span data-testid="practice-next-step" className="break-words text-sm text-text-muted">
+                    Next: <span className="text-text">{p.nextStep}</span>
+                  </span>
+                )}
               </button>
             </li>
           ))}

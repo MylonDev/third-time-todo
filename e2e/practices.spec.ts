@@ -240,6 +240,7 @@ test.describe('practices', () => {
       await pickFor(app, 'Guitar');
       await startTimed(app, 20);
       await advance(app, 20 * MIN);
+      await app.getByRole('dialog', { name: 'Next step for Guitar' }).getByRole('button', { name: 'Skip' }).click();
 
       await app.getByRole('button', { name: 'Edit Guitar' }).click();
       const dialog = app.getByRole('dialog', { name: 'Edit practice' });
@@ -247,6 +248,131 @@ test.describe('practices', () => {
       await dialog.getByRole('button', { name: 'Delete Guitar' }).click();
       await expect(app.getByLabel('For', { exact: true }).locator('option')).toHaveText(['None', 'Drawing']);
       await expect(timeLine(app, 'Drawing')).toHaveCount(0);
+    });
+  });
+
+  test.describe('next step', () => {
+    const ask = (page: Page, name: string) => page.getByRole('dialog', { name: `Next step for ${name}` });
+
+    /** Run a short Flow session for the picked practice and stop it. */
+    async function session(page: Page) {
+      await startState(page, 'Focus');
+      await advance(page, 25 * MIN);
+      await page.getByRole('button', { name: 'Stop' }).click();
+    }
+
+    test('asks when a session is stopped, and shows the note on the next start', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await pickFor(app, 'Guitar');
+      await expect(app.getByTestId('next-step')).toHaveCount(0);
+
+      await session(app);
+      await expect(ask(app, 'Guitar')).toBeVisible();
+      await expect(ask(app, 'Guitar').getByRole('heading', { name: 'Next step for Guitar?' })).toBeVisible();
+      const save = ask(app, 'Guitar').getByRole('button', { name: 'Save' });
+      await expect(save).toBeDisabled();
+      await ask(app, 'Guitar').getByLabel('Next step').fill('Learn the intro');
+      await save.click();
+      await expect(ask(app, 'Guitar')).toHaveCount(0);
+
+      // Under the picker for the next session, and on the row.
+      await expect(app.getByTestId('next-step')).toHaveText('Next: Learn the intro');
+      await expect(app.getByRole('button', { name: 'Edit Guitar' }).getByTestId('practice-next-step')).toHaveText(
+        'Next: Learn the intro'
+      );
+      await startState(app, 'Focus');
+      await expect(app.getByTestId('next-step')).toHaveText('Next: Learn the intro');
+    });
+
+    test('Skip keeps the old note', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await pickFor(app, 'Guitar');
+      await session(app);
+      await ask(app, 'Guitar').getByLabel('Next step').fill('Learn the intro');
+      await ask(app, 'Guitar').getByRole('button', { name: 'Save' }).click();
+
+      await session(app);
+      await ask(app, 'Guitar').getByLabel('Next step').fill('Something else');
+      await ask(app, 'Guitar').getByRole('button', { name: 'Skip' }).click();
+      await expect(ask(app, 'Guitar')).toHaveCount(0);
+      await expect(app.getByTestId('next-step')).toHaveText('Next: Learn the intro');
+
+      // Escape is a skip too.
+      await session(app);
+      await expect(ask(app, 'Guitar')).toBeVisible();
+      await app.keyboard.press('Escape');
+      await expect(ask(app, 'Guitar')).toHaveCount(0);
+      await expect(app.getByTestId('next-step')).toHaveText('Next: Learn the intro');
+    });
+
+    test('a new note replaces the old one', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await pickFor(app, 'Guitar');
+      for (const note of ['Learn the intro', 'Play it slowly']) {
+        await session(app);
+        await ask(app, 'Guitar').getByLabel('Next step').fill(note);
+        await ask(app, 'Guitar').getByRole('button', { name: 'Save' }).click();
+      }
+      await expect(app.getByTestId('next-step')).toHaveText('Next: Play it slowly');
+    });
+
+    test('does not ask when Focus moves to Rest, or when no practice was picked', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await startState(app, 'Focus');
+      await advance(app, 25 * MIN);
+      await app.getByRole('button', { name: 'Stop' }).click();
+      await expect(app.getByText('Stopped')).toBeVisible();
+      await expect(app.getByRole('dialog')).toHaveCount(0);
+
+      await pickFor(app, 'Guitar');
+      await startState(app, 'Focus');
+      await advance(app, 25 * MIN);
+      await startState(app, 'Rest');
+      await advance(app, 5 * MIN);
+      await expect(app.getByRole('dialog')).toHaveCount(0);
+      await app.getByRole('button', { name: 'Stop' }).click();
+      await expect(ask(app, 'Guitar')).toBeVisible();
+    });
+
+    test('asks when a Timed session runs out', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await pickFor(app, 'Guitar');
+      await startTimed(app, 20);
+      await advance(app, 19 * MIN);
+      await expect(ask(app, 'Guitar')).toHaveCount(0);
+      await advance(app, 2 * MIN);
+      await expect(ask(app, 'Guitar')).toBeVisible();
+    });
+
+    test('asks on reopening only if the session ended in the last ten minutes', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await pickFor(app, 'Guitar');
+      await startTimed(app, 10);
+      await advance(app, 4 * MIN);
+      await app.reload();
+      await expect(app.getByText('Timed running · Guitar')).toBeVisible();
+
+      // It ended 2 minutes ago.
+      await advance(app, 8 * MIN);
+      await expect(ask(app, 'Guitar')).toBeVisible();
+      await ask(app, 'Guitar').getByRole('button', { name: 'Skip' }).click();
+
+      await pickFor(app, 'Guitar');
+      await startTimed(app, 10);
+      await advance(app, 4 * MIN);
+      await app.reload();
+      await expect(app.getByText('Timed running · Guitar')).toBeVisible();
+
+      // It ended 26 minutes ago: too long to ask.
+      await advance(app, 30 * MIN);
+      await expect(app.getByText('Stopped')).toBeVisible();
+      await expect(app.getByRole('dialog')).toHaveCount(0);
     });
   });
 });

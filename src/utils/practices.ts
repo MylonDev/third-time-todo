@@ -1,5 +1,5 @@
 import type { Need, Practice, PracticeLevel, TimeEntry } from '../types';
-import { endOf } from './ledger';
+import { endOf, runningEntry } from './ledger';
 import type { DayWindow } from './time';
 
 /**
@@ -160,6 +160,29 @@ export function firstSessionAt(entries: TimeEntry[], practiceId: string): number
     if (first === undefined || e.startedAt < first) first = e.startedAt;
   }
   return first;
+}
+
+/** How long after a session ends the app still asks for its next step. */
+const NEXT_STEP_WINDOW_MS = 10 * 60_000;
+
+/** The running entry that belongs to a practice, as last seen. */
+export interface RunningPractice {
+  id: string;
+  practiceId: string;
+}
+
+/**
+ * The practice whose session has just ended, or undefined. `before` is the
+ * practice entry that was running at the last look. It has ended when it no
+ * longer runs and nothing for the same practice took over (Focus to Rest is
+ * the same session), and it ended within ten minutes of `now`, so reopening
+ * the app long after a Timed session ran out asks nothing.
+ */
+export function endedPractice(entries: TimeEntry[], before: RunningPractice | null, now: number): string | undefined {
+  if (!before || runningEntry(entries)?.practiceId === before.practiceId) return undefined;
+  const closed = entries.find((e) => e.id === before.id);
+  if (!closed || closed.deletedAt !== undefined || closed.endedAt === null) return undefined;
+  return now - closed.endedAt <= NEXT_STEP_WINDOW_MS ? before.practiceId : undefined;
 }
 
 /** "since June", or "since June 2025" when it was another year. */

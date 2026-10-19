@@ -3,6 +3,7 @@ import type { Practice, TimeEntry } from '../types';
 import {
   describeLevel,
   describeSince,
+  endedPractice,
   firstSessionAt,
   LEVEL_ORDER,
   LEVELS,
@@ -274,5 +275,45 @@ describe('since', () => {
 
   it('adds the year when it was another one', () => {
     expect(describeSince(new Date(2025, 5, 3).getTime(), at(0))).toBe(`since ${month(2025, 5)} 2025`);
+  });
+});
+
+describe('a practice session ending', () => {
+  const was = (e: TimeEntry) => ({ id: e.id, practiceId: e.practiceId ?? '' });
+
+  it('is the practice once its running entry has been closed', () => {
+    const e = entry('should', 0, 25, 'g');
+    expect(endedPractice([e], was(e), at(25))).toBe('g');
+    expect(endedPractice([e], was(e), at(30))).toBe('g');
+  });
+
+  it('is nothing while it still runs, or with nothing to compare', () => {
+    const e = entry('should', 0, null, 'g');
+    expect(endedPractice([e], was(e), at(25))).toBeUndefined();
+    expect(endedPractice([entry('should', 0, 25, 'g')], null, at(25))).toBeUndefined();
+  });
+
+  it('is nothing when Flow moves from Focus to Rest for the same practice', () => {
+    const focus = entry('should', 0, 25, 'g');
+    const rest = entry('want', 25, null, 'g');
+    expect(endedPractice([focus, rest], was(focus), at(26))).toBeUndefined();
+  });
+
+  it('is the practice when another practice, or none, takes over', () => {
+    const g = entry('should', 0, 25, 'g');
+    expect(endedPractice([g, entry('should', 25, null, 'd')], was(g), at(26))).toBe('g');
+    expect(endedPractice([g, entry('should', 25, null)], was(g), at(26))).toBe('g');
+  });
+
+  it('is a Timed session settled at its planned end, if that was under ten minutes ago', () => {
+    const e = timedEntry(0, 20, 20, 'g');
+    expect(endedPractice([e], was(e), at(29))).toBe('g');
+    expect(endedPractice([e], was(e), at(31))).toBeUndefined();
+  });
+
+  it('is nothing for an entry that was removed', () => {
+    const e = entry('should', 0, 25, 'g', { deletedAt: 25 });
+    expect(endedPractice([e], was(e), at(25))).toBeUndefined();
+    expect(endedPractice([], was(e), at(25))).toBeUndefined();
   });
 });

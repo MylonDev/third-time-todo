@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useChimes } from '../hooks/useChimes';
 import { useDay } from '../hooks/useDay';
+import { useNextStepPrompt } from '../hooks/useNextStepPrompt';
 import { useSettleTimed } from '../hooks/useSettleTimed';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { usePractices } from '../store/practices';
@@ -11,6 +12,7 @@ import { RATIO } from '../utils/ledger';
 import { LEVELS, listPractices } from '../utils/practices';
 import { formatClock, formatDuration } from '../utils/time';
 import { Modal } from './Modal';
+import { NextStepModal } from './NextStepModal';
 import { Scene } from './Scene';
 import { Segmented } from './Segmented';
 import { sceneInk, seasonOf, timeOfDayOf } from './sceneTheme';
@@ -51,6 +53,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
 
   useSettleTimed();
   useChimes();
+  const [askedFor, dismissAsk] = useNextStepPrompt();
 
   const state = running?.state ?? null;
   const elapsed = running ? now - running.startedAt : 0;
@@ -82,6 +85,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   }`;
   // Only a start from stopped names a practice; switching while running keeps the running one.
   const practiceId = running ? undefined : selected?.id;
+  const asking = practices.find((p) => p.id === askedFor);
 
   return (
     <section aria-label="Timer" className="flex flex-col gap-4">
@@ -132,25 +136,32 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
       </div>
 
       {practices.length > 0 && (
-        <div className="flex items-center gap-3">
-          <span aria-hidden="true" className="section-label">
-            For
-          </span>
-          <select
-            aria-label="For"
-            value={selected?.id ?? ''}
-            disabled={running !== undefined}
-            onChange={(e) => setForId(e.target.value)}
-            className="min-h-12 min-w-0 flex-1 cursor-pointer rounded-2xl border border-border bg-surface-2 px-4 text-base text-text outline-none disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <option value="">None</option>
-            {practices.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.level === 'paused' ? `${p.name} (paused)` : p.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <span aria-hidden="true" className="section-label">
+              For
+            </span>
+            <select
+              aria-label="For"
+              value={selected?.id ?? ''}
+              disabled={running !== undefined}
+              onChange={(e) => setForId(e.target.value)}
+              className="min-h-12 min-w-0 flex-1 cursor-pointer rounded-2xl border border-border bg-surface-2 px-4 text-base text-text outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">None</option>
+              {practices.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.level === 'paused' ? `${p.name} (paused)` : p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {selected?.nextStep && (
+            <p data-testid="next-step" className="text-sm text-text-muted">
+              Next: <span className="text-text">{selected.nextStep}</span>
+            </p>
+          )}
+          </div>
       )}
 
       {!running && <Segmented<Mode> label="Timer mode" value={mode} options={[...MODES]} onChange={setMode} />}
@@ -261,6 +272,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           </div>
         )}
       </div>
+      {asking && <NextStepModal practice={asking} onClose={dismissAsk} />}
       {confirmingStop && stopClears && (
         <Modal label="Stop the timer" onClose={() => setConfirmingStop(false)} size="sm" className="p-5 gap-5">
           <div>
