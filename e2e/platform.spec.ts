@@ -51,7 +51,7 @@ test.describe('wake lock', () => {
     await app.clock.pauseAt(new Date(2026, 9, 12, 10, 0, 5));
 
     await expect(app.getByTestId('screen-on')).toHaveCount(0);
-    await startState(app, 'Should');
+    await startState(app, 'Focus');
     await expect(app.getByTestId('screen-on')).toBeVisible();
     expect(await app.evaluate(() => window.__locks.length)).toBe(1);
 
@@ -64,7 +64,7 @@ test.describe('wake lock', () => {
     await mockWakeLock(app);
     await app.reload();
     await app.clock.pauseAt(new Date(2026, 9, 12, 10, 0, 5));
-    await startState(app, 'Want');
+    await startState(app, 'Rest');
     await expect(app.getByTestId('screen-on')).toBeVisible();
 
     // The browser releases it when hidden.
@@ -80,7 +80,7 @@ test.describe('wake lock', () => {
     await mockWakeLock(app);
     await app.reload();
     await app.clock.pauseAt(new Date(2026, 9, 12, 10, 0, 5));
-    await startState(app, 'Should');
+    await startState(app, 'Focus');
     await expect(app.getByTestId('screen-on')).toBeVisible();
 
     await setVisibility(app, 'hidden');
@@ -95,7 +95,7 @@ test.describe('wake lock', () => {
     await mockWakeLock(app, { refuse: true });
     await app.reload();
     await app.clock.pauseAt(new Date(2026, 9, 12, 10, 0, 5));
-    await startState(app, 'Should');
+    await startState(app, 'Focus');
     await expect(app.getByTestId('screen-on')).toHaveCount(0);
 
     await app.evaluate(() => (window.__refuse = false));
@@ -108,7 +108,7 @@ test.describe('wake lock', () => {
     await mockWakeLock(app, { refuse: true });
     await app.reload();
     await app.clock.pauseAt(new Date(2026, 9, 12, 10, 0, 5));
-    await startState(app, 'Should');
+    await startState(app, 'Focus');
     await advance(app, 3 * MIN);
     await expect(app.getByTestId('balance')).toHaveText('1:00');
     await expect(app.getByTestId('screen-on')).toHaveCount(0);
@@ -121,7 +121,7 @@ test.describe('wake lock', () => {
     await app.getByRole('button', { name: 'Settings' }).click();
     await app.getByLabel('Keep screen on while timing').uncheck();
     await app.getByRole('button', { name: 'Done' }).click();
-    await startState(app, 'Should');
+    await startState(app, 'Focus');
     await expect(app.getByTestId('screen-on')).toHaveCount(0);
     expect(await app.evaluate(() => window.__locks.length)).toBe(0);
   });
@@ -129,7 +129,7 @@ test.describe('wake lock', () => {
 
 test.describe('resuming and other windows', () => {
   test('catches up straight away when the page becomes visible again', async ({ app }) => {
-    await startState(app, 'Should');
+    await startState(app, 'Focus');
     await advance(app, 3 * MIN);
     await expect(app.getByTestId('balance')).toHaveText('1:00');
 
@@ -143,13 +143,13 @@ test.describe('resuming and other windows', () => {
   test('a second window follows the first', async ({ app }) => {
     const other = await app.context().newPage();
     await other.goto('/');
-    await expect(other.getByText('Resting')).toBeVisible();
+    await expect(other.getByText('Stopped')).toBeVisible();
 
-    await startState(app, 'Want');
-    await expect(other.getByText('Want running')).toBeVisible();
+    await startState(app, 'Rest');
+    await expect(other.getByText('Rest running')).toBeVisible();
 
     await app.getByRole('button', { name: 'Stop' }).click();
-    await expect(other.getByText('Resting')).toBeVisible();
+    await expect(other.getByText('Stopped')).toBeVisible();
   });
 
   test('the install hint stays away outside iOS Safari', async ({ app }) => {

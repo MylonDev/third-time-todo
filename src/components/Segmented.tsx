@@ -5,7 +5,7 @@ export interface SegmentOption<T extends string> {
 
 /**
  * A row of mutually exclusive buttons. Each is a button with `aria-pressed`
- * rather than a radio, so it works for a choice that acts on tap (start Should)
+ * rather than a radio, so it works for a choice that acts on tap (start Focus)
  * as well as one that only sets a field.
  */
 export function Segmented<T extends string>({

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useDay } from '../hooks/useDay';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useSettings } from '../store/settings';
@@ -5,11 +6,19 @@ import { useTimer } from '../store/timer';
 import type { TimerState } from '../types';
 import { formatClock, formatDuration } from '../utils/time';
 import { Scene } from './Scene';
+import { Segmented } from './Segmented';
 import { sceneInk, seasonOf, timeOfDayOf } from './sceneTheme';
 
-const LABEL: Record<TimerState, string> = { should: 'Should', want: 'Want' };
+const LABEL: Record<TimerState, string> = { should: 'Focus', want: 'Rest' };
 
-/** With no daily target the sun still needs a pace: this many hours of Should takes it to the top. */
+type Mode = 'flow' | 'timed';
+
+const MODES = [
+  { value: 'flow', label: 'Flow' },
+  { value: 'timed', label: 'Timed' },
+] as const;
+
+/** With no daily target the sun still needs a pace: this many hours of Focus takes it to the top. */
 const DEFAULT_SCALE_MS = 4 * 3_600_000;
 
 const TILE: Record<TimerState, { fill: string; sub: string; subRunning: string }> = {
@@ -24,6 +33,8 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   const stop = useTimer((s) => s.stop);
   const targetMin = useSettings((s) => s.shouldTargetMin);
   const wakeLockOn = useSettings((s) => s.wakeLock);
+  // Which kind of session the next start begins. Only chosen while stopped.
+  const [mode, setMode] = useState<Mode>('flow');
 
   const state = running?.state ?? null;
   const elapsed = running ? now - running.startedAt : 0;
@@ -36,7 +47,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   const targetProgress = targetMs ? Math.min(1, totals.shouldMs / targetMs) : 0;
   const reached = targetMs !== null && totals.shouldMs >= targetMs;
 
-  const mode = state ?? 'rest';
+  const scene = state ?? 'stopped';
   const date = new Date(now);
   const time = timeOfDayOf(date);
   const clock = running ? formatClock(elapsed) : '0:00';
@@ -44,11 +55,11 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   return (
     <section aria-label="Timer" className="flex flex-col gap-4">
       <div className="relative h-[310px] overflow-hidden rounded-[28px]">
-        <Scene mode={mode} progress={progress} season={seasonOf(date)} time={time} />
-        <div className="absolute left-[18px] top-4" style={{ color: sceneInk(mode, time), transition: 'color .7s' }}>
+        <Scene mode={scene} progress={progress} season={seasonOf(date)} time={time} />
+        <div className="absolute left-[18px] top-4" style={{ color: sceneInk(scene, time), transition: 'color .7s' }}>
           <p className="section-label !text-current flex items-center gap-2 !tracking-[0.14em]">
             {running && <span className="beat size-2 rounded-full bg-current" aria-hidden="true" />}
-            {state ? `${LABEL[state]} running` : 'Resting'}
+            {state ? `${LABEL[state]} running` : 'Stopped'}
           </p>
           <p
             data-testid="elapsed"
@@ -61,7 +72,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
 
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="section-label">{inDebt ? 'Want debt' : 'Want available'}</p>
+          <p className="section-label">{inDebt ? 'Rest debt' : 'Rest available'}</p>
           <p
             data-testid="balance"
             className={`font-timer text-[2.125rem] font-bold leading-[1.1] ${inDebt ? 'text-debt' : ''}`}
@@ -78,33 +89,39 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
         )}
       </div>
 
-      <div role="group" aria-label="Timer state" className="grid grid-cols-2 gap-3">
-        {(['should', 'want'] as const).map((s) => {
-          const active = state === s;
-          const dimmed = state !== null && !active;
-          return (
-            <button
-              key={s}
-              type="button"
-              aria-label={LABEL[s]}
-              aria-pressed={active}
-              onClick={() => start(s)}
-              className={`press flex min-h-[92px] cursor-pointer flex-col justify-end rounded-3xl border-0 px-[18px] py-3.5 text-left transition-[opacity,box-shadow] duration-300 ${TILE[s].fill}`}
-              style={{
-                opacity: dimmed ? 0.45 : 1,
-                boxShadow: active ? '0 0 0 3px var(--color-bg), 0 0 0 5px var(--color-text)' : '0 0 0 0 var(--color-bg)',
-              }}
-            >
-              <span aria-hidden="true" className="text-[1.75rem] font-bold leading-none tracking-tight">
-                {LABEL[s]}
-              </span>
-              <span aria-hidden="true" className="mt-1 font-timer text-[0.625rem] font-semibold uppercase tracking-[0.1em]">
-                {active ? TILE[s].subRunning : TILE[s].sub}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {!running && <Segmented<Mode> label="Timer mode" value={mode} options={[...MODES]} onChange={setMode} />}
+
+      {!running && mode === 'timed' && <p className="text-sm text-text-muted">Timed sessions are coming soon.</p>}
+
+      {(running || mode === 'flow') && (
+        <div role="group" aria-label="Timer state" className="grid grid-cols-2 gap-3">
+          {(['should', 'want'] as const).map((s) => {
+            const active = state === s;
+            const dimmed = state !== null && !active;
+            return (
+              <button
+                key={s}
+                type="button"
+                aria-label={LABEL[s]}
+                aria-pressed={active}
+                onClick={() => start(s)}
+                className={`press flex min-h-[92px] cursor-pointer flex-col justify-end rounded-3xl border-0 px-[18px] py-3.5 text-left transition-[opacity,box-shadow] duration-300 ${TILE[s].fill}`}
+                style={{
+                  opacity: dimmed ? 0.45 : 1,
+                  boxShadow: active ? '0 0 0 3px var(--color-bg), 0 0 0 5px var(--color-text)' : '0 0 0 0 var(--color-bg)',
+                }}
+              >
+                <span aria-hidden="true" className="text-[1.75rem] font-bold leading-none tracking-tight">
+                  {LABEL[s]}
+                </span>
+                <span aria-hidden="true" className="mt-1 font-timer text-[0.625rem] font-semibold uppercase tracking-[0.1em]">
+                  {active ? TILE[s].subRunning : TILE[s].sub}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {running && (
         <div className="pop grid grid-cols-2 gap-3">
@@ -127,7 +144,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
 
       <div className="flex flex-col gap-2 text-sm text-text-muted">
         <p data-testid="totals">
-          Today: Should <span className="num text-text">{formatDuration(totals.shouldMs)}</span> · Want{' '}
+          Today: Focus <span className="num text-text">{formatDuration(totals.shouldMs)}</span> · Rest{' '}
           <span className="num text-text">{formatDuration(totals.wantMs)}</span>
         </p>
         {screenOn && <p data-testid="screen-on">Screen stays on while timing.</p>}
@@ -135,7 +152,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           <div className="flex flex-col gap-2">
             <div
               role="progressbar"
-              aria-label="Daily Should target"
+              aria-label="Daily Focus target"
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.round(targetProgress * 100)}

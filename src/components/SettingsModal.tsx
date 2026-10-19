@@ -23,7 +23,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       <h2 className="text-lg font-semibold">Settings</h2>
 
       <label className="flex flex-col gap-1.5">
-        <span className="section-label">Daily Should target (hours)</span>
+        <span className="section-label">Daily Focus target (hours)</span>
         <input
           type="number"
           inputMode="decimal"
@@ -58,7 +58,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           ))}
         </select>
         <span className="text-xs text-text-muted">
-          Want available and debt reset when the day ends. Push this past midnight if you work late.
+          Rest available and debt reset when the day ends. Push this past midnight if you work late.
         </span>
       </label>
 

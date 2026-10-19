@@ -3,10 +3,10 @@ import { advance, expect, MIN, startState, test } from './helpers';
 test.describe('settings', () => {
   test('a daily target shows progress and says when you can stop', async ({ app }) => {
     await app.getByRole('button', { name: 'Settings' }).click();
-    await app.getByLabel('Daily Should target (hours)').fill('1');
+    await app.getByLabel('Daily Focus target (hours)').fill('1');
     await app.getByRole('button', { name: 'Done' }).click();
 
-    await startState(app, 'Should');
+    await startState(app, 'Focus');
     await advance(app, 30 * MIN);
     await expect(app.getByTestId('target')).toHaveText('Target: 30m of 1h');
     await expect(app.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '50');
@@ -27,11 +27,11 @@ test.describe('settings', () => {
     await app.getByLabel('Day ends at').selectOption('3');
     await app.getByRole('button', { name: 'Done' }).click();
 
-    await startState(app, 'Should');
+    await startState(app, 'Focus');
     await advance(app, 30 * MIN);
     // 10:00 + 14h30m = 00:30. With a 3 AM day end this is still the same day.
     await app.clock.fastForward('14:00:00');
-    await expect(app.getByTestId('totals')).toContainText('Should 14h 30m');
+    await expect(app.getByTestId('totals')).toContainText('Focus 14h 30m');
   });
 
   test('theme can be forced light and survives a reload', async ({ app }) => {

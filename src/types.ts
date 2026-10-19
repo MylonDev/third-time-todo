@@ -1,4 +1,7 @@
-/** What the running timer is spent on. Stopped is not a state: it is rest. */
+/**
+ * What the Flow timer is spent on. Stored as `should` and `want`; the screen
+ * calls them Focus (should) and Rest (want). Stopped is not a state: it is no entry.
+ */
 export type TimerState = 'should' | 'want';
 
 /**

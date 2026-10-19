@@ -5,7 +5,7 @@ import type { Theme } from '../types';
 interface SettingsState {
   /** The day ends at this local hour. 0 is midnight; up to 4 for late workers. */
   dayEndHour: number;
-  /** Optional daily goal for Should time, in minutes. */
+  /** Optional daily goal for Focus time, in minutes. */
   shouldTargetMin: number | null;
   /** Keep the screen on while a timer runs. */
   wakeLock: boolean;

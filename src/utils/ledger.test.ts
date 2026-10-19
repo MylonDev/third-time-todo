@@ -126,7 +126,7 @@ describe('paint', () => {
   });
 
   it('trims entries that straddle the edges', () => {
-    const out = paint([entry('should', 0, 30), entry('want', 30, 60)], at(20), at(40), 'rest', at(60));
+    const out = paint([entry('should', 0, 30), entry('want', 30, 60)], at(20), at(40), 'stopped', at(60));
     expect(shape(out)).toEqual([
       ['should', 0, 20],
       ['want', 40, 60],
@@ -134,7 +134,7 @@ describe('paint', () => {
   });
 
   it('tombstones entries inside the range rather than dropping them', () => {
-    const out = paint([entry('should', 10, 20)], at(0), at(30), 'rest', at(60));
+    const out = paint([entry('should', 10, 20)], at(0), at(30), 'stopped', at(60));
     expect(out).toHaveLength(1);
     expect(out[0].deletedAt).toBe(at(60));
   });
@@ -180,7 +180,7 @@ describe('applyFix', () => {
   });
 
   it('I forgot to stop twenty minutes ago', () => {
-    const out = applyFix(running(), { ms: 20 * MIN, was: 'rest', then: 'rest' }, at(60));
+    const out = applyFix(running(), { ms: 20 * MIN, was: 'stopped', then: 'stopped' }, at(60));
     expect(shape(out)).toEqual([['should', 0, 40]]);
     expect(runningEntry(out)).toBeUndefined();
   });

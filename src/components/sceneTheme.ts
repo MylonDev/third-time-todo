@@ -1,4 +1,4 @@
-export type SceneMode = 'rest' | 'should' | 'want';
+export type SceneMode = 'stopped' | 'should' | 'want';
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 export type TimeOfDay = 'dawn' | 'day' | 'dusk' | 'night';
 export type Weather = 'clear' | 'cloudy' | 'rain' | 'snow' | 'fog';
@@ -27,7 +27,7 @@ export const MOSS = '#86B594';
 export const PINK = '#EFC1C8';
 
 export const BASE = {
-  rest: { sky: '#0F2418', hill: '#0A1A11', city: '#050D08', sun: PAPER, ink: PAPER },
+  stopped: { sky: '#0F2418', hill: '#0A1A11', city: '#050D08', sun: PAPER, ink: PAPER },
   should: { sky: FOREST, hill: '#25563B', city: '#0B1F15', sun: PAPER, ink: PAPER },
   want: { sky: PAPER, hill: '#D9D0B8', city: '#1F4A33', sun: RED, ink: '#06120B' },
 } as const;

@@ -47,7 +47,7 @@ export async function advance(page: Page, ms: number) {
 
 export const MIN = 60_000;
 
-export async function startState(page: Page, name: 'Should' | 'Want') {
+export async function startState(page: Page, name: 'Focus' | 'Rest') {
   await page.getByRole('group', { name: 'Timer state' }).getByRole('button', { name, exact: true }).click();
   await expect(
     page.getByRole('group', { name: 'Timer state' }).getByRole('button', { name, exact: true })

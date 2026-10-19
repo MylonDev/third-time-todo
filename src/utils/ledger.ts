@@ -1,13 +1,13 @@
 import type { TimeEntry, TimerState } from '../types';
 import type { DayWindow } from './time';
 
-/** Every 3 seconds in Should earns 1 second of Want. */
+/** Every 3 seconds of Focus earns 1 second of Rest. */
 const RATIO = 3;
 
 /** The longest stretch "Fix timer" will rewrite. */
 export const MAX_FIX_MS = 12 * 3_600_000;
 
-export type Painted = TimerState | 'rest';
+export type Painted = TimerState | 'stopped';
 
 const isLive = (e: TimeEntry) => e.deletedAt === undefined;
 
@@ -40,7 +40,7 @@ export function totalsFor(entries: TimeEntry[], win: DayWindow, now: number): To
   return totals;
 }
 
-/** Want time available (positive) or owed (negative). Derived, never stored. */
+/** Rest available (positive) or owed (negative). Derived, never stored. */
 export function balanceOf(t: Totals): number {
   return t.shouldMs / RATIO - t.wantMs;
 }
@@ -79,7 +79,7 @@ export function stopTimer(entries: TimeEntry[], at: number): TimeEntry[] {
 }
 
 /**
- * Overwrite [from, to) with a state, or with rest. Entries inside the range are
+ * Overwrite [from, to) with a state, or with stopped. Entries inside the range are
  * removed, entries that straddle an edge are trimmed, and one that spans the
  * whole range is split around it. This one operation is every correction.
  */
@@ -112,7 +112,7 @@ export function paint(
       out.push(make(e.state, to, e.endedAt, now));
     }
   }
-  if (state !== 'rest') out.push(make(state, from, to, now));
+  if (state !== 'stopped') out.push(make(state, from, to, now));
   return normalize(out, now);
 }
 
@@ -141,7 +141,7 @@ export interface Fix {
   ms: number;
   /** What the time since then actually was. */
   was: Painted;
-  /** What is happening now. `rest` stops the timer. */
+  /** What is happening now. `stopped` stops the timer. */
   then: Painted;
 }
 
@@ -159,6 +159,6 @@ export function fixRefusal(fix: Pick<Fix, 'ms'>): string | null {
 export function applyFix(entries: TimeEntry[], fix: Fix, now: number): TimeEntry[] {
   const frozen = closeRunning(entries, now);
   const painted = paint(frozen, now - fix.ms, now, fix.was, now);
-  if (fix.then === 'rest') return painted;
+  if (fix.then === 'stopped') return painted;
   return normalize([...painted, make(fix.then, now, null, now)], now);
 }
