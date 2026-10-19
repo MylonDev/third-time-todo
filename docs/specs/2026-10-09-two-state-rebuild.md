@@ -4,6 +4,15 @@
 and tested against a simulated server and a real local Postgres, and waits on
 the project's anon key and the schema being run.
 
+**Direction change (18 Oct 2026):** see [2026-10-18-product-concept.md](2026-10-18-product-concept.md).
+The Should/Want timer described here becomes **Flow**, one of two timer modes,
+alongside a count-down **Timed** mode. The app's centre moves to practices
+(hobbies and skills with weekly commitment levels and a weekly hours cap), a
+daily check that sets the day's effort level, get ready, an Inbox → Today task
+flow, and history with a heatmap and weekly report. Phase 4 below (Days view) is
+folded into that concept's History section. The ledger, sync, Fix timer and
+platform work in this spec still stand.
+
 The app stops being a work/break timer with a todo list attached. It becomes a
 balance between two kinds of time you spend on purpose: things you **should**
 do and things you **want** to do. Should time earns Want time. When the app is

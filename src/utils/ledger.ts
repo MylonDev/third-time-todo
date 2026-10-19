@@ -1,13 +1,13 @@
-import type { TimeEntry, TimerState } from '../types';
+import type { EntryState, TimeEntry, TimerState } from '../types';
 import type { DayWindow } from './time';
 
-/** Every 3 seconds in Should earns 1 second of Want. */
-const RATIO = 3;
+/** Every 3 seconds of Focus earns 1 second of Rest. */
+export const RATIO = 3;
 
 /** The longest stretch "Fix timer" will rewrite. */
 export const MAX_FIX_MS = 12 * 3_600_000;
 
-export type Painted = TimerState | 'rest';
+export type Painted = TimerState | 'stopped';
 
 const isLive = (e: TimeEntry) => e.deletedAt === undefined;
 
@@ -15,11 +15,36 @@ export function runningEntry(entries: TimeEntry[]): TimeEntry | undefined {
   return entries.find((e) => isLive(e) && e.endedAt === null);
 }
 
+/** The moment a Timed entry runs out. */
+export function timedEnd(e: TimeEntry): number {
+  return e.startedAt + (e.plannedMs ?? 0);
+}
+
+/**
+ * The moment an entry stops counting. A Timed entry never counts past its
+ * planned length, even if it was left open or a merge stretched it.
+ */
+function endOf(e: TimeEntry, now: number): number {
+  const end = e.endedAt ?? now;
+  return e.state === 'timed' ? Math.min(end, timedEnd(e)) : end;
+}
+
+/**
+ * What is running right now. A Timed entry past its end is not: it only awaits
+ * `settleTimed` to close it, and the screen shouldn't wait for that.
+ */
+export function activeEntry(entries: TimeEntry[], now: number): TimeEntry | undefined {
+  const running = runningEntry(entries);
+  return running?.state === 'timed' && now >= timedEnd(running) ? undefined : running;
+}
+
 // ── Reading ───────────────────────────────────────────────────────────────────
 
 export interface Totals {
   shouldMs: number;
   wantMs: number;
+  /** Timed sessions. History only: the balance ignores it. */
+  timedMs: number;
 }
 
 /**
@@ -28,21 +53,45 @@ export interface Totals {
  * the running timer never has to be restarted.
  */
 export function totalsFor(entries: TimeEntry[], win: DayWindow, now: number): Totals {
-  const totals: Totals = { shouldMs: 0, wantMs: 0 };
+  const totals: Totals = { shouldMs: 0, wantMs: 0, timedMs: 0 };
   for (const e of entries) {
     if (!isLive(e)) continue;
     const start = Math.max(e.startedAt, win.start);
-    const end = Math.min(e.endedAt ?? now, win.end);
+    const end = Math.min(endOf(e, now), win.end);
     if (end <= start) continue;
     if (e.state === 'should') totals.shouldMs += end - start;
-    else totals.wantMs += end - start;
+    else if (e.state === 'want') totals.wantMs += end - start;
+    else totals.timedMs += end - start;
   }
   return totals;
 }
 
-/** Want time available (positive) or owed (negative). Derived, never stored. */
+/** Rest available (positive) or owed (negative). Derived, never stored. */
 export function balanceOf(t: Totals): number {
   return t.shouldMs / RATIO - t.wantMs;
+}
+
+/**
+ * The window the Flow balance is counted over. Normally that is the day's. But
+ * if the timer has run in Focus and Rest back to back since before the day
+ * began, the balance carries on: the window starts where that stretch started.
+ * Any Stop or Timed session in between ends the stretch, so the carry ends at
+ * the first Stop after the day end. Day totals and history still use the day's
+ * own window. Returns `win` itself when nothing carries.
+ */
+export function balanceWindow(entries: TimeEntry[], win: DayWindow, now: number): DayWindow {
+  const current = activeEntry(entries, now);
+  if (!current || current.state === 'timed') return win;
+
+  const live = entries.filter(isLive).sort((a, b) => a.startedAt - b.startedAt);
+  let start = current.startedAt;
+  for (let i = live.indexOf(current) - 1; i >= 0; i--) {
+    const before = live[i];
+    // A gap is a Stop, and a Timed session is not part of the Flow.
+    if (before.state === 'timed' || before.endedAt === null || before.endedAt < start) break;
+    start = before.startedAt;
+  }
+  return start < win.start ? { start, end: win.end } : win;
 }
 
 // ── Writing ───────────────────────────────────────────────────────────────────
@@ -50,21 +99,38 @@ export function balanceOf(t: Totals): number {
 // Every function here is pure: it takes the entries and returns new ones. A
 // removed entry is tombstoned, not dropped, so the removal can sync.
 
-function make(state: TimerState, startedAt: number, endedAt: number | null, now: number): TimeEntry {
-  return { id: crypto.randomUUID(), state, startedAt, endedAt, updatedAt: now };
+function make(
+  state: EntryState,
+  startedAt: number,
+  endedAt: number | null,
+  now: number,
+  plannedMs?: number
+): TimeEntry {
+  return {
+    id: crypto.randomUUID(),
+    state,
+    startedAt,
+    endedAt,
+    ...(plannedMs !== undefined && { plannedMs }),
+    updatedAt: now,
+  };
 }
 
 function tombstone(e: TimeEntry, now: number): TimeEntry {
   return { ...e, deletedAt: now, updatedAt: now };
 }
 
-/** Close the running entry at `at`. An entry that would be empty is removed. */
+/**
+ * Close the running entry at `at`, or at its own end if a Timed one ran out
+ * first. An entry that would be empty is removed.
+ */
 function closeRunning(entries: TimeEntry[], at: number): TimeEntry[] {
   const running = runningEntry(entries);
   if (!running) return entries;
+  const to = endOf(running, at);
   return entries.map((e) => {
     if (e !== running) return e;
-    return at > e.startedAt ? { ...e, endedAt: at, updatedAt: at } : tombstone(e, at);
+    return to > e.startedAt ? { ...e, endedAt: to, updatedAt: at } : tombstone(e, at);
   });
 }
 
@@ -74,12 +140,30 @@ export function startState(entries: TimeEntry[], state: TimerState, at: number):
   return normalize([...closeRunning(entries, at), make(state, at, null, at)], at);
 }
 
+/** Start a Timed session of `plannedMs`, closing whatever was running. */
+export function startTimed(entries: TimeEntry[], plannedMs: number, at: number): TimeEntry[] {
+  if (!(plannedMs > 0)) return entries;
+  return normalize([...closeRunning(entries, at), make('timed', at, null, at, plannedMs)], at);
+}
+
 export function stopTimer(entries: TimeEntry[], at: number): TimeEntry[] {
   return closeRunning(entries, at);
 }
 
 /**
- * Overwrite [from, to) with a state, or with rest. Entries inside the range are
+ * Close a running Timed entry whose time is up, at exactly `startedAt +
+ * plannedMs`. That is the moment it ended even if the app was closed then, so
+ * reopening it later records the right end. Returns `entries` itself when
+ * there is nothing to settle.
+ */
+export function settleTimed(entries: TimeEntry[], now: number): TimeEntry[] {
+  const running = runningEntry(entries);
+  if (running?.state !== 'timed' || now < timedEnd(running)) return entries;
+  return closeRunning(entries, now);
+}
+
+/**
+ * Overwrite [from, to) with a state, or with stopped. Entries inside the range are
  * removed, entries that straddle an edge are trimmed, and one that spans the
  * whole range is split around it. This one operation is every correction.
  */
@@ -109,10 +193,10 @@ export function paint(
     } else {
       // Spans the range: keep the left part, and give the right part a new id.
       out.push({ ...e, endedAt: from, updatedAt: now });
-      out.push(make(e.state, to, e.endedAt, now));
+      out.push(make(e.state, to, e.endedAt, now, e.plannedMs));
     }
   }
-  if (state !== 'rest') out.push(make(state, from, to, now));
+  if (state !== 'stopped') out.push(make(state, from, to, now));
   return normalize(out, now);
 }
 
@@ -126,7 +210,14 @@ function normalize(entries: TimeEntry[], now: number): TimeEntry[] {
   const merged: TimeEntry[] = [];
   for (const e of live) {
     const last = merged[merged.length - 1];
-    if (last && last.endedAt !== null && last.endedAt === e.startedAt && last.state === e.state) {
+    // Timed sessions stay separate: two back to back are two sessions.
+    if (
+      last &&
+      last.endedAt !== null &&
+      last.endedAt === e.startedAt &&
+      last.state === e.state &&
+      e.state !== 'timed'
+    ) {
       merged[merged.length - 1] = { ...last, endedAt: e.endedAt, updatedAt: now };
       dead.push(tombstone(e, now));
     } else {
@@ -141,7 +232,7 @@ export interface Fix {
   ms: number;
   /** What the time since then actually was. */
   was: Painted;
-  /** What is happening now. `rest` stops the timer. */
+  /** What is happening now. `stopped` stops the timer. */
   then: Painted;
 }
 
@@ -159,6 +250,6 @@ export function fixRefusal(fix: Pick<Fix, 'ms'>): string | null {
 export function applyFix(entries: TimeEntry[], fix: Fix, now: number): TimeEntry[] {
   const frozen = closeRunning(entries, now);
   const painted = paint(frozen, now - fix.ms, now, fix.was, now);
-  if (fix.then === 'rest') return painted;
+  if (fix.then === 'stopped') return painted;
   return normalize([...painted, make(fix.then, now, null, now)], now);
 }

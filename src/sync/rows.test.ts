@@ -8,6 +8,23 @@ describe('row mapping', () => {
     expect(rowToEntry(entryToRow(e))).toEqual(e);
   });
 
+  it('round-trips a Timed entry with its planned length', () => {
+    const e: TimeEntry = { id: 'u', state: 'timed', startedAt: 10, endedAt: 610, plannedMs: 600, updatedAt: 11 };
+    const row = entryToRow(e);
+    expect(row).toMatchObject({ state: 'timed', planned_ms: 600 });
+    expect(rowToEntry(row)).toEqual(e);
+  });
+
+  it('leaves planned_ms off a Flow entry, so it syncs with or without the column', () => {
+    const row = entryToRow({ id: 'u', state: 'want', startedAt: 1, endedAt: null, updatedAt: 2 });
+    expect('planned_ms' in row).toBe(false);
+  });
+
+  it('reads a null planned_ms as none', () => {
+    const row = { ...entryToRow({ id: 'u', state: 'want', startedAt: 1, endedAt: null, updatedAt: 2 }), planned_ms: null };
+    expect(rowToEntry(row)).not.toHaveProperty('plannedMs');
+  });
+
   it('round-trips a tombstoned entry', () => {
     const e: TimeEntry = { id: 'u', state: 'should', startedAt: 1, endedAt: 5, updatedAt: 9, deletedAt: 9 };
     expect(rowToEntry(entryToRow(e))).toEqual(e);

@@ -43,7 +43,7 @@ interface Particle {
 
 /**
  * The timer's backdrop: a flat print of a town under power lines, Mount Fuji
- * behind it. The sun (or the moon after dark) climbs as the day's Should target
+ * behind it. The sun (or the moon after dark) climbs as the day's Focus target
  * fills. Mode sets the colour family, season sets the branch and what drifts
  * down, time of day sets the light, weather sets the sky.
  */
@@ -68,7 +68,7 @@ export function Scene({
     const dusk = time === 'dusk';
     const dawn = time === 'dawn';
     const dark = !want;
-    const darken = { dawn: 0.12, day: 0, dusk: 0.22, night: 0.55 }[time] * (mode === 'rest' ? 0.5 : 1);
+    const darken = { dawn: 0.12, day: 0, dusk: 0.22, night: 0.55 }[time] * (mode === 'stopped' ? 0.5 : 1);
     let sky = mix(base.sky, want ? '#13261C' : '#000000', darken);
     const grey = want ? '#B9B3A0' : '#3A4A40';
     const greyAmt = { clear: 0, cloudy: 0.25, rain: 0.4, snow: 0.2, fog: 0 }[weather];

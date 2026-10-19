@@ -264,7 +264,7 @@ test.describe('syncing', () => {
     await app.getByRole('button', { name: 'Done' }).click();
     await advance(app, 2000);
 
-    await app.getByRole('group', { name: 'Timer state' }).getByRole('button', { name: 'Should', exact: true }).click();
+    await app.getByRole('group', { name: 'Timer state' }).getByRole('button', { name: 'Focus', exact: true }).click();
     await advance(app, 2000);
 
     await expect.poll(() => mock.writes.filter((w) => w.table === 'time_entries').length).toBeGreaterThan(0);

@@ -9,18 +9,18 @@ import { Segmented } from './Segmented';
 const CHIPS = [5, 10, 15, 30];
 
 const WAS_OPTIONS = [
-  { value: 'should', label: 'Should' },
-  { value: 'want', label: 'Want' },
-  { value: 'rest', label: 'Rest' },
+  { value: 'should', label: 'Focus' },
+  { value: 'want', label: 'Rest' },
+  { value: 'stopped', label: 'Stopped' },
 ] as const;
 
 const THEN_OPTIONS = [
-  { value: 'should', label: 'Should' },
-  { value: 'want', label: 'Want' },
-  { value: 'rest', label: 'Stopped' },
+  { value: 'should', label: 'Focus' },
+  { value: 'want', label: 'Rest' },
+  { value: 'stopped', label: 'Stopped' },
 ] as const;
 
-const NAME: Record<Painted, string> = { should: 'Should', want: 'Want', rest: 'Rest' };
+const NAME: Record<Painted, string> = { should: 'Focus', want: 'Rest', stopped: 'Stopped' };
 
 function clock(t: number): string {
   return new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
@@ -37,7 +37,7 @@ export function FixTimerModal({ onClose }: { onClose: () => void }) {
 
   const [minutes, setMinutes] = useState(10);
   const [was, setWas] = useState<Painted>(current?.state === 'should' ? 'want' : 'should');
-  const [then, setThen] = useState<Painted>(current?.state ?? 'rest');
+  const [then, setThen] = useState<Painted>(current && current.state !== 'timed' ? current.state : 'stopped');
   const [error, setError] = useState<string | null>(null);
 
   const ms = minutes * 60_000;
@@ -46,7 +46,7 @@ export function FixTimerModal({ onClose }: { onClose: () => void }) {
   const preview =
     refusal === null
       ? `${NAME[was]} from ${clock(from)} to ${clock(now)}, ${
-          then === 'rest' ? 'then the timer stops.' : `then ${NAME[then]}.`
+          then === 'stopped' ? 'then the timer stops.' : `then ${NAME[then]}.`
         }`
       : refusal;
 

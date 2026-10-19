@@ -1,5 +1,14 @@
-/** What the running timer is spent on. Stopped is not a state: it is rest. */
+/**
+ * What the Flow timer is spent on. Stored as `should` and `want`; the screen
+ * calls them Focus (should) and Rest (want). Stopped is not a state: it is no entry.
+ */
 export type TimerState = 'should' | 'want';
+
+/**
+ * What an entry in the ledger can be. `timed` is a count-down session: history
+ * only, so it never touches the Flow balance.
+ */
+export type EntryState = TimerState | 'timed';
 
 /**
  * One stretch of time in a state. The ledger is append-only in spirit: an edit
@@ -8,11 +17,13 @@ export type TimerState = 'should' | 'want';
  */
 export interface TimeEntry {
   id: string;
-  state: TimerState;
+  state: EntryState;
   /** ms epoch */
   startedAt: number;
   /** null marks the one running entry */
   endedAt: number | null;
+  /** How long a `timed` entry was set to run. The entry closes itself at `startedAt + plannedMs`. */
+  plannedMs?: number;
   updatedAt: number;
   /** Set instead of removing the entry, so a delete can sync. */
   deletedAt?: number;

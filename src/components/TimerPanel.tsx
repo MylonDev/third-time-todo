@@ -1,15 +1,29 @@
+import { useState } from 'react';
+import { useChimes } from '../hooks/useChimes';
 import { useDay } from '../hooks/useDay';
+import { useSettleTimed } from '../hooks/useSettleTimed';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useSettings } from '../store/settings';
 import { useTimer } from '../store/timer';
 import type { TimerState } from '../types';
+import { RATIO } from '../utils/ledger';
 import { formatClock, formatDuration } from '../utils/time';
+import { Modal } from './Modal';
 import { Scene } from './Scene';
+import { Segmented } from './Segmented';
 import { sceneInk, seasonOf, timeOfDayOf } from './sceneTheme';
+import { TimedStart } from './TimedStart';
 
-const LABEL: Record<TimerState, string> = { should: 'Should', want: 'Want' };
+const LABEL: Record<TimerState, string> = { should: 'Focus', want: 'Rest' };
 
-/** With no daily target the sun still needs a pace: this many hours of Should takes it to the top. */
+type Mode = 'flow' | 'timed';
+
+const MODES = [
+  { value: 'flow', label: 'Flow' },
+  { value: 'timed', label: 'Timed' },
+] as const;
+
+/** With no daily target the sun still needs a pace: this many hours of Focus takes it to the top. */
 const DEFAULT_SCALE_MS = 4 * 3_600_000;
 
 const TILE: Record<TimerState, { fill: string; sub: string; subRunning: string }> = {
@@ -19,36 +33,52 @@ const TILE: Record<TimerState, { fill: string; sub: string; subRunning: string }
 
 /** The one thing always on screen: what you're spending time on, and the balance. */
 export function TimerPanel({ onFix }: { onFix: () => void }) {
-  const { now, running, totals, balance } = useDay();
+  const { now, running, totals, balance, carried } = useDay();
   const start = useTimer((s) => s.start);
+  const startTimed = useTimer((s) => s.startTimed);
   const stop = useTimer((s) => s.stop);
   const targetMin = useSettings((s) => s.shouldTargetMin);
   const wakeLockOn = useSettings((s) => s.wakeLock);
+  // Which kind of session the next start begins. Only chosen while stopped.
+  const [mode, setMode] = useState<Mode>('flow');
+  const [confirmingStop, setConfirmingStop] = useState(false);
+
+  useSettleTimed();
+  useChimes();
 
   const state = running?.state ?? null;
   const elapsed = running ? now - running.startedAt : 0;
+  // A Timed session counts down from its planned length.
+  const plannedMs = running?.state === 'timed' ? (running.plannedMs ?? 0) : null;
   const inDebt = balance < 0;
 
   const screenOn = useWakeLock(running !== undefined && wakeLockOn);
 
   const targetMs = targetMin ? targetMin * 60_000 : null;
-  const progress = Math.min(1, totals.shouldMs / (targetMs ?? DEFAULT_SCALE_MS));
+  const progress =
+    plannedMs !== null ? Math.min(1, elapsed / plannedMs) : Math.min(1, totals.shouldMs / (targetMs ?? DEFAULT_SCALE_MS));
   const targetProgress = targetMs ? Math.min(1, totals.shouldMs / targetMs) : 0;
   const reached = targetMs !== null && totals.shouldMs >= targetMs;
 
-  const mode = state ?? 'rest';
+  // Past the day end the balance has carried on, and stopping is what clears it.
+  // Debt, zero or under half a minute (which would read as 0m) stops without asking.
+  const stopClears = carried && balance >= 30_000;
+  const onStop = () => (stopClears ? setConfirmingStop(true) : stop());
+
+  const scene = state ?? 'stopped';
   const date = new Date(now);
   const time = timeOfDayOf(date);
-  const clock = running ? formatClock(elapsed) : '0:00';
+  const clock = plannedMs !== null ? formatClock(Math.max(0, plannedMs - elapsed)) : running ? formatClock(elapsed) : '0:00';
+  const headline = state === 'timed' ? 'Timed running' : state ? `${LABEL[state]} running` : 'Stopped';
 
   return (
     <section aria-label="Timer" className="flex flex-col gap-4">
       <div className="relative h-[310px] overflow-hidden rounded-[28px]">
-        <Scene mode={mode} progress={progress} season={seasonOf(date)} time={time} />
-        <div className="absolute left-[18px] top-4" style={{ color: sceneInk(mode, time), transition: 'color .7s' }}>
+        <Scene mode={scene} progress={progress} season={seasonOf(date)} time={time} />
+        <div className="absolute left-[18px] top-4" style={{ color: sceneInk(scene, time), transition: 'color .7s' }}>
           <p className="section-label !text-current flex items-center gap-2 !tracking-[0.14em]">
             {running && <span className="beat size-2 rounded-full bg-current" aria-hidden="true" />}
-            {state ? `${LABEL[state]} running` : 'Resting'}
+            {headline}
           </p>
           <p
             data-testid="elapsed"
@@ -56,12 +86,17 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           >
             {clock}
           </p>
+          {plannedMs !== null && (
+            <p data-testid="planned" className="font-timer mt-2 text-sm font-semibold">
+              of {formatDuration(plannedMs)}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="section-label">{inDebt ? 'Want debt' : 'Want available'}</p>
+          <p className="section-label">{inDebt ? 'Rest debt' : 'Rest available'}</p>
           <p
             data-testid="balance"
             className={`font-timer text-[2.125rem] font-bold leading-[1.1] ${inDebt ? 'text-debt' : ''}`}
@@ -69,6 +104,12 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           >
             {formatClock(balance)}
           </p>
+          {inDebt && (
+            <p data-testid="debt-hint" className="text-sm text-text-muted">
+              {/* Focus pays back 1:RATIO, so clearing the debt takes RATIO times as much. */}
+              {formatDuration(Math.max(60_000, -balance * RATIO))} of Focus clears it
+            </p>
+          )}
         </div>
         {targetMs !== null && (
           <div className="text-right">
@@ -78,64 +119,78 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
         )}
       </div>
 
-      <div role="group" aria-label="Timer state" className="grid grid-cols-2 gap-3">
-        {(['should', 'want'] as const).map((s) => {
-          const active = state === s;
-          const dimmed = state !== null && !active;
-          return (
-            <button
-              key={s}
-              type="button"
-              aria-label={LABEL[s]}
-              aria-pressed={active}
-              onClick={() => start(s)}
-              className={`press flex min-h-[92px] cursor-pointer flex-col justify-end rounded-3xl border-0 px-[18px] py-3.5 text-left transition-[opacity,box-shadow] duration-300 ${TILE[s].fill}`}
-              style={{
-                opacity: dimmed ? 0.45 : 1,
-                boxShadow: active ? '0 0 0 3px var(--color-bg), 0 0 0 5px var(--color-text)' : '0 0 0 0 var(--color-bg)',
-              }}
-            >
-              <span aria-hidden="true" className="text-[1.75rem] font-bold leading-none tracking-tight">
-                {LABEL[s]}
-              </span>
-              <span aria-hidden="true" className="mt-1 font-timer text-[0.625rem] font-semibold uppercase tracking-[0.1em]">
-                {active ? TILE[s].subRunning : TILE[s].sub}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {!running && <Segmented<Mode> label="Timer mode" value={mode} options={[...MODES]} onChange={setMode} />}
+
+      {!running && mode === 'timed' && <TimedStart onStart={startTimed} />}
+
+      {(state === 'should' || state === 'want' || (!running && mode === 'flow')) && (
+        <div role="group" aria-label="Timer state" className="grid grid-cols-2 gap-3">
+          {(['should', 'want'] as const).map((s) => {
+            const active = state === s;
+            const dimmed = state !== null && !active;
+            return (
+              <button
+                key={s}
+                type="button"
+                aria-label={LABEL[s]}
+                aria-pressed={active}
+                onClick={() => start(s)}
+                className={`press flex min-h-[92px] cursor-pointer flex-col justify-end rounded-3xl border-0 px-[18px] py-3.5 text-left transition-[opacity,box-shadow] duration-300 ${TILE[s].fill}`}
+                style={{
+                  opacity: dimmed ? 0.45 : 1,
+                  boxShadow: active ? '0 0 0 3px var(--color-bg), 0 0 0 5px var(--color-text)' : '0 0 0 0 var(--color-bg)',
+                }}
+              >
+                <span aria-hidden="true" className="text-[1.75rem] font-bold leading-none tracking-tight">
+                  {LABEL[s]}
+                </span>
+                <span aria-hidden="true" className="mt-1 font-timer text-[0.625rem] font-semibold uppercase tracking-[0.1em]">
+                  {active ? TILE[s].subRunning : TILE[s].sub}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {running && (
         <div className="pop grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={stop}
+            onClick={onStop}
             className="press min-h-12 cursor-pointer rounded-3xl border border-border-strong bg-transparent font-semibold text-text"
           >
             Stop
           </button>
-          <button
-            type="button"
-            onClick={onFix}
-            className="press min-h-12 cursor-pointer rounded-3xl border border-border bg-transparent font-medium text-text-muted hover:text-text"
-          >
-            Fix timer
-          </button>
+          {state !== 'timed' && (
+            <button
+              type="button"
+              onClick={onFix}
+              className="press min-h-12 cursor-pointer rounded-3xl border border-border bg-transparent font-medium text-text-muted hover:text-text"
+            >
+              Fix timer
+            </button>
+          )}
         </div>
       )}
 
       <div className="flex flex-col gap-2 text-sm text-text-muted">
         <p data-testid="totals">
-          Today: Should <span className="num text-text">{formatDuration(totals.shouldMs)}</span> · Want{' '}
+          Today: Focus <span className="num text-text">{formatDuration(totals.shouldMs)}</span> · Rest{' '}
           <span className="num text-text">{formatDuration(totals.wantMs)}</span>
+          {totals.timedMs > 0 && (
+            <>
+              {' '}
+              · Timed <span className="num text-text">{formatDuration(totals.timedMs)}</span>
+            </>
+          )}
         </p>
         {screenOn && <p data-testid="screen-on">Screen stays on while timing.</p>}
         {targetMs !== null && (
           <div className="flex flex-col gap-2">
             <div
               role="progressbar"
-              aria-label="Daily Should target"
+              aria-label="Daily Focus target"
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.round(targetProgress * 100)}
@@ -165,6 +220,35 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           </div>
         )}
       </div>
+      {confirmingStop && stopClears && (
+        <Modal label="Stop the timer" onClose={() => setConfirmingStop(false)} size="sm" className="p-5 gap-5">
+          <div>
+            <h2 className="text-lg font-semibold">Stop the timer?</h2>
+            <p data-testid="stop-clears" className="text-sm text-text-muted">
+              Stopping clears {formatDuration(balance)} of rest.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirmingStop(false)}
+              className="press min-h-12 cursor-pointer rounded-full border border-border font-medium text-text-muted hover:text-text"
+            >
+              Keep going
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmingStop(false);
+                stop();
+              }}
+              className="press min-h-12 cursor-pointer rounded-full bg-accent font-semibold text-on-accent"
+            >
+              Stop
+            </button>
+          </div>
+        </Modal>
+      )}
     </section>
   );
 }
