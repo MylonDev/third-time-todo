@@ -24,7 +24,7 @@ completions (History, f00r); seeding steps from onboarding (epic 8); reordering 
    later leaves its id in old rows, which is harmless.
 3. **First session of the day.** The offer fires on pressing Start (Flow Focus/Rest tile, or Timed Start) when
    stopped and all of these hold: there is at least one step, there is no `get_ready_days` row for today's day
-   key, and no live (non-deleted) ledger entry that *begins a stretch* inside today's window. An entry begins a stretch
+   key, and no live (non-deleted) ledger entry that _begins a stretch_ inside today's window. An entry begins a stretch
    when no live entry has `endedAt === its startedAt` (the walk-back `balanceWindow` does in `utils/ledger.ts`
    :84-97). Without that rule, a Focus carried past midnight and switched to Rest at 00:30 would hide the offer,
    as would Fix timer during a carried session. The test also covers steps added mid-day and a session begun on
@@ -59,7 +59,7 @@ Implementer: `feature-lite:implementer`. Coupled work in shared files, so one ag
      from `utils/time.ts`);
    - `recordGetReady(days, today, done, skipped, now)` returning the new array (upsert by day key);
    - step helpers: make a step with `crypto.randomUUID()` (as `makePractice` does), rename, and remove by filtering
-    the list (no tombstones; the list is one jsonb value).
+     the list (no tombstones; the list is one jsonb value).
 2. **Stores** — `src/store/settings.ts`: `getReadySteps: GetReadyStep[]` (default `[]`), `setGetReadySteps`
    bumping `updatedAt` like the others, but a no-op when the list is unchanged (a stale device must not bump it
    and wipe another device's list); persist version 4→5 with the migrate defaulting `[]`. New
@@ -89,7 +89,7 @@ Implementer: `feature-lite:implementer`. Coupled work in shared files, so one ag
    - New `src/components/GetReadyModal.tsx` (layout from `PreflightModal`: checkbox rows with `min-h-12`, grid of
      two buttons, Skip then Start; use the project's tokens, `bg-accent text-on-accent`, light and dark safe).
    - `src/components/TimerPanel.tsx`: hold `pending: (() => void) | null`. A `begin(fn)` wrapper (the day key recorded is computed from `Date.now()` and `dayEndHour` when Start/Skip is
-  pressed, not the render-time `today`): if
+     pressed, not the render-time `today`): if
      `!running` and `shouldOfferGetReady(...)` then `setPending(() => fn)`, else `fn()`. Route both the Flow tile
      `start(s, practiceId)` and the Timed `startTimed(ms, practiceId)` through it. The modal's Start/Skip record
      then call the pending function. Capture the practice id at press time (the closure does).
@@ -97,7 +97,7 @@ Implementer: `feature-lite:implementer`. Coupled work in shared files, so one ag
    - vitest (`src/utils/getReady.test.ts`): offered with steps and a clean day; not offered with no steps; not
      after a row exists (done or skipped); not when an entry started today; offered when the only entry is
      yesterday's, including one that ended after the day-end hour with `dayEndHour` 3; the carried case (Focus from 23:00,
-     Rest from 00:30, stopped 01:00, next start 09:00 IS offered);  deleted entries ignored;
+     Rest from 00:30, stopped 01:00, next start 09:00 IS offered); deleted entries ignored;
      `recordGetReady` upserts and keeps other days. Rows round-trip (`rows.test.ts`), engine sync of
      `getReadyDays` and `getReadySteps` between two devices (`engine.test.ts`; update its fixtures and the
      `cursors.pushed` expectation), `migrateSyncMeta` v2→v3.
