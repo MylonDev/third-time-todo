@@ -11,7 +11,7 @@ import { useTimer } from '../store/timer';
 import type { TimerState } from '../types';
 import { shouldOfferGetReady } from '../utils/getReady';
 import { RATIO } from '../utils/ledger';
-import { LEVELS, listPractices } from '../utils/practices';
+import { isPaused, listPractices } from '../utils/practices';
 import { dayKeyOf, formatClock, formatDuration } from '../utils/time';
 import { GetReadyModal } from './GetReadyModal';
 import { Modal } from './Modal';
@@ -170,7 +170,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
               <option value="">None</option>
               {practices.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.level === 'paused' ? `${p.name} (paused)` : p.name}
+                  {isPaused(p) ? `${p.name} (paused)` : p.name}
                 </option>
               ))}
             </select>
@@ -187,9 +187,9 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
 
       {!running && mode === 'timed' && (
         <TimedStart
-          // Picking a practice starts the length at its level's minimum.
+          // Picking a practice starts the length at its minutes a day.
           key={selected?.id ?? ''}
-          initialMinutes={selected && LEVELS[selected.level].minMin > 0 ? LEVELS[selected.level].minMin : undefined}
+          initialMinutes={selected && selected.targetMin > 0 ? selected.targetMin : undefined}
           onStart={(ms) => begin(() => startTimed(ms, practiceId))}
         />
       )}

@@ -5,13 +5,23 @@ interface Versioned {
   updatedAt: number;
 }
 
+/** JSON with the keys of every object in order, so two rows with the same content give the same text. */
+function canonical(row: unknown): string {
+  return JSON.stringify(row, (_key, value: unknown) =>
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : value,
+  );
+}
+
 /**
  * Pick between two versions of one row: the newer wins. On a tie the choice is
- * made from the content, so two devices comparing the same pair agree.
+ * made from the content, in key order, so two devices comparing the same pair
+ * agree and the order the keys were built in cannot change the outcome.
  */
 function pick<T extends Versioned>(local: T, remote: T): T {
   if (remote.updatedAt !== local.updatedAt) return remote.updatedAt > local.updatedAt ? remote : local;
-  return JSON.stringify(remote) > JSON.stringify(local) ? remote : local;
+  return canonical(remote) > canonical(local) ? remote : local;
 }
 
 /**

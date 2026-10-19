@@ -1,4 +1,4 @@
-import type { EntryState, GetReadyDay, GetReadyStep, Item, Need, Practice, PracticeLevel, Recurrence, TimeEntry, TimerState } from '../types';
+import type { EntryState, GetReadyDay, GetReadyStep, Item, Practice, Recurrence, TimeEntry, TimerState } from '../types';
 
 /** The part of the settings that changes the numbers, so it follows you between devices. */
 export interface SyncedSettings {
@@ -41,11 +41,10 @@ export interface ItemRow {
 export interface PracticeRow {
   id: string;
   name: string;
-  level: PracticeLevel;
-  small_step: string;
-  low_step: string;
-  small_needs: Need[];
-  low_needs: Need[];
+  /** Missing, or the column defaults, on rows no new client has written: they read as Paused. */
+  target_days?: number | null;
+  target_weekdays?: number[] | null;
+  target_min?: number | null;
   next_step: string | null;
   sort_order: number;
   created_at: number;
@@ -148,11 +147,9 @@ export function practiceToRow(p: Practice): PracticeRow {
   return {
     id: p.id,
     name: p.name,
-    level: p.level,
-    small_step: p.smallStep,
-    low_step: p.lowStep,
-    small_needs: p.smallNeeds,
-    low_needs: p.lowNeeds,
+    target_days: p.targetDays,
+    target_weekdays: p.targetWeekdays,
+    target_min: p.targetMin,
     next_step: p.nextStep ?? null,
     sort_order: p.order,
     created_at: p.createdAt,
@@ -166,11 +163,9 @@ export function rowToPractice(r: PracticeRow): Practice {
   return {
     id: r.id,
     name: r.name,
-    level: r.level,
-    smallStep: r.small_step,
-    lowStep: r.low_step,
-    smallNeeds: r.small_needs,
-    lowNeeds: r.low_needs,
+    targetDays: r.target_days ?? 0,
+    targetWeekdays: r.target_weekdays ?? [],
+    targetMin: r.target_min ?? 0,
     order: Number(r.sort_order),
     createdAt: num(r.created_at),
     updatedAt: num(r.updated_at),

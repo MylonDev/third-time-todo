@@ -91,11 +91,9 @@ describe('row mapping', () => {
     const p: Practice = {
       id: 'p1',
       name: 'Guitar',
-      level: 'steady',
-      smallStep: 'Play one scale',
-      lowStep: 'Hold the guitar',
-      smallNeeds: ['clarity', 'energy'],
-      lowNeeds: [],
+      targetDays: 3,
+      targetWeekdays: [0, 2, 4],
+      targetMin: 30,
       nextStep: 'Learn the intro',
       order: 2.5,
       createdAt: 100,
@@ -103,7 +101,7 @@ describe('row mapping', () => {
       deletedAt: 300,
     };
     const row = practiceToRow(p);
-    expect(row).toMatchObject({ small_needs: ['clarity', 'energy'], low_needs: [], next_step: 'Learn the intro', sort_order: 2.5 });
+    expect(row).toMatchObject({ target_days: 3, target_weekdays: [0, 2, 4], target_min: 30, next_step: 'Learn the intro', sort_order: 2.5 });
     expect(rowToPractice(row)).toEqual(p);
   });
 
@@ -111,11 +109,9 @@ describe('row mapping', () => {
     const p: Practice = {
       id: 'p2',
       name: 'Art',
-      level: 'paused',
-      smallStep: '',
-      lowStep: '',
-      smallNeeds: [],
-      lowNeeds: [],
+      targetDays: 0,
+      targetWeekdays: [],
+      targetMin: 0,
       order: 1,
       createdAt: 1,
       updatedAt: 2,
@@ -126,19 +122,52 @@ describe('row mapping', () => {
     expect(back).not.toHaveProperty('deletedAt');
   });
 
-  it('reads bigint strings in a practice as numbers', () => {
-    const base = practiceToRow({
+  it('writes none of the columns the levels used', () => {
+    const row = practiceToRow({ id: 'p', name: 'n', targetDays: 4, targetWeekdays: [], targetMin: 20, order: 1, createdAt: 1, updatedAt: 2 });
+    expect(Object.keys(row).sort()).toEqual(
+      ['created_at', 'deleted_at', 'id', 'name', 'next_step', 'sort_order', 'target_days', 'target_min', 'target_weekdays', 'updated_at'].sort(),
+    );
+  });
+
+  it('reads an old-style row with no target as Paused, ignoring its level columns', () => {
+    const old = {
+      id: 'p',
+      name: 'Art',
+      level: 'steady',
+      small_step: 'Scale',
+      low_step: '',
+      small_needs: ['legacy'],
+      low_needs: [],
+      next_step: null,
+      sort_order: 1,
+      created_at: 1,
+      updated_at: 2,
+      deleted_at: null,
+    };
+    const p = rowToPractice(old);
+    expect(p).toEqual({ id: 'p', name: 'Art', targetDays: 0, targetWeekdays: [], targetMin: 0, order: 1, createdAt: 1, updatedAt: 2 });
+    expect(p).not.toHaveProperty('level');
+    expect(p).not.toHaveProperty('smallStep');
+  });
+
+  it('reads null target columns as Paused', () => {
+    const p = rowToPractice({
       id: 'p',
       name: 'n',
-      level: 'light',
-      smallStep: '',
-      lowStep: '',
-      smallNeeds: [],
-      lowNeeds: [],
-      order: 1,
-      createdAt: 1,
-      updatedAt: 2,
+      target_days: null,
+      target_weekdays: null,
+      target_min: null,
+      next_step: null,
+      sort_order: 1,
+      created_at: 1,
+      updated_at: 2,
+      deleted_at: null,
     });
+    expect(p).toMatchObject({ targetDays: 0, targetWeekdays: [], targetMin: 0 });
+  });
+
+  it('reads bigint strings in a practice as numbers', () => {
+    const base = practiceToRow({ id: 'p', name: 'n', targetDays: 3, targetWeekdays: [], targetMin: 15, order: 1, createdAt: 1, updatedAt: 2 });
     const p = rowToPractice({ ...base, created_at: '1760000000000' as unknown as number, updated_at: '5' as unknown as number });
     expect(p.createdAt).toBe(1760000000000);
     expect(p.updatedAt).toBe(5);

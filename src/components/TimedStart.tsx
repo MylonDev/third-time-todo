@@ -3,7 +3,7 @@ import { useState } from 'react';
 const CHIPS = [10, 15, 20, 30, 45, 60];
 
 /** The longest Timed session the picker accepts. */
-const MAX_MINUTES = 600;
+export const MAX_MINUTES = 600;
 
 /** Pick how long a Timed session runs, then start it. */
 export function TimedStart({

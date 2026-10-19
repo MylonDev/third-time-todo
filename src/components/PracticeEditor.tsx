@@ -1,61 +1,44 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { usePractices } from '../store/practices';
-import type { Need, Practice, PracticeLevel } from '../types';
+import type { Practice } from '../types';
 import { useSettings } from '../store/settings';
-import { LEVEL_ORDER, LEVELS, levelFits, levelHint, levelOverBy } from '../utils/practices';
+import {
+  targetFits,
+  targetHint,
+  targetOf,
+  targetOverBy,
+  TEMPLATE_ORDER,
+  TEMPLATES,
+  templateOf,
+  weekCost,
+  type Target,
+  type TemplateKey,
+} from '../utils/practices';
+import { WEEKDAY_LABELS } from '../utils/recurrence';
 import { formatDuration } from '../utils/time';
 import { Modal } from './Modal';
 import { Segmented } from './Segmented';
+import { MAX_MINUTES } from './TimedStart';
 
 const FIELD = 'min-h-12 rounded-2xl px-4 text-base bg-surface-2 border border-border text-text outline-none';
 
-const NEEDS: { value: Need; label: string }[] = [
-  { value: 'clarity', label: 'Clarity' },
-  { value: 'energy', label: 'Energy' },
-];
+const DAY_COUNTS = ['1', '2', '3', '4', '5', '6', '7'];
 
-/** One step: what it is, and what it asks of you. No tag means little of either. */
-function StepField({
-  label,
-  hint,
-  text,
-  needs,
-  onText,
-  onNeeds,
-}: {
-  label: string;
-  hint: string;
-  text: string;
-  needs: Need[];
-  onText: (t: string) => void;
-  onNeeds: (n: Need[]) => void;
-}) {
+type Choice = TemplateKey | 'custom';
+
+/** A pill that is on or off, as the Timed length chips are. */
+function Chip({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className="flex flex-col gap-1.5">
-        <span className="section-label">{label}</span>
-        <input value={text} onChange={(e) => onText(e.target.value)} placeholder={hint} className={FIELD} />
-      </label>
-      <div role="group" aria-label={`${label} needs`} className="flex flex-wrap items-center gap-2">
-        {NEEDS.map((n) => {
-          const on = needs.includes(n.value);
-          return (
-            <button
-              key={n.value}
-              type="button"
-              aria-pressed={on}
-              onClick={() => onNeeds(on ? needs.filter((x) => x !== n.value) : [...needs, n.value])}
-              className={`press min-h-10 cursor-pointer rounded-full border px-3.5 text-sm font-medium ${
-                on ? 'bg-accent-dim border-accent-edge text-accent' : 'border-border text-text-muted hover:text-text'
-              }`}
-            >
-              {n.label}
-            </button>
-          );
-        })}
-        {needs.length === 0 && <span className="text-sm text-text-muted">Little of either</span>}
-      </div>
-    </div>
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={`press min-h-10 cursor-pointer rounded-full border px-3.5 text-sm font-medium ${
+        on ? 'bg-accent-dim border-accent-edge text-accent' : 'border-border text-text-muted hover:text-text'
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -70,31 +53,57 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
 
   const [name, setName] = useState(practice?.name ?? '');
   // A new practice starts at Steady, or the most that still fits under the cap.
-  const [level, setLevel] = useState<PracticeLevel>(
-    () => practice?.level ?? LEVEL_ORDER.findLast((l) => LEVELS[l].weekMin <= LEVELS.steady.weekMin && levelFits(all, undefined, l, cap)) ?? 'paused',
-  );
-  const [smallStep, setSmallStep] = useState(practice?.smallStep ?? '');
-  const [smallNeeds, setSmallNeeds] = useState<Need[]>(practice?.smallNeeds ?? []);
-  const [lowStep, setLowStep] = useState(practice?.lowStep ?? '');
-  const [lowNeeds, setLowNeeds] = useState<Need[]>(practice?.lowNeeds ?? []);
+  const [choice, setChoice] = useState<Choice>(() => {
+    if (practice) return templateOf(practice) ?? 'custom';
+    return TEMPLATE_ORDER.findLast((t) => weekCost(targetOf(t)) <= weekCost(targetOf('steady')) && targetFits(all, undefined, targetOf(t), cap)) ?? 'paused';
+  });
+  // What Custom holds. A template's own values live in the table, not here.
+  const [days, setDays] = useState(practice?.targetDays || 3);
+  const [specific, setSpecific] = useState((practice?.targetWeekdays.length ?? 0) > 0);
+  const [weekdays, setWeekdays] = useState<number[]>(practice?.targetWeekdays ?? []);
+  const [minutes, setMinutes] = useState(practice?.targetMin || 20);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const minutesHint = useId();
 
-  const valid = name.trim() !== '';
-  // The nearest level above the ones that fit says how far over the cap the next step up would go.
-  const blocked = LEVEL_ORDER.find((l) => !levelFits(all, practice?.id, l, cap));
-  const overBy = blocked ? levelOverBy(all, practice?.id, blocked, cap) : 0;
+  const custom = choice === 'custom';
+  // Chosen weekdays set the days, so the count follows the chips.
+  const target: Target = custom
+    ? { targetDays: specific ? weekdays.length : days, targetWeekdays: specific ? weekdays : [], targetMin: minutes }
+    : targetOf(choice);
+  const minutesOk = Number.isInteger(minutes) && minutes >= 1 && minutes <= MAX_MINUTES;
+  const customValid = minutesOk && target.targetDays >= 1;
+  // A half-typed minutes box costs nothing yet, rather than NaN.
+  const cost: Target = custom && !Number.isFinite(minutes) ? { ...target, targetMin: 0 } : target;
+  const customOver = custom ? targetOverBy(all, practice?.id, cost, cap) : 0;
+
+  const valid = name.trim() !== '' && (!custom || (customValid && customOver === 0));
+  // The nearest template above the ones that fit says how far over the cap the next step up would go.
+  const blocked = TEMPLATE_ORDER.find((t) => !targetFits(all, practice?.id, targetOf(t), cap));
+  const overBy = custom ? customOver : blocked ? targetOverBy(all, practice?.id, targetOf(blocked), cap) : 0;
   const title = practice ? 'Edit practice' : 'Add practice';
+
+  // Picking Custom starts from what is picked now, so nothing jumps. A Paused one has nothing to start from.
+  const pickCustom = () => {
+    if (custom) return;
+    const now = targetOf(choice);
+    setDays(now.targetDays || 3);
+    setSpecific(false);
+    setWeekdays([]);
+    setMinutes(now.targetMin || 20);
+    setChoice('custom');
+  };
+
+  const toggleSpecific = () => {
+    if (specific) setDays(weekdays.length || days);
+    setWeekdays([]);
+    setSpecific(!specific);
+  };
+
+  const toggleWeekday = (d: number) => setWeekdays((w) => (w.includes(d) ? w.filter((x) => x !== d) : [...w, d].sort((a, b) => a - b)));
 
   const save = () => {
     if (!valid) return;
-    const fields = {
-      name: name.trim(),
-      level,
-      smallStep: smallStep.trim(),
-      lowStep: lowStep.trim(),
-      smallNeeds,
-      lowNeeds,
-    };
+    const fields = { name: name.trim(), ...target };
     if (practice) edit(practice.id, fields);
     else add(fields);
     onClose();
@@ -116,35 +125,86 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Guitar, drawing, Spanish…" className={FIELD} />
         </label>
 
-        <div className="flex flex-col gap-1.5">
-          <span className="section-label">Level</span>
-          <Segmented<PracticeLevel>
-            label="Level"
-            value={level}
-            options={LEVEL_ORDER.map((l) => ({
-              value: l,
-              label: LEVELS[l].label,
-              hint: levelHint(l),
-              disabled: !levelFits(all, practice?.id, l, cap),
-            }))}
-            onChange={setLevel}
-          />
-          {cap !== null && blocked && (
-            <p data-testid="cap-warning" className="text-sm text-debt">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <span className="section-label">Template</span>
+            <Segmented<Choice>
+              label="Template"
+              // Six buttons with a hint each do not fit in one row at phone width.
+              grid
+              value={choice}
+              options={[
+                ...TEMPLATE_ORDER.map((t) => ({
+                  value: t,
+                  label: TEMPLATES[t].label,
+                  hint: targetHint(t),
+                  disabled: !targetFits(all, practice?.id, targetOf(t), cap),
+                })),
+                { value: 'custom' as const, label: 'Custom', hint: 'Your own' },
+              ]}
+              onChange={(c) => (c === 'custom' ? pickCustom() : setChoice(c))}
+            />
+          </div>
+
+          {custom && (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <span className="section-label">Days a week</span>
+                {specific ? (
+                  <p data-testid="chosen-days" className="min-h-11 content-center text-base">
+                    {weekdays.length === 0 ? 'Pick the days below' : `${weekdays.length} ${weekdays.length === 1 ? 'day' : 'days'}`}
+                  </p>
+                ) : (
+                  <Segmented<string>
+                    label="Days a week"
+                    value={String(days)}
+                    options={DAY_COUNTS.map((d) => ({ value: d, label: d }))}
+                    onChange={(d) => setDays(Number(d))}
+                  />
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <div className="flex">
+                  <Chip label="Specific days" on={specific} onClick={toggleSpecific} />
+                </div>
+                {specific && (
+                  <div role="group" aria-label="Weekdays" className="flex flex-wrap gap-2">
+                    {WEEKDAY_LABELS.map((w, d) => (
+                      <Chip key={w} label={w} on={weekdays.includes(d)} onClick={() => toggleWeekday(d)} />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="flex flex-col gap-1.5">
+                  <span className="section-label">Minutes a day</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={MAX_MINUTES}
+                    value={Number.isFinite(minutes) ? minutes : ''}
+                    onChange={(e) => setMinutes(e.target.value === '' ? Number.NaN : Number(e.target.value))}
+                    aria-invalid={!minutesOk}
+                    aria-describedby={minutesHint}
+                    className={FIELD}
+                  />
+                </label>
+                <p id={minutesHint} className={`text-sm ${minutesOk ? 'text-text-muted' : 'text-debt'}`}>
+                  1 to {MAX_MINUTES}
+                </p>
+              </div>
+            </>
+          )}
+
+          {cap !== null && (custom ? customOver > 0 : !!blocked) && (
+            <p data-testid="cap-warning" role="status" className="text-sm text-debt">
               Over your {formatDuration(cap * 60_000)} cap by {formatDuration(overBy * 60_000)}. Lower another practice or raise the cap.
             </p>
           )}
         </div>
-
-        <StepField
-          label="Small step"
-          hint="The smallest session that still counts"
-          text={smallStep}
-          needs={smallNeeds}
-          onText={setSmallStep}
-          onNeeds={setSmallNeeds}
-        />
-        <StepField label="Low-day step" hint="An even smaller one, for low days" text={lowStep} needs={lowNeeds} onText={setLowStep} onNeeds={setLowNeeds} />
 
         <div className="grid grid-cols-2 gap-3">
           <button

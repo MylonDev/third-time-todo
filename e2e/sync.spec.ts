@@ -282,7 +282,12 @@ test.describe('syncing', () => {
     await expect.poll(() => mock.writes.filter((w) => w.table === 'practices').length).toBeGreaterThan(0);
     const write = mock.writes.filter((w) => w.table === 'practices').at(-1)!;
     expect(write.url).toContain('on_conflict=user_id%2Cid');
-    expect(write.body).toEqual([expect.objectContaining({ name: 'Guitar', level: 'light', user_id: USER.id, small_needs: [], deleted_at: null })]);
+    expect(write.body).toEqual([
+      expect.objectContaining({ name: 'Guitar', target_days: 3, target_weekdays: [], target_min: 15, user_id: USER.id, deleted_at: null }),
+    ]);
+    // The columns the levels used are no longer sent.
+    const [row] = write.body as Record<string, unknown>[];
+    for (const gone of ['level', 'small_step', 'low_step', 'small_needs', 'low_needs']) expect(row).not.toHaveProperty(gone);
   });
 
   test('shows a practice another device added', async ({ app }) => {
@@ -291,11 +296,9 @@ test.describe('syncing', () => {
       {
         id: 'from-phone',
         name: 'Painting',
-        level: 'serious',
-        small_step: 'Sketch for ten minutes',
-        low_step: '',
-        small_needs: ['energy'],
-        low_needs: [],
+        target_days: 3,
+        target_weekdays: [0, 2, 4],
+        target_min: 30,
         next_step: null,
         sort_order: 1,
         created_at: 1_760_000_000_000,
@@ -309,7 +312,34 @@ test.describe('syncing', () => {
     await advance(app, 2000);
 
     await openPractices(app);
-    await expect(app.getByRole('button', { name: 'Edit Painting' })).toContainText('6× a week · 30 min');
+    await expect(app.getByRole('button', { name: 'Edit Painting' })).toContainText('Mon Wed Fri · 30 min');
+  });
+
+  test('shows a practice from a device that predates targets as Paused', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    // A row an old build wrote after the migration: its level columns, and the target columns at their defaults.
+    mock.serve['practices'] = [
+      {
+        id: 'from-old-phone',
+        name: 'Painting',
+        level: 'steady',
+        target_days: 0,
+        target_weekdays: [],
+        target_min: 0,
+        next_step: null,
+        sort_order: 1,
+        created_at: 1_760_000_000_000,
+        updated_at: 1_760_000_000_000,
+        deleted_at: null,
+        server_updated_at: '2026-10-12T09:00:00.000001+00:00',
+      },
+    ];
+    await signIn(app);
+    await app.getByRole('button', { name: 'Done' }).click();
+    await advance(app, 2000);
+
+    await openPractices(app);
+    await expect(app.getByRole('button', { name: 'Edit Painting' })).toContainText('Paused');
   });
 
   test('sends the get ready steps in the settings upsert', async ({ app }) => {
