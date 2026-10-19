@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSettings } from '../store/settings';
 import type { Theme } from '../types';
+import { requestNotificationPermission } from '../utils/notifications';
 import { AccountSection } from './AccountSection';
 import { Modal } from './Modal';
 import { Segmented } from './Segmented';
@@ -12,6 +13,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const setTargetMin = useSettings((s) => s.setShouldTargetMin);
   const wakeLock = useSettings((s) => s.wakeLock);
   const setWakeLock = useSettings((s) => s.setWakeLock);
+  const sounds = useSettings((s) => s.sounds);
+  const setSounds = useSettings((s) => s.setSounds);
   const theme = useSettings((s) => s.theme);
   const setTheme = useSettings((s) => s.setTheme);
 
@@ -71,6 +74,25 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           type="checkbox"
           checked={wakeLock}
           onChange={(e) => setWakeLock(e.target.checked)}
+          className="switch"
+        />
+      </label>
+
+      <label className="flex items-center justify-between gap-4 min-h-12">
+        <span>
+          <span className="block">Sounds</span>
+          <span className="block text-xs text-text-muted">
+            A chime and a notification when a Timed session ends or Rest runs into debt.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={sounds}
+          onChange={(e) => {
+            setSounds(e.target.checked);
+            // Only a tap can ask, so this is where the browser's prompt comes from.
+            if (e.target.checked) void requestNotificationPermission();
+          }}
           className="switch"
         />
       </label>

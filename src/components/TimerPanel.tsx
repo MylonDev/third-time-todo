@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useChimes } from '../hooks/useChimes';
 import { useDay } from '../hooks/useDay';
 import { useSettleTimed } from '../hooks/useSettleTimed';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -41,6 +42,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   const [mode, setMode] = useState<Mode>('flow');
 
   useSettleTimed();
+  useChimes();
 
   const state = running?.state ?? null;
   const elapsed = running ? now - running.startedAt : 0;

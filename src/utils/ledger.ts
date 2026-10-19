@@ -16,7 +16,7 @@ export function runningEntry(entries: TimeEntry[]): TimeEntry | undefined {
 }
 
 /** The moment a Timed entry runs out. */
-function timedEnd(e: TimeEntry): number {
+export function timedEnd(e: TimeEntry): number {
   return e.startedAt + (e.plannedMs ?? 0);
 }
 
