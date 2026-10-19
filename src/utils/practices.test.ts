@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Practice } from '../types';
-import { LEVELS, makePractice, removePractice, reorderPractices, setNextStep, updatePractice } from './practices';
+import {
+  describeLevel,
+  LEVEL_ORDER,
+  LEVELS,
+  levelHint,
+  listPractices,
+  makePractice,
+  removePractice,
+  reorderPractices,
+  setNextStep,
+  updatePractice,
+} from './practices';
 
 const fields = {
   name: 'Guitar',
@@ -38,6 +49,41 @@ describe('levels', () => {
     expect(LEVELS.light).toMatchObject({ sessions: 3, minMin: 15, weekMin: 50 });
     expect(LEVELS.steady).toMatchObject({ sessions: 4, minMin: 20, weekMin: 90 });
     expect(LEVELS.serious).toMatchObject({ sessions: 6, minMin: 30, weekMin: 180 });
+  });
+});
+
+describe('showing levels', () => {
+  it('lists every level once, in the order of the table', () => {
+    expect([...LEVEL_ORDER]).toEqual(Object.keys(LEVELS));
+  });
+
+  it('describes a level by its target', () => {
+    expect(describeLevel('steady')).toBe('4× a week · 20 min');
+    expect(describeLevel('minimal')).toBe('1× a week · 10 min');
+    expect(describeLevel('paused')).toBe('Paused');
+  });
+
+  it('gives a short hint for a picker button', () => {
+    expect(levelHint('serious')).toBe('6× · 30 min');
+    expect(levelHint('paused')).toBe('No target');
+  });
+});
+
+describe('listing practices', () => {
+  it('puts live practices in order and Paused ones last, leaving out deleted ones', () => {
+    const [a, b, c] = three();
+    const out = listPractices([
+      { ...a, level: 'paused' },
+      { ...b, deletedAt: 5 },
+      c,
+      { ...makePractice([a, b, c], { ...fields, name: 'D' }, 1), level: 'light' },
+    ]);
+    expect(out.map((p) => p.name)).toEqual(['C', 'D', 'A']);
+  });
+
+  it('keeps the order among Paused ones', () => {
+    const [a, b] = three();
+    expect(listPractices([{ ...b, level: 'paused' }, { ...a, level: 'paused' }]).map((p) => p.name)).toEqual(['A', 'B']);
   });
 });
 

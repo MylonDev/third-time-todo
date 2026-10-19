@@ -14,7 +14,29 @@ export const LEVELS: Record<PracticeLevel, { label: string; sessions: number; mi
   serious: { label: 'Serious', sessions: 6, minMin: 30, weekMin: 180 },
 };
 
+/** The levels from least to most, as a picker lists them. */
+export const LEVEL_ORDER = ['paused', 'minimal', 'light', 'steady', 'serious'] as const satisfies readonly PracticeLevel[];
+
+/** "4× a week · 20 min", or "Paused". */
+export function describeLevel(level: PracticeLevel): string {
+  const { label, sessions, minMin } = LEVELS[level];
+  return sessions === 0 ? label : `${sessions}× a week · ${minMin} min`;
+}
+
+/** The short form for a picker button: "4× · 20 min". */
+export function levelHint(level: PracticeLevel): string {
+  const { sessions, minMin } = LEVELS[level];
+  return sessions === 0 ? 'No target' : `${sessions}× · ${minMin} min`;
+}
+
 const isLive = (p: Practice) => p.deletedAt === undefined;
+
+/** The live practices as the list shows them: in order, with Paused ones last. */
+export function listPractices(practices: Practice[]): Practice[] {
+  return practices
+    .filter(isLive)
+    .sort((a, b) => Number(a.level === 'paused') - Number(b.level === 'paused') || a.order - b.order);
+}
 
 export interface PracticeFields {
   name: string;

@@ -1,5 +1,5 @@
 import type { Page, Request } from '@playwright/test';
-import { addItem, advance, expect, test } from './helpers';
+import { addItem, addPractice, advance, expect, openPractices, test } from './helpers';
 
 const USER = { id: '33333333-3333-3333-3333-333333333333', email: 'me@example.com' };
 
@@ -270,6 +270,52 @@ test.describe('syncing', () => {
     await expect.poll(() => mock.writes.filter((w) => w.table === 'time_entries').length).toBeGreaterThan(0);
     const body = mock.writes.filter((w) => w.table === 'time_entries').at(-1)!.body as Record<string, unknown>[];
     expect(body[0]).toMatchObject({ state: 'should', ended_at: null, user_id: USER.id });
+  });
+
+  test('sends a new practice to the server, owned by the signed-in user', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    await signIn(app);
+    await expect(app.getByText('Signed in as')).toBeVisible();
+    await app.getByRole('button', { name: 'Done' }).click();
+    await advance(app, 2000);
+
+    await openPractices(app);
+    await addPractice(app, 'Guitar', 'Light');
+    await advance(app, 2000);
+
+    await expect.poll(() => mock.writes.filter((w) => w.table === 'practices').length).toBeGreaterThan(0);
+    const write = mock.writes.filter((w) => w.table === 'practices').at(-1)!;
+    expect(write.url).toContain('on_conflict=user_id%2Cid');
+    expect(write.body).toEqual([
+      expect.objectContaining({ name: 'Guitar', level: 'light', user_id: USER.id, small_needs: [], deleted_at: null }),
+    ]);
+  });
+
+  test('shows a practice another device added', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    mock.serve['practices'] = [
+      {
+        id: 'from-phone',
+        name: 'Painting',
+        level: 'serious',
+        small_step: 'Sketch for ten minutes',
+        low_step: '',
+        small_needs: ['energy'],
+        low_needs: [],
+        next_step: null,
+        sort_order: 1,
+        created_at: 1_760_000_000_000,
+        updated_at: 1_760_000_000_000,
+        deleted_at: null,
+        server_updated_at: '2026-10-12T09:00:00.000001+00:00',
+      },
+    ];
+    await signIn(app);
+    await app.getByRole('button', { name: 'Done' }).click();
+    await advance(app, 2000);
+
+    await openPractices(app);
+    await expect(app.getByRole('button', { name: 'Edit Painting' })).toContainText('6× a week · 30 min');
   });
 
   test('works with no sign-in at all', async ({ app }) => {
