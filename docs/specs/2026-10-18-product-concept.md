@@ -66,38 +66,42 @@ photography, a language. The name **Practices** is settled (jr9h).
 
 Each practice has:
 
-- **A commitment level** that sets a weekly target, counted in **sessions** (y51x):
+- **A target**: which days and how many minutes a day (y51x). Days are any N a
+  week (1 to 7) or chosen weekdays (Mon, Wed, Fri). Minutes run 1 to 600. A day
+  counts once the Focus and Timed minutes on the practice that day reach the daily
+  minutes, across any mix of Flow and Timed. Five templates fill it in, and Custom
+  sets it by hand:
 
-  | Level   | Sessions a week             | Session (counts from) | ≈ per week | For                                                    |
-  | ------- | --------------------------- | --------------------- | ---------- | ------------------------------------------------------ |
-  | Paused  | 0                           | —                     | 0          | —                                                      |
-  | Minimal | 1                           | 10–15 min (10)        | 15 min     | Keep in touch: no long gaps, slows decay. Not a habit. |
-  | Light   | 3                           | 15–20 min (15)        | 50 min     | Maintain, about a third of Steady.                     |
-  | Steady  | 4                           | 20–30 min (20)        | 1.5–2 h    | Build the habit and progress.                          |
-  | Serious | 6 (daily, one miss allowed) | 30 min–2 h (30)       | 3–10 h     | Faster progress.                                       |
+  | Template | Days a week | Minutes a day | Cost per week | For                                                    |
+  | -------- | ----------- | ------------- | ------------- | ------------------------------------------------------ |
+  | Paused   | 0           | 0             | 0             | —                                                      |
+  | Minimal  | 1           | 10            | 10 min        | Keep in touch: no long gaps, slows decay. Not a habit. |
+  | Light    | 3           | 15            | 45 min        | Maintain, about a third of Steady.                     |
+  | Steady   | 4           | 20            | 80 min        | Build the habit and progress.                          |
+  | Serious  | 6           | 30            | 3 h           | Faster progress.                                       |
 
-  A session counts once it reaches the level's minimum length. The numbers were
+  A template is only a preset: nothing stores the level, and a target that matches
+  none of them reads as Custom. A qualifying day counts toward the week on any
+  weekday, so a missed chosen day can be made up on another. The numbers were
   checked against habit research (one missed day doesn't matter, but a habit took
-  about four sessions a week), skill-decay research (decay follows the time since
+  about four days a week), skill-decay research (decay follows the time since
   the last practice) and maintenance dosing (about a third of the building volume).
   Sources are on kata y51x. Deep was merged into Serious, since the evidence
   doesn't separate them.
 
-- **A small step**: the smallest session that still counts, with a smaller
-  version for low days. Each is tagged with what it needs (clarity, physical
-  energy, little of either) so the daily check can match it.
 - **Accumulated time**: per week and in total ("Guitar: 2h 10m this week, 31h
   since June"). This is the reward, since a practice is never finished.
 - **A next step**: written at the end of a session and shown at the start of
   the next, so starting is already decided.
 
 **Weekly cap.** The user sets a weekly total, e.g. 8 h. The sum of all practices'
-levels (their typical minutes) must stay under it. Raising one practice past the
+targets (days times minutes a day) must stay under it. Raising one practice past the
 cap means lowering another. This is where burnout is caught: when planning, not
 after the crash.
 
-**Needs attention.** Practices are ranked by how many sessions behind their weekly
-target they are, given how much of the week is left. The top one to three show on
+**Needs attention.** Practices are ranked by how many days behind their weekly
+target they are, given how much of the week is left. A practice with chosen
+weekdays that is due today and still short of today's minutes comes first. The top one to three show on
 the home screen as suggestions.
 
 ## Daily check and effort level
@@ -112,16 +116,13 @@ The answers set the day's **effort level**:
 
 | Effort level | When        | Goal                                                                |
 | ------------ | ----------- | ------------------------------------------------------------------- |
-| Low          | mostly Low  | Non-zero: one small step, or one get-ready item                     |
-| Steady       | mixed       | Practices at their usual session length                             |
+| Low          | mostly Low  | Non-zero: some time on any practice, or one get-ready item          |
+| Steady       | mixed       | Practices at their daily target                                     |
 | Full         | mostly High | A good day for the practice furthest behind, or a long Flow session |
 
-Which answer is lowest also shapes what gets suggested: low clarity points to
-hands-on, repetitive things; low physical condition points to seated, mental ones.
-
 **Return card** (9xes). When the app opens after a long Stopped stretch (2 h by
-default, not the day's first open), the home screen leads with one small step: the
-top "needs attention" practice's small step, fitted to the effort level, or a
+default, not the day's first open), the home screen leads with one offer: the
+top "needs attention" practice as a Timed session of its daily target, or a
 get-ready item. One tap starts it, one tap dismisses it. It never mentions drift.
 There is no other drift detection and no nudging notification.
 
