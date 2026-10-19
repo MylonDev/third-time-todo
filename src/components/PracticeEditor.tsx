@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { usePractices } from '../store/practices';
 import type { Need, Practice, PracticeLevel } from '../types';
-import { LEVEL_ORDER, LEVELS, levelHint } from '../utils/practices';
+import { useSettings } from '../store/settings';
+import { LEVEL_ORDER, LEVELS, levelFits, levelHint, levelOverBy } from '../utils/practices';
+import { formatDuration } from '../utils/time';
 import { Modal } from './Modal';
 import { Segmented } from './Segmented';
 
@@ -63,8 +65,17 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
   const edit = usePractices((s) => s.edit);
   const remove = usePractices((s) => s.remove);
 
+  const all = usePractices((s) => s.practices);
+  const cap = useSettings((s) => s.weeklyCapMin);
+
   const [name, setName] = useState(practice?.name ?? '');
-  const [level, setLevel] = useState<PracticeLevel>(practice?.level ?? 'steady');
+  // A new practice starts at Steady, or the most that still fits under the cap.
+  const [level, setLevel] = useState<PracticeLevel>(
+    () =>
+      practice?.level ??
+      LEVEL_ORDER.findLast((l) => LEVELS[l].weekMin <= LEVELS.steady.weekMin && levelFits(all, undefined, l, cap)) ??
+      'paused'
+  );
   const [smallStep, setSmallStep] = useState(practice?.smallStep ?? '');
   const [smallNeeds, setSmallNeeds] = useState<Need[]>(practice?.smallNeeds ?? []);
   const [lowStep, setLowStep] = useState(practice?.lowStep ?? '');
@@ -72,6 +83,9 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const valid = name.trim() !== '';
+  // The nearest level above the ones that fit says how far over the cap the next step up would go.
+  const blocked = LEVEL_ORDER.find((l) => !levelFits(all, practice?.id, l, cap));
+  const overBy = blocked ? levelOverBy(all, practice?.id, blocked, cap) : 0;
   const title = practice ? 'Edit practice' : 'Add practice';
 
   const save = () => {
@@ -115,9 +129,20 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
           <Segmented<PracticeLevel>
             label="Level"
             value={level}
-            options={LEVEL_ORDER.map((l) => ({ value: l, label: LEVELS[l].label, hint: levelHint(l) }))}
+            options={LEVEL_ORDER.map((l) => ({
+              value: l,
+              label: LEVELS[l].label,
+              hint: levelHint(l),
+              disabled: !levelFits(all, practice?.id, l, cap),
+            }))}
             onChange={setLevel}
           />
+          {cap !== null && blocked && (
+            <p data-testid="cap-warning" className="text-sm text-debt">
+              Over your {formatDuration(cap * 60_000)} cap by {formatDuration(overBy * 60_000)}. Lower another practice or
+              raise the cap.
+            </p>
+          )}
         </div>
 
         <StepField

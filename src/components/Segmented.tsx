@@ -3,6 +3,7 @@ export interface SegmentOption<T extends string> {
   label: string;
   /** A second, smaller line under the label. */
   hint?: string;
+  disabled?: boolean;
 }
 
 /**
@@ -36,8 +37,9 @@ export function Segmented<T extends string>({
           key={o.value}
           type="button"
           aria-pressed={value === o.value}
+          disabled={o.disabled}
           onClick={() => onChange(o.value)}
-          className={`press flex-1 min-h-11 rounded-full text-sm font-semibold transition-colors cursor-pointer ${
+          className={`press flex-1 min-h-11 rounded-full text-sm font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
             dense ? 'px-1 py-1' : 'px-3'
           } ${
             value === o.value ? 'bg-accent text-on-accent' : 'text-text-muted hover:text-text'

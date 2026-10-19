@@ -4,8 +4,16 @@ import { usePractices } from '../store/practices';
 import { useSettings } from '../store/settings';
 import { useTimer } from '../store/timer';
 import type { TimeEntry } from '../types';
-import { describeLevel, describeSince, firstSessionAt, listPractices, practiceTime } from '../utils/practices';
+import {
+  describeLevel,
+  describeSince,
+  firstSessionAt,
+  listPractices,
+  plannedMinutes,
+  practiceTime,
+} from '../utils/practices';
 import { dayKeyOf, formatDuration, weekWindowOf, type DayWindow } from '../utils/time';
+import { CapModal } from './CapModal';
 import { PracticeEditor } from './PracticeEditor';
 
 /** "2h 10m this week · 31h since June". Nothing until the first session. */
@@ -39,6 +47,9 @@ export function PracticesView() {
   const dayEndHour = useSettings((s) => s.dayEndHour);
   const now = useNow();
   const week = weekWindowOf(dayKeyOf(now, dayEndHour), dayEndHour);
+  const capMin = useSettings((s) => s.weeklyCapMin);
+  const planned = plannedMinutes(practices);
+  const [capping, setCapping] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
 
@@ -58,6 +69,29 @@ export function PracticesView() {
           Add practice
         </button>
       </div>
+
+      {(practices.length > 0 || capMin !== null) && (
+        <div className="flex items-center justify-between gap-3 text-sm text-text-muted">
+          <div>
+            <p data-testid="planned">
+              Planned <span className="num text-text">{formatDuration(planned * 60_000)}</span> a week ·{' '}
+              {capMin === null ? 'no cap' : `cap ${formatDuration(capMin * 60_000)}`}
+            </p>
+            {capMin !== null && planned > capMin && (
+              <p data-testid="over-cap" className="font-semibold text-debt">
+                Over cap by {formatDuration((planned - capMin) * 60_000)}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setCapping(true)}
+            className="press min-h-11 shrink-0 cursor-pointer rounded-full border border-border px-4 font-medium text-text hover:border-border-strong"
+          >
+            {capMin === null ? 'Set cap' : 'Change cap'}
+          </button>
+        </div>
+      )}
 
       {practices.length === 0 ? (
         <div className="pop flex flex-col gap-1 rounded-3xl border border-dashed border-border-strong/50 p-4">
@@ -95,6 +129,7 @@ export function PracticesView() {
         </ul>
       )}
 
+      {capping && <CapModal onClose={() => setCapping(false)} />}
       {adding && <PracticeEditor onClose={() => setAdding(false)} />}
       {editingPractice && <PracticeEditor practice={editingPractice} onClose={() => setEditing(null)} />}
     </section>

@@ -7,9 +7,12 @@ import {
   firstSessionAt,
   LEVEL_ORDER,
   LEVELS,
+  levelFits,
   levelHint,
+  levelOverBy,
   listPractices,
   makePractice,
+  plannedMinutes,
   practiceSessions,
   practiceTime,
   removePractice,
@@ -146,6 +149,65 @@ describe('changing practices', () => {
   it('a lone practice keeps a usable order', () => {
     const [a] = three();
     expect(reorderPractices([a], a.id, 0, 9)[0].order).toBe(1);
+  });
+});
+
+// ── Weekly cap ────────────────────────────────────────────────────────────────
+
+const withLevels = (levels: Practice['level'][]) =>
+  levels.reduce<Practice[]>((ps, level, i) => [...ps, makePractice(ps, { ...fields, name: `P${i}`, level }, 1)], []);
+
+describe('planned time', () => {
+  it('adds the weekly minutes of every live practice', () => {
+    expect(plannedMinutes(withLevels(['steady', 'light', 'minimal']))).toBe(90 + 50 + 15);
+    expect(plannedMinutes([])).toBe(0);
+  });
+
+  it('counts a paused practice as nothing, and leaves out deleted ones', () => {
+    const ps = withLevels(['serious', 'paused', 'steady']);
+    expect(plannedMinutes(ps)).toBe(270);
+    expect(plannedMinutes(removePractice(ps, ps[0].id, 5))).toBe(90);
+  });
+});
+
+describe('fitting a level under the cap', () => {
+  const ps = withLevels(['steady', 'light']); // 140 min
+
+  it('fits anything with no cap', () => {
+    expect(levelFits(ps, undefined, 'serious', null)).toBe(true);
+    expect(levelOverBy(ps, undefined, 'serious', null)).toBe(0);
+  });
+
+  it('refuses a new practice at a level that would pass the cap, and says by how much', () => {
+    expect(levelFits(ps, undefined, 'minimal', 180)).toBe(true); // 155
+    expect(levelFits(ps, undefined, 'light', 180)).toBe(false); // 190
+    expect(levelOverBy(ps, undefined, 'light', 180)).toBe(10);
+    expect(levelOverBy(ps, undefined, 'serious', 180)).toBe(140);
+  });
+
+  it('fits a total exactly at the cap', () => {
+    expect(levelFits(ps, undefined, 'light', 190)).toBe(true);
+    expect(levelFits(ps, undefined, 'light', 189)).toBe(false);
+  });
+
+  it('counts a practice being edited at its new level, not its old one', () => {
+    // Raising Light to Steady: 90 + 90 = 180.
+    expect(levelFits(ps, ps[1].id, 'steady', 180)).toBe(true);
+    expect(levelFits(ps, ps[1].id, 'steady', 179)).toBe(false);
+    expect(levelOverBy(ps, ps[1].id, 'serious', 200)).toBe(70);
+  });
+
+  it('always allows a practice to keep or lower its level, even over the cap', () => {
+    // 140 planned against a 120 cap: over, but working it down is allowed.
+    expect(levelFits(ps, ps[0].id, 'steady', 120)).toBe(true);
+    expect(levelFits(ps, ps[0].id, 'light', 120)).toBe(true);
+    expect(levelFits(ps, ps[1].id, 'steady', 120)).toBe(false);
+    expect(levelFits(ps, undefined, 'paused', 120)).toBe(true);
+    expect(levelFits(ps, undefined, 'minimal', 120)).toBe(false);
+  });
+
+  it('ignores a deleted practice', () => {
+    expect(levelFits(removePractice(ps, ps[0].id, 5), undefined, 'steady', 140)).toBe(true);
   });
 });
 

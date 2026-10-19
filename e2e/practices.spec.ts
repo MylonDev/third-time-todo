@@ -13,6 +13,22 @@ async function startTimed(page: Page, minutes: number) {
   await expect(page.getByText(/^Timed running/)).toBeVisible();
 }
 
+/** Set the weekly cap from the Practices tab, which must be open. */
+async function setCap(page: Page, hours: number) {
+  await page.getByRole('button', { name: /^(Set|Change) cap$/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Weekly cap' });
+  await dialog.getByLabel('Hours a week').fill(String(hours));
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toHaveCount(0);
+}
+
+/** A level button in the open practice editor. */
+const level = (page: Page, name: string) =>
+  page
+    .getByRole('dialog')
+    .getByRole('group', { name: 'Level', exact: true })
+    .getByRole('button', { name: new RegExp(`^${name}`) });
+
 const timeLine = (page: Page, name: string) => page.getByRole('button', { name: `Edit ${name}` }).getByTestId('practice-time');
 
 test.describe('practices', () => {
@@ -373,6 +389,119 @@ test.describe('practices', () => {
       await advance(app, 30 * MIN);
       await expect(app.getByText('Stopped')).toBeVisible();
       await expect(app.getByRole('dialog')).toHaveCount(0);
+    });
+  });
+
+  test.describe('weekly cap', () => {
+    test('shows what is planned, with no cap until one is set', async ({ app }) => {
+      await openPractices(app);
+      await expect(app.getByTestId('planned')).toHaveCount(0);
+      await addPractice(app, 'Guitar', 'Steady');
+      await addPractice(app, 'Drawing', 'Light');
+      await addPractice(app, 'Spanish', 'Paused');
+      await expect(app.getByTestId('planned')).toHaveText('Planned 2h 20m a week · no cap');
+      await expect(app.getByTestId('over-cap')).toHaveCount(0);
+    });
+
+    test('sets, changes and removes the cap, and keeps it across a reload', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Steady');
+      await app.getByRole('button', { name: 'Set cap' }).click();
+      const dialog = app.getByRole('dialog', { name: 'Weekly cap' });
+      await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+      await expect(dialog.getByRole('button', { name: 'Remove cap' })).toHaveCount(0);
+      await dialog.getByLabel('Hours a week').fill('0');
+      await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+      await dialog.getByLabel('Hours a week').fill('8');
+      await dialog.getByRole('button', { name: 'Save' }).click();
+      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 30m a week · cap 8h');
+
+      await app.reload();
+      await openPractices(app);
+      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 30m a week · cap 8h');
+
+      await setCap(app, 8.5);
+      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 30m a week · cap 8h 30m');
+
+      await app.getByRole('button', { name: 'Change cap' }).click();
+      await app.getByRole('dialog', { name: 'Weekly cap' }).getByRole('button', { name: 'Remove cap' }).click();
+      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 30m a week · no cap');
+    });
+
+    test('a level that would pass the cap is disabled, and says why', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Steady');
+      await addPractice(app, 'Drawing', 'Light');
+      await setCap(app, 3); // 140 of 180 planned
+
+      await app.getByRole('button', { name: 'Add practice' }).click();
+      await expect(level(app, 'Serious')).toBeDisabled();
+      await expect(level(app, 'Steady')).toBeDisabled();
+      await expect(level(app, 'Light')).toBeDisabled();
+      await expect(level(app, 'Minimal')).toBeEnabled();
+      await expect(level(app, 'Paused')).toBeEnabled();
+      // Steady does not fit, so the new practice starts at the most that does.
+      await expect(level(app, 'Minimal')).toHaveAttribute('aria-pressed', 'true');
+      await expect(app.getByTestId('cap-warning')).toHaveText(
+        'Over your 3h cap by 10m. Lower another practice or raise the cap.'
+      );
+    });
+
+    test('Serious is out for a third practice under a 2h cap with Steady and Light', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Steady');
+      await addPractice(app, 'Drawing', 'Light');
+      await setCap(app, 2);
+      await app.getByRole('button', { name: 'Add practice' }).click();
+      await expect(level(app, 'Serious')).toBeDisabled();
+      // Already over the cap, so only Paused, which adds nothing, is left.
+      await expect(level(app, 'Minimal')).toBeDisabled();
+      await expect(level(app, 'Paused')).toBeEnabled();
+      await expect(level(app, 'Paused')).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    test('lowering the cap below the plan warns in the header and changes nothing', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Steady');
+      await addPractice(app, 'Drawing', 'Light');
+      await setCap(app, 8);
+      await expect(app.getByTestId('over-cap')).toHaveCount(0);
+      await setCap(app, 2);
+      await expect(app.getByTestId('over-cap')).toHaveText('Over cap by 20m');
+      await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('4× a week · 20 min');
+      await expect(app.getByRole('button', { name: 'Edit Drawing' })).toContainText('3× a week · 15 min');
+    });
+
+    test('an edited practice can keep or lower its level over the cap, but not raise it', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Steady');
+      await addPractice(app, 'Drawing', 'Light');
+      await setCap(app, 2);
+
+      await app.getByRole('button', { name: 'Edit Drawing' }).click();
+      await expect(level(app, 'Light')).toBeEnabled();
+      await expect(level(app, 'Minimal')).toBeEnabled();
+      await expect(level(app, 'Steady')).toBeDisabled();
+      await pickLevel(app, 'Minimal');
+      await app.getByRole('dialog', { name: 'Edit practice' }).getByRole('button', { name: 'Save' }).click();
+      // 90 + 15 = 105 of 120.
+      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 45m a week · cap 2h');
+      await expect(app.getByTestId('over-cap')).toHaveCount(0);
+
+      // Raising Drawing back to Light (90 + 50 = 140) is over the cap again.
+      await app.getByRole('button', { name: 'Edit Drawing' }).click();
+      await expect(level(app, 'Light')).toBeDisabled();
+      await expect(app.getByTestId('cap-warning')).toHaveText(
+        'Over your 2h cap by 20m. Lower another practice or raise the cap.'
+      );
+    });
+
+    test('with no cap every level is open', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Serious');
+      await app.getByRole('button', { name: 'Add practice' }).click();
+      await expect(level(app, 'Serious')).toBeEnabled();
+      await expect(app.getByTestId('cap-warning')).toHaveCount(0);
     });
   });
 });

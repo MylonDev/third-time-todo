@@ -95,6 +95,32 @@ export function reorderPractices(practices: Practice[], id: string, index: numbe
   return practices.map((p) => (p.id === id ? { ...p, order, updatedAt: now } : p));
 }
 
+// ── Weekly cap ────────────────────────────────────────────────────────────────
+
+/** What the live practices add up to in a week, in minutes, by their levels' `weekMin`. */
+export function plannedMinutes(practices: Practice[]): number {
+  return practices.filter(isLive).reduce((sum, p) => sum + LEVELS[p.level].weekMin, 0);
+}
+
+/**
+ * How many minutes over `cap` the practices would be if practice `id` (a new
+ * one when undefined or unknown) took `level`. Never blocks a level that asks
+ * for no more than the practice has now, so a lowered cap can still be
+ * worked down to. No cap is never over.
+ */
+export function levelOverBy(practices: Practice[], id: string | undefined, level: PracticeLevel, cap: number | null): number {
+  if (cap === null) return 0;
+  const current = practices.find((p) => p.id === id && isLive(p));
+  if (LEVELS[level].weekMin <= (current ? LEVELS[current.level].weekMin : 0)) return 0;
+  const others = plannedMinutes(practices.filter((p) => p.id !== id));
+  return Math.max(0, others + LEVELS[level].weekMin - cap);
+}
+
+/** Whether the practice can take `level` without going past the cap. */
+export function levelFits(practices: Practice[], id: string | undefined, level: PracticeLevel, cap: number | null): boolean {
+  return levelOverBy(practices, id, level, cap) === 0;
+}
+
 // ── Sessions and time ─────────────────────────────────────────────────────────
 //
 // Nothing here is stored: a practice's time is read from the ledger. Only Focus
