@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useSettings } from '../store/settings';
 import { useTimer } from '../store/timer';
-import { balanceOf, runningEntry, totalsFor } from '../utils/ledger';
+import { activeEntry, balanceOf, totalsFor } from '../utils/ledger';
 import { dayKeyOf, windowOf } from '../utils/time';
 import { useNow } from './useNow';
 
@@ -16,7 +16,7 @@ export function useDay() {
 
   const today = dayKeyOf(now, dayEndHour);
   const win = useMemo(() => windowOf(today, dayEndHour), [today, dayEndHour]);
-  const running = runningEntry(entries);
+  const running = activeEntry(entries, now);
   const totals = totalsFor(entries, win, now);
 
   return { now, today, win, running, totals, balance: balanceOf(totals) };

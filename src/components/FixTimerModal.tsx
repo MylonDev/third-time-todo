@@ -37,7 +37,7 @@ export function FixTimerModal({ onClose }: { onClose: () => void }) {
 
   const [minutes, setMinutes] = useState(10);
   const [was, setWas] = useState<Painted>(current?.state === 'should' ? 'want' : 'should');
-  const [then, setThen] = useState<Painted>(current?.state ?? 'stopped');
+  const [then, setThen] = useState<Painted>(current && current.state !== 'timed' ? current.state : 'stopped');
   const [error, setError] = useState<string | null>(null);
 
   const ms = minutes * 60_000;

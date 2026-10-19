@@ -1,4 +1,4 @@
-import type { Item, Recurrence, TimeEntry, TimerState } from '../types';
+import type { EntryState, Item, Recurrence, TimeEntry, TimerState } from '../types';
 
 /** The part of the settings that changes the numbers, so it follows you between devices. */
 export interface SyncedSettings {
@@ -10,9 +10,11 @@ export interface SyncedSettings {
 
 export interface EntryRow {
   id: string;
-  state: TimerState;
+  state: EntryState;
   started_at: number;
   ended_at: number | null;
+  /** Only present on Timed entries; the column is nullable. */
+  planned_ms?: number | null;
   updated_at: number;
   deleted_at: number | null;
 }
@@ -49,6 +51,8 @@ export function entryToRow(e: TimeEntry): EntryRow {
     state: e.state,
     started_at: e.startedAt,
     ended_at: e.endedAt,
+    // Left out unless set, so a Flow entry's row is the same as it always was.
+    ...(e.plannedMs !== undefined && { planned_ms: e.plannedMs }),
     updated_at: e.updatedAt,
     deleted_at: e.deletedAt ?? null,
   };
@@ -56,12 +60,14 @@ export function entryToRow(e: TimeEntry): EntryRow {
 
 export function rowToEntry(r: EntryRow): TimeEntry {
   const deletedAt = numOrUndef(r.deleted_at);
+  const plannedMs = numOrUndef(r.planned_ms ?? null);
   return {
     id: r.id,
     state: r.state,
     startedAt: num(r.started_at),
     endedAt: r.ended_at === null ? null : num(r.ended_at),
     updatedAt: num(r.updated_at),
+    ...(plannedMs !== undefined && { plannedMs }),
     ...(deletedAt !== undefined && { deletedAt }),
   };
 }

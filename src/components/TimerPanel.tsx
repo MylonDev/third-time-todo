@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useDay } from '../hooks/useDay';
+import { useSettleTimed } from '../hooks/useSettleTimed';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useSettings } from '../store/settings';
 import { useTimer } from '../store/timer';
@@ -8,6 +9,7 @@ import { formatClock, formatDuration } from '../utils/time';
 import { Scene } from './Scene';
 import { Segmented } from './Segmented';
 import { sceneInk, seasonOf, timeOfDayOf } from './sceneTheme';
+import { TimedStart } from './TimedStart';
 
 const LABEL: Record<TimerState, string> = { should: 'Focus', want: 'Rest' };
 
@@ -30,27 +32,34 @@ const TILE: Record<TimerState, { fill: string; sub: string; subRunning: string }
 export function TimerPanel({ onFix }: { onFix: () => void }) {
   const { now, running, totals, balance } = useDay();
   const start = useTimer((s) => s.start);
+  const startTimed = useTimer((s) => s.startTimed);
   const stop = useTimer((s) => s.stop);
   const targetMin = useSettings((s) => s.shouldTargetMin);
   const wakeLockOn = useSettings((s) => s.wakeLock);
   // Which kind of session the next start begins. Only chosen while stopped.
   const [mode, setMode] = useState<Mode>('flow');
 
+  useSettleTimed();
+
   const state = running?.state ?? null;
   const elapsed = running ? now - running.startedAt : 0;
+  // A Timed session counts down from its planned length.
+  const plannedMs = running?.state === 'timed' ? (running.plannedMs ?? 0) : null;
   const inDebt = balance < 0;
 
   const screenOn = useWakeLock(running !== undefined && wakeLockOn);
 
   const targetMs = targetMin ? targetMin * 60_000 : null;
-  const progress = Math.min(1, totals.shouldMs / (targetMs ?? DEFAULT_SCALE_MS));
+  const progress =
+    plannedMs !== null ? Math.min(1, elapsed / plannedMs) : Math.min(1, totals.shouldMs / (targetMs ?? DEFAULT_SCALE_MS));
   const targetProgress = targetMs ? Math.min(1, totals.shouldMs / targetMs) : 0;
   const reached = targetMs !== null && totals.shouldMs >= targetMs;
 
   const scene = state ?? 'stopped';
   const date = new Date(now);
   const time = timeOfDayOf(date);
-  const clock = running ? formatClock(elapsed) : '0:00';
+  const clock = plannedMs !== null ? formatClock(Math.max(0, plannedMs - elapsed)) : running ? formatClock(elapsed) : '0:00';
+  const headline = state === 'timed' ? 'Timed running' : state ? `${LABEL[state]} running` : 'Stopped';
 
   return (
     <section aria-label="Timer" className="flex flex-col gap-4">
@@ -59,7 +68,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
         <div className="absolute left-[18px] top-4" style={{ color: sceneInk(scene, time), transition: 'color .7s' }}>
           <p className="section-label !text-current flex items-center gap-2 !tracking-[0.14em]">
             {running && <span className="beat size-2 rounded-full bg-current" aria-hidden="true" />}
-            {state ? `${LABEL[state]} running` : 'Stopped'}
+            {headline}
           </p>
           <p
             data-testid="elapsed"
@@ -67,6 +76,11 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           >
             {clock}
           </p>
+          {plannedMs !== null && (
+            <p data-testid="planned" className="font-timer mt-2 text-sm font-semibold">
+              of {formatDuration(plannedMs)}
+            </p>
+          )}
         </div>
       </div>
 
@@ -91,9 +105,9 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
 
       {!running && <Segmented<Mode> label="Timer mode" value={mode} options={[...MODES]} onChange={setMode} />}
 
-      {!running && mode === 'timed' && <p className="text-sm text-text-muted">Timed sessions are coming soon.</p>}
+      {!running && mode === 'timed' && <TimedStart onStart={startTimed} />}
 
-      {(running || mode === 'flow') && (
+      {(state === 'should' || state === 'want' || (!running && mode === 'flow')) && (
         <div role="group" aria-label="Timer state" className="grid grid-cols-2 gap-3">
           {(['should', 'want'] as const).map((s) => {
             const active = state === s;
@@ -132,13 +146,15 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           >
             Stop
           </button>
-          <button
-            type="button"
-            onClick={onFix}
-            className="press min-h-12 cursor-pointer rounded-3xl border border-border bg-transparent font-medium text-text-muted hover:text-text"
-          >
-            Fix timer
-          </button>
+          {state !== 'timed' && (
+            <button
+              type="button"
+              onClick={onFix}
+              className="press min-h-12 cursor-pointer rounded-3xl border border-border bg-transparent font-medium text-text-muted hover:text-text"
+            >
+              Fix timer
+            </button>
+          )}
         </div>
       )}
 
@@ -146,6 +162,12 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
         <p data-testid="totals">
           Today: Focus <span className="num text-text">{formatDuration(totals.shouldMs)}</span> · Rest{' '}
           <span className="num text-text">{formatDuration(totals.wantMs)}</span>
+          {totals.timedMs > 0 && (
+            <>
+              {' '}
+              · Timed <span className="num text-text">{formatDuration(totals.timedMs)}</span>
+            </>
+          )}
         </p>
         {screenOn && <p data-testid="screen-on">Screen stays on while timing.</p>}
         {targetMs !== null && (
