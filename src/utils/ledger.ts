@@ -24,7 +24,7 @@ export function timedEnd(e: TimeEntry): number {
  * The moment an entry stops counting. A Timed entry never counts past its
  * planned length, even if it was left open or a merge stretched it.
  */
-function endOf(e: TimeEntry, now: number): number {
+export function endOf(e: TimeEntry, now: number): number {
   const end = e.endedAt ?? now;
   return e.state === 'timed' ? Math.min(end, timedEnd(e)) : end;
 }

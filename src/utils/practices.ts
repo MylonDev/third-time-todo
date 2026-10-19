@@ -1,4 +1,6 @@
-import type { Need, Practice, PracticeLevel } from '../types';
+import type { Need, Practice, PracticeLevel, TimeEntry } from '../types';
+import { endOf } from './ledger';
+import type { DayWindow } from './time';
 
 /**
  * What each commitment level asks for. One table, so a level is easy to change.
@@ -91,4 +93,79 @@ export function reorderPractices(practices: Practice[], id: string, index: numbe
   else if (before !== undefined) order = before + 1;
   else if (after !== undefined) order = after - 1;
   return practices.map((p) => (p.id === id ? { ...p, order, updatedAt: now } : p));
+}
+
+// ── Sessions and time ─────────────────────────────────────────────────────────
+//
+// Nothing here is stored: a practice's time is read from the ledger. Only Focus
+// and Timed entries count as time; Rest only keeps a Flow stretch in one piece.
+
+/** One sitting with a practice: when it began, and how much Focus or Timed time it held. */
+export interface PracticeSession {
+  startedAt: number;
+  ms: number;
+}
+
+/**
+ * The practice's sessions, oldest first. A Timed entry is a session. A run of
+ * back-to-back Flow entries for the practice is one session, with the Focus in
+ * it as its length: Rest inside the run does not count, and a gap (a Stop), a
+ * Timed entry or another practice's time starts a new one.
+ */
+export function practiceSessions(entries: TimeEntry[], practiceId: string, now: number): PracticeSession[] {
+  const mine = entries
+    .filter((e) => e.deletedAt === undefined && e.practiceId === practiceId)
+    .sort((a, b) => a.startedAt - b.startedAt);
+  const sessions: PracticeSession[] = [];
+  let current: PracticeSession | undefined;
+  let flowEnd: number | undefined;
+  for (const e of mine) {
+    const end = endOf(e, now);
+    if (e.state === 'timed') {
+      sessions.push({ startedAt: e.startedAt, ms: Math.max(0, end - e.startedAt) });
+      flowEnd = undefined;
+      continue;
+    }
+    if (flowEnd !== e.startedAt || !current) {
+      current = { startedAt: e.startedAt, ms: 0 };
+      sessions.push(current);
+    }
+    if (e.state === 'should') current.ms += Math.max(0, end - e.startedAt);
+    flowEnd = end;
+  }
+  return sessions.filter((s) => s.ms > 0);
+}
+
+/**
+ * Focus and Timed time on a practice inside `win`. Entries are clipped to the
+ * window rather than split, as in `totalsFor`.
+ */
+export function practiceTime(entries: TimeEntry[], practiceId: string, win: DayWindow, now: number): number {
+  let ms = 0;
+  for (const e of entries) {
+    if (e.deletedAt !== undefined || e.practiceId !== practiceId || e.state === 'want') continue;
+    const start = Math.max(e.startedAt, win.start);
+    const end = Math.min(endOf(e, now), win.end);
+    if (end > start) ms += end - start;
+  }
+  return ms;
+}
+
+/** When the first Focus or Timed time on the practice began, or undefined if there is none. */
+export function firstSessionAt(entries: TimeEntry[], practiceId: string): number | undefined {
+  let first: number | undefined;
+  for (const e of entries) {
+    if (e.deletedAt !== undefined || e.practiceId !== practiceId || e.state === 'want') continue;
+    if (e.endedAt !== null && e.endedAt <= e.startedAt) continue;
+    if (first === undefined || e.startedAt < first) first = e.startedAt;
+  }
+  return first;
+}
+
+/** "since June", or "since June 2025" when it was another year. */
+export function describeSince(firstAt: number, now: number): string {
+  const first = new Date(firstAt);
+  const sameYear = first.getFullYear() === new Date(now).getFullYear();
+  const month = first.toLocaleDateString(undefined, { month: 'long' });
+  return `since ${month}${sameYear ? '' : ` ${first.getFullYear()}`}`;
 }

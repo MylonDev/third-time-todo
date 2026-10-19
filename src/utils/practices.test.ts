@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import type { Practice } from '../types';
+import type { Practice, TimeEntry } from '../types';
 import {
   describeLevel,
+  describeSince,
+  firstSessionAt,
   LEVEL_ORDER,
   LEVELS,
   levelHint,
   listPractices,
   makePractice,
+  practiceSessions,
+  practiceTime,
   removePractice,
   reorderPractices,
   setNextStep,
@@ -141,5 +145,134 @@ describe('changing practices', () => {
   it('a lone practice keeps a usable order', () => {
     const [a] = three();
     expect(reorderPractices([a], a.id, 0, 9)[0].order).toBe(1);
+  });
+});
+
+// ── Sessions and time ─────────────────────────────────────────────────────────
+
+const MIN = 60_000;
+const T0 = new Date(2026, 9, 12, 10, 0).getTime();
+const at = (min: number) => T0 + min * MIN;
+
+let seq = 0;
+function entry(
+  state: TimeEntry['state'],
+  from: number,
+  to: number | null,
+  practiceId?: string,
+  extra: Partial<TimeEntry> = {}
+): TimeEntry {
+  return { id: `e${seq++}`, state, startedAt: at(from), endedAt: to === null ? null : at(to), practiceId, updatedAt: 1, ...extra };
+}
+const timedEntry = (from: number, planned: number, to: number | null, practiceId?: string) =>
+  entry('timed', from, to, practiceId, { plannedMs: planned * MIN });
+
+const lengths = (entries: TimeEntry[], id: string, now = at(1000)) =>
+  practiceSessions(entries, id, now).map((s) => [(s.startedAt - T0) / MIN, s.ms / MIN]);
+
+describe('practice sessions', () => {
+  it('is one session for a Flow stretch split by Rest, counting only the Focus', () => {
+    const entries = [entry('should', 0, 25, 'g'), entry('want', 25, 30, 'g'), entry('should', 30, 40, 'g')];
+    expect(lengths(entries, 'g')).toEqual([[0, 35]]);
+  });
+
+  it('splits on a gap', () => {
+    const entries = [entry('should', 0, 25, 'g'), entry('should', 26, 40, 'g')];
+    expect(lengths(entries, 'g')).toEqual([[0, 25], [26, 14]]);
+  });
+
+  it('splits when another practice, or none, comes between', () => {
+    const entries = [entry('should', 0, 20, 'g'), entry('should', 20, 40, 'd'), entry('should', 40, 60, 'g')];
+    expect(lengths(entries, 'g')).toEqual([[0, 20], [40, 20]]);
+    expect(lengths(entries, 'd')).toEqual([[20, 20]]);
+    expect(lengths([entry('should', 0, 20, 'g'), entry('should', 20, 40), entry('should', 40, 60, 'g')], 'g')).toEqual([
+      [0, 20],
+      [40, 20],
+    ]);
+  });
+
+  it('leaves out time that is all Rest', () => {
+    expect(lengths([entry('want', 0, 30, 'g')], 'g')).toEqual([]);
+  });
+
+  it('counts a Timed session that ended early by its real length', () => {
+    expect(lengths([timedEntry(0, 30, 12, 'g')], 'g')).toEqual([[0, 12]]);
+  });
+
+  it('never counts a Timed session past its planned length', () => {
+    expect(lengths([timedEntry(0, 20, null, 'g')], 'g', at(90))).toEqual([[0, 20]]);
+    expect(lengths([timedEntry(0, 20, 45, 'g')], 'g')).toEqual([[0, 20]]);
+  });
+
+  it('keeps a Timed session apart from a Flow stretch next to it', () => {
+    const entries = [entry('should', 0, 20, 'g'), timedEntry(20, 15, 35, 'g'), entry('should', 35, 50, 'g')];
+    expect(lengths(entries, 'g')).toEqual([[0, 20], [20, 15], [35, 15]]);
+  });
+
+  it('counts a running entry up to now', () => {
+    expect(lengths([entry('should', 0, null, 'g')], 'g', at(18))).toEqual([[0, 18]]);
+  });
+
+  it('ignores deleted entries and other practices, and sorts oldest first', () => {
+    const entries = [
+      entry('should', 60, 80, 'g'),
+      entry('should', 0, 30, 'g', { deletedAt: 5 }),
+      entry('should', 100, 120, 'd'),
+      entry('should', 10, 40, 'g'),
+    ];
+    expect(lengths(entries, 'g')).toEqual([[10, 30], [60, 20]]);
+  });
+});
+
+describe('practice time', () => {
+  const win = { start: at(0), end: at(100) };
+
+  it('adds Focus and Timed, leaving Rest out', () => {
+    const entries = [entry('should', 0, 25, 'g'), entry('want', 25, 30, 'g'), timedEntry(30, 20, 50, 'g')];
+    expect(practiceTime(entries, 'g', win, at(200))).toBe(45 * MIN);
+  });
+
+  it('clips entries to the window', () => {
+    const entries = [entry('should', -30, 10, 'g'), entry('should', 90, 130, 'g')];
+    expect(practiceTime(entries, 'g', win, at(200))).toBe(20 * MIN);
+  });
+
+  it('counts a running entry up to now, and ignores other practices and deleted entries', () => {
+    const entries = [
+      entry('should', 0, null, 'g'),
+      entry('should', 0, 50, 'd'),
+      entry('should', 0, 50, 'g', { deletedAt: 3 }),
+    ];
+    expect(practiceTime(entries, 'g', win, at(15))).toBe(15 * MIN);
+  });
+});
+
+describe('first session', () => {
+  it('is the earliest Focus or Timed start, ignoring Rest, deleted and others', () => {
+    const entries = [
+      entry('want', 0, 10, 'g'),
+      entry('should', 5, 20, 'g', { deletedAt: 1 }),
+      entry('should', 2, 8, 'd'),
+      timedEntry(40, 20, 60, 'g'),
+      entry('should', 70, 80, 'g'),
+    ];
+    expect(firstSessionAt(entries, 'g')).toBe(at(40));
+  });
+
+  it('is undefined with no time', () => {
+    expect(firstSessionAt([entry('want', 0, 10, 'g')], 'g')).toBeUndefined();
+    expect(firstSessionAt([], 'g')).toBeUndefined();
+  });
+});
+
+describe('since', () => {
+  const month = (y: number, m: number) => new Date(y, m, 15).toLocaleDateString(undefined, { month: 'long' });
+
+  it('names the month of the first session', () => {
+    expect(describeSince(new Date(2026, 5, 3).getTime(), at(0))).toBe(`since ${month(2026, 5)}`);
+  });
+
+  it('adds the year when it was another one', () => {
+    expect(describeSince(new Date(2025, 5, 3).getTime(), at(0))).toBe(`since ${month(2025, 5)} 2025`);
   });
 });

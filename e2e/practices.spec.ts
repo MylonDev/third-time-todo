@@ -1,4 +1,19 @@
-import { addPractice, expect, openPractices, pickLevel, test } from './helpers';
+import type { Page } from '@playwright/test';
+import { addPractice, advance, expect, MIN, openPractices, pickLevel, startState, test } from './helpers';
+
+/** Choose what the next session is for, in the timer's "For" picker. */
+async function pickFor(page: Page, name: string) {
+  await page.getByLabel('For', { exact: true }).selectOption({ label: name });
+}
+
+async function startTimed(page: Page, minutes: number) {
+  await page.getByRole('group', { name: 'Timer mode' }).getByRole('button', { name: 'Timed' }).click();
+  await page.getByRole('spinbutton', { name: 'Custom minutes' }).fill(String(minutes));
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await expect(page.getByText(/^Timed running/)).toBeVisible();
+}
+
+const timeLine = (page: Page, name: string) => page.getByRole('button', { name: `Edit ${name}` }).getByTestId('practice-time');
 
 test.describe('practices', () => {
   test('starts empty, and says what a practice is', async ({ app }) => {
@@ -118,5 +133,120 @@ test.describe('practices', () => {
     await dialog.getByLabel('Name').fill('Nothing');
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(app.getByText('No practices yet.')).toBeVisible();
+  });
+
+
+  test.describe('time on a practice', () => {
+    test('has no For picker until there is a practice, and lists Paused ones last', async ({ app }) => {
+      await expect(app.getByLabel('For', { exact: true })).toHaveCount(0);
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Paused');
+      await addPractice(app, 'Drawing');
+      await expect(app.getByLabel('For', { exact: true }).locator('option')).toHaveText(['None', 'Drawing', 'Guitar (paused)']);
+    });
+
+    test('shows nothing on a row until it has time', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await expect(timeLine(app, 'Guitar')).toHaveCount(0);
+    });
+
+    test('a Timed session shows in the row, this week and in total', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await pickFor(app, 'Guitar');
+      // Steady counts from 20 minutes, which is where the length starts.
+      await app.getByRole('group', { name: 'Timer mode' }).getByRole('button', { name: 'Timed' }).click();
+      await expect(app.getByRole('spinbutton', { name: 'Custom minutes' })).toHaveValue('20');
+      await app.getByRole('button', { name: 'Start', exact: true }).click();
+      await expect(app.getByText('Timed running · Guitar')).toBeVisible();
+      await advance(app, 20 * MIN);
+      await expect(app.getByText('Stopped')).toBeVisible();
+
+      await expect(timeLine(app, 'Guitar')).toHaveText('20m this week · 20m since October');
+    });
+
+    test('picking a practice presets the Timed length to its level minimum', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Serious');
+      await addPractice(app, 'Drawing', 'Light');
+      await app.getByRole('group', { name: 'Timer mode' }).getByRole('button', { name: 'Timed' }).click();
+      const minutes = app.getByRole('spinbutton', { name: 'Custom minutes' });
+      await expect(minutes).toHaveValue('20');
+      await pickFor(app, 'Guitar');
+      await expect(minutes).toHaveValue('30');
+      await pickFor(app, 'Drawing');
+      await expect(minutes).toHaveValue('15');
+    });
+
+    test('Flow Focus, Rest, then Focus is one session of the Focus time', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await pickFor(app, 'Guitar');
+      await startState(app, 'Focus');
+      await expect(app.getByText('Focus running · Guitar')).toBeVisible();
+      await advance(app, 25 * MIN);
+      await startState(app, 'Rest');
+      await expect(app.getByText('Rest running · Guitar')).toBeVisible();
+      await advance(app, 5 * MIN);
+      await startState(app, 'Focus');
+      await advance(app, 10 * MIN);
+      await app.getByRole('button', { name: 'Stop' }).click();
+
+      // 25 + 10 minutes of Focus; the 5 minutes of Rest are not practice time.
+      await expect(timeLine(app, 'Guitar')).toHaveText('35m this week · 35m since October');
+    });
+
+    test('the picker is locked while a session runs', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await addPractice(app, 'Drawing');
+      await pickFor(app, 'Guitar');
+      await startState(app, 'Focus');
+      const picker = app.getByLabel('For', { exact: true });
+      await expect(picker).toBeDisabled();
+      await expect(picker).toHaveValue(await picker.locator('option', { hasText: 'Guitar' }).getAttribute('value') ?? '');
+      await app.getByRole('button', { name: 'Stop' }).click();
+      await expect(picker).toBeEnabled();
+      await expect(app.getByText('Stopped')).toBeVisible();
+    });
+
+    test('time with no practice is not counted for one', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await startState(app, 'Focus');
+      await advance(app, 30 * MIN);
+      await app.getByRole('button', { name: 'Stop' }).click();
+      await expect(timeLine(app, 'Guitar')).toHaveCount(0);
+    });
+
+    test('a new week starts the weekly figure over, and keeps the total', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await pickFor(app, 'Guitar');
+      await startTimed(app, 20);
+      await advance(app, 20 * MIN);
+      await expect(timeLine(app, 'Guitar')).toHaveText('20m this week · 20m since October');
+
+      // Monday 19 Oct, 10:00.
+      await advance(app, 7 * 24 * 60 * MIN - 20 * MIN);
+      await expect(timeLine(app, 'Guitar')).toHaveText('0m this week · 20m since October');
+    });
+
+    test('a deleted practice leaves the picker', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar');
+      await addPractice(app, 'Drawing');
+      await pickFor(app, 'Guitar');
+      await startTimed(app, 20);
+      await advance(app, 20 * MIN);
+
+      await app.getByRole('button', { name: 'Edit Guitar' }).click();
+      const dialog = app.getByRole('dialog', { name: 'Edit practice' });
+      await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Delete Guitar' }).click();
+      await expect(app.getByLabel('For', { exact: true }).locator('option')).toHaveText(['None', 'Drawing']);
+      await expect(timeLine(app, 'Drawing')).toHaveCount(0);
+    });
   });
 });
