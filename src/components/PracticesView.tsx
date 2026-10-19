@@ -4,7 +4,7 @@ import { usePractices } from '../store/practices';
 import { useSettings } from '../store/settings';
 import { useTimer } from '../store/timer';
 import type { TimeEntry } from '../types';
-import { describeLevel, describeSince, firstSessionAt, listPractices, plannedMinutes, practiceTime } from '../utils/practices';
+import { describeSince, describeTarget, firstSessionAt, isPaused, listPractices, plannedMinutes, practiceTime } from '../utils/practices';
 import { dayKeyOf, formatDuration, weekWindowOf, type DayWindow } from '../utils/time';
 import { CapModal } from './CapModal';
 import { PracticeEditor } from './PracticeEditor';
@@ -89,11 +89,11 @@ export function PracticesView() {
                 type="button"
                 onClick={() => setEditing(p.id)}
                 aria-label={`Edit ${p.name}`}
-                data-paused={p.level === 'paused'}
-                className={`flex min-h-[54px] w-full cursor-pointer flex-col justify-center py-2 text-left ${p.level === 'paused' ? 'opacity-50' : ''}`}
+                data-paused={isPaused(p)}
+                className={`flex min-h-[54px] w-full cursor-pointer flex-col justify-center py-2 text-left ${isPaused(p) ? 'opacity-50' : ''}`}
               >
                 <span className="block break-words text-[1.0625rem] font-medium">{p.name}</span>
-                <span className="font-timer text-[0.625rem] uppercase tracking-[0.08em] text-text-muted">{describeLevel(p.level)}</span>
+                <span className="font-timer text-[0.625rem] uppercase tracking-[0.08em] text-text-muted">{describeTarget(p)}</span>
                 <TimeLine entries={entries} practiceId={p.id} week={week} now={now} />
                 {p.nextStep && (
                   <span data-testid="practice-next-step" className="break-words text-sm text-text-muted">

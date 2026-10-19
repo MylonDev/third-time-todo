@@ -35,7 +35,7 @@ export function NeedsAttention({ selectedId, onPick }: { selectedId: string | un
                 selectedId === practice.id ? 'font-semibold text-accent' : 'text-text'
               }`}
             >
-              {practice.name} · {done} of {done + left} this week · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+              {practice.name} · {done} of {done + left} {done + left === 1 ? 'day' : 'days'} this week · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
             </button>
           </li>
         ))}

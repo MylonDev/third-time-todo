@@ -17,17 +17,24 @@ export function Segmented<T extends string>({
   onChange,
   label,
   className = '',
+  grid = false,
 }: {
   value: T | null;
   options: SegmentOption<T>[];
   onChange: (v: T) => void;
   label: string;
   className?: string;
+  /** Lay the buttons out three to a row instead of in one, for more than a narrow screen holds. */
+  grid?: boolean;
 }) {
   // With a hint each button is narrow and two lines tall, so it gets corners instead of a pill.
   const dense = options.some((o) => o.hint);
   return (
-    <div role="group" aria-label={label} className={`flex gap-1 border border-border p-1 ${dense ? 'rounded-2xl' : 'rounded-full'} ${className}`}>
+    <div
+      role="group"
+      aria-label={label}
+      className={`${grid ? 'grid grid-cols-3' : 'flex'} gap-1 border border-border p-1 ${dense ? 'rounded-2xl' : 'rounded-full'} ${className}`}
+    >
       {options.map((o) => (
         <button
           key={o.value}

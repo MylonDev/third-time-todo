@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { addPractice, advance, expect, MIN, openPractices, pickLevel, startState, test } from './helpers';
+import { addPractice, advance, expect, MIN, openPractices, pickTemplate, startState, test } from './helpers';
 
 /** Choose what the next session is for, in the timer's "For" picker. */
 async function pickFor(page: Page, name: string) {
@@ -22,12 +22,35 @@ async function setCap(page: Page, hours: number) {
   await expect(dialog).toHaveCount(0);
 }
 
-/** A level button in the open practice editor. */
-const level = (page: Page, name: string) =>
+/** A template button in the open practice editor. */
+const template = (page: Page, name: string) =>
   page
     .getByRole('dialog')
-    .getByRole('group', { name: 'Level', exact: true })
+    .getByRole('group', { name: 'Template', exact: true })
     .getByRole('button', { name: new RegExp(`^${name}`) });
+
+const daysGroup = (page: Page) => page.getByRole('dialog').getByRole('group', { name: 'Days a week', exact: true });
+const minutesField = (page: Page) => page.getByRole('dialog').getByRole('spinbutton', { name: 'Minutes a day' });
+const weekday = (page: Page, name: string) => page.getByRole('dialog').getByRole('group', { name: 'Weekdays' }).getByRole('button', { name, exact: true });
+
+/** Add a Custom practice from the Practices tab: either some days a week or chosen weekdays, and the minutes a day. */
+async function addCustom(page: Page, name: string, target: { days?: number; weekdays?: string[]; minutes: number }) {
+  await page.getByRole('button', { name: 'Add practice' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Add practice' });
+  await dialog.getByLabel('Name').fill(name);
+  await pickTemplate(page, 'Custom');
+  if (target.weekdays) {
+    await dialog.getByRole('button', { name: 'Specific days' }).click();
+    for (const day of target.weekdays) await weekday(page, day).click();
+  } else {
+    await daysGroup(page)
+      .getByRole('button', { name: String(target.days), exact: true })
+      .click();
+  }
+  await minutesField(page).fill(String(target.minutes));
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toHaveCount(0);
+}
 
 const timeLine = (page: Page, name: string) => page.getByRole('button', { name: `Edit ${name}` }).getByTestId('practice-time');
 
@@ -38,7 +61,7 @@ test.describe('practices', () => {
     await expect(app.getByRole('button', { name: /^Edit / })).toHaveCount(0);
   });
 
-  test('adds a practice with its steps and what they need', async ({ app }) => {
+  test('adds a practice with just a name and a template', async ({ app }) => {
     await openPractices(app);
     await app.getByRole('button', { name: 'Add practice' }).click();
     const dialog = app.getByRole('dialog', { name: 'Add practice' });
@@ -49,44 +72,159 @@ test.describe('practices', () => {
     await dialog.getByLabel('Name').fill('Guitar');
     await expect(save).toBeEnabled();
 
-    // Steady is the default, and each level shows its target.
-    await expect(dialog.getByRole('button', { name: /^Steady/ })).toHaveAttribute('aria-pressed', 'true');
-    await expect(dialog.getByRole('button', { name: /^Steady/ })).toContainText('4× · 20 min');
+    // Steady is the default, and each template shows its target.
+    await expect(template(app, 'Steady')).toHaveAttribute('aria-pressed', 'true');
+    await expect(template(app, 'Steady')).toContainText('4 days · 20 min');
+    await expect(template(app, 'Minimal')).toContainText('1 day · 10 min');
+    await expect(template(app, 'Serious')).toContainText('6 days · 30 min');
+    await expect(template(app, 'Custom')).toHaveAttribute('aria-pressed', 'false');
 
-    await dialog.getByLabel('Small step', { exact: true }).fill('Play one scale');
-    await dialog.getByRole('group', { name: 'Small step needs' }).getByRole('button', { name: 'Clarity' }).click();
-    await dialog.getByLabel('Low-day step', { exact: true }).fill('Hold the guitar');
-    await expect(dialog.getByRole('group', { name: 'Low-day step needs' }).getByText('Little of either')).toBeVisible();
+    // There is nothing else to fill in: no steps, and no custom fields until asked for.
+    await expect(dialog.getByRole('textbox')).toHaveCount(1);
+    await expect(daysGroup(app)).toHaveCount(0);
+    await expect(minutesField(app)).toHaveCount(0);
     await save.click();
 
     const row = app.getByRole('button', { name: 'Edit Guitar' });
-    await expect(row).toContainText('4× a week · 20 min');
+    await expect(row).toContainText('Steady · 4 days a week · 20 min');
     await expect(app.getByText('No practices yet.')).toHaveCount(0);
 
-    // Everything was kept.
+    // The template was kept.
     await row.click();
-    const editor = app.getByRole('dialog', { name: 'Edit practice' });
-    const smallNeeds = editor.getByRole('group', { name: 'Small step needs' });
-    await expect(editor.getByLabel('Small step', { exact: true })).toHaveValue('Play one scale');
-    await expect(editor.getByLabel('Low-day step', { exact: true })).toHaveValue('Hold the guitar');
-    await expect(smallNeeds.getByRole('button', { name: 'Clarity' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(smallNeeds.getByRole('button', { name: 'Energy' })).toHaveAttribute('aria-pressed', 'false');
-    await expect(smallNeeds.getByText('Little of either')).toHaveCount(0);
+    await expect(template(app, 'Steady')).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('changes the level and the name', async ({ app }) => {
+  test('changes the template and the name', async ({ app }) => {
     await openPractices(app);
     await addPractice(app, 'Guitar', 'Serious');
-    await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('6× a week · 30 min');
+    await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('Serious · 6 days a week · 30 min');
 
     await app.getByRole('button', { name: 'Edit Guitar' }).click();
     const dialog = app.getByRole('dialog', { name: 'Edit practice' });
-    await pickLevel(app, 'Light');
+    await pickTemplate(app, 'Light');
     await dialog.getByLabel('Name').fill('Classical guitar');
     await dialog.getByRole('button', { name: 'Save' }).click();
 
     await expect(app.getByRole('button', { name: 'Edit Guitar' })).toHaveCount(0);
-    await expect(app.getByRole('button', { name: 'Edit Classical guitar' })).toContainText('3× a week · 15 min');
+    await expect(app.getByRole('button', { name: 'Edit Classical guitar' })).toContainText('Light · 3 days a week · 15 min');
+  });
+
+  test.describe('a custom target', () => {
+    test('Custom reveals the days and minutes, starting from the template it came from', async ({ app }) => {
+      await openPractices(app);
+      await app.getByRole('button', { name: 'Add practice' }).click();
+      await pickTemplate(app, 'Custom');
+      await expect(template(app, 'Custom')).toHaveAttribute('aria-pressed', 'true');
+      await expect(template(app, 'Steady')).toHaveAttribute('aria-pressed', 'false');
+      // Steady was picked, so Custom starts at its 4 days and 20 minutes.
+      await expect(daysGroup(app).getByRole('button', { name: '4', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await expect(minutesField(app)).toHaveValue('20');
+      await expect(app.getByRole('dialog').getByRole('button', { name: 'Specific days' })).toHaveAttribute('aria-pressed', 'false');
+      await expect(app.getByRole('dialog').getByRole('group', { name: 'Weekdays' })).toHaveCount(0);
+    });
+
+    test('saves its own days and minutes, and shows them without a template name', async ({ app }) => {
+      await openPractices(app);
+      await addCustom(app, 'Guitar', { days: 5, minutes: 25 });
+      await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('5 days a week · 25 min');
+      await expect(app.getByRole('button', { name: 'Edit Guitar' })).not.toContainText('Steady');
+      await expect(app.getByTestId('planned')).toHaveText('Planned 2h 5m a week · no cap');
+
+      // It opens as Custom, with what was set.
+      await app.getByRole('button', { name: 'Edit Guitar' }).click();
+      await expect(template(app, 'Custom')).toHaveAttribute('aria-pressed', 'true');
+      await expect(daysGroup(app).getByRole('button', { name: '5', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await expect(minutesField(app)).toHaveValue('25');
+    });
+
+    test('flips back to a template chip when one is chosen, hiding the fields', async ({ app }) => {
+      await openPractices(app);
+      await addCustom(app, 'Guitar', { days: 5, minutes: 25 });
+      await app.getByRole('button', { name: 'Edit Guitar' }).click();
+      await pickTemplate(app, 'Light');
+      await expect(template(app, 'Light')).toHaveAttribute('aria-pressed', 'true');
+      await expect(template(app, 'Custom')).toHaveAttribute('aria-pressed', 'false');
+      await expect(daysGroup(app)).toHaveCount(0);
+      await expect(minutesField(app)).toHaveCount(0);
+      await app.getByRole('dialog', { name: 'Edit practice' }).getByRole('button', { name: 'Save' }).click();
+      await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('Light · 3 days a week · 15 min');
+    });
+
+    test('Specific days swap the days for a count of the chosen weekdays', async ({ app }) => {
+      await openPractices(app);
+      await app.getByRole('button', { name: 'Add practice' }).click();
+      const dialog = app.getByRole('dialog', { name: 'Add practice' });
+      await dialog.getByLabel('Name').fill('Guitar');
+      await pickTemplate(app, 'Custom');
+      await dialog.getByRole('button', { name: 'Specific days' }).click();
+
+      // No days chosen yet: the days control is gone and Save waits.
+      await expect(daysGroup(app)).toHaveCount(0);
+      await expect(app.getByTestId('chosen-days')).toHaveText('Pick the days below');
+      await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+      await weekday(app, 'Mon').click();
+      await weekday(app, 'Fri').click();
+      await weekday(app, 'Wed').click();
+      await expect(app.getByTestId('chosen-days')).toHaveText('3 days');
+      await weekday(app, 'Wed').click();
+      await expect(app.getByTestId('chosen-days')).toHaveText('2 days');
+      await weekday(app, 'Wed').click();
+      await minutesField(app).fill('30');
+      await dialog.getByRole('button', { name: 'Save' }).click();
+
+      // Listed in week order, whatever order they were picked in.
+      await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('Mon Wed Fri · 30 min');
+      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 30m a week · no cap');
+
+      await app.reload();
+      await openPractices(app);
+      await app.getByRole('button', { name: 'Edit Guitar' }).click();
+      await expect(app.getByRole('dialog').getByRole('button', { name: 'Specific days' })).toHaveAttribute('aria-pressed', 'true');
+      for (const [day, on] of [
+        ['Mon', 'true'],
+        ['Tue', 'false'],
+        ['Wed', 'true'],
+        ['Thu', 'false'],
+        ['Fri', 'true'],
+      ] as const) {
+        await expect(weekday(app, day)).toHaveAttribute('aria-pressed', on);
+      }
+    });
+
+    test('turning Specific days off keeps the count and clears the chips', async ({ app }) => {
+      await openPractices(app);
+      await addCustom(app, 'Guitar', { weekdays: ['Tue', 'Thu', 'Sat', 'Sun'], minutes: 20 });
+      await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('Tue Thu Sat Sun · 20 min');
+
+      await app.getByRole('button', { name: 'Edit Guitar' }).click();
+      await app.getByRole('dialog').getByRole('button', { name: 'Specific days' }).click();
+      await expect(app.getByRole('dialog').getByRole('group', { name: 'Weekdays' })).toHaveCount(0);
+      await expect(daysGroup(app).getByRole('button', { name: '4', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await app.getByRole('dialog', { name: 'Edit practice' }).getByRole('button', { name: 'Save' }).click();
+      // Four days of 20 minutes is Steady again.
+      await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('Steady · 4 days a week · 20 min');
+    });
+
+    test('the minutes run from 1 to 600', async ({ app }) => {
+      await openPractices(app);
+      await app.getByRole('button', { name: 'Add practice' }).click();
+      const dialog = app.getByRole('dialog', { name: 'Add practice' });
+      await dialog.getByLabel('Name').fill('Guitar');
+      await pickTemplate(app, 'Custom');
+      const save = dialog.getByRole('button', { name: 'Save' });
+      for (const [value, ok] of [
+        ['0', false],
+        ['601', false],
+        ['', false],
+        ['1', true],
+        ['600', true],
+      ] as const) {
+        await minutesField(app).fill(value);
+        if (ok) await expect(save).toBeEnabled();
+        else await expect(save).toBeDisabled();
+      }
+    });
   });
 
   test('a paused practice is dimmed and listed last', async ({ app }) => {
@@ -98,7 +236,7 @@ test.describe('practices', () => {
     await expect(rows).toHaveText([/Guitar/, /Drawing/, /Spanish/]);
 
     await app.getByRole('button', { name: 'Edit Guitar' }).click();
-    await pickLevel(app, 'Paused');
+    await pickTemplate(app, 'Paused');
     await app.getByRole('dialog', { name: 'Edit practice' }).getByRole('button', { name: 'Save' }).click();
 
     await expect(rows).toHaveText([/Drawing/, /Spanish/, /Guitar/]);
@@ -108,7 +246,7 @@ test.describe('practices', () => {
 
     // Un-pausing puts it back where it was.
     await app.getByRole('button', { name: 'Edit Guitar' }).click();
-    await pickLevel(app, 'Light');
+    await pickTemplate(app, 'Light');
     await app.getByRole('dialog', { name: 'Edit practice' }).getByRole('button', { name: 'Save' }).click();
     await expect(rows).toHaveText([/Guitar/, /Drawing/, /Spanish/]);
   });
@@ -139,7 +277,7 @@ test.describe('practices', () => {
     await addPractice(app, 'Guitar', 'Minimal');
     await app.reload();
     await openPractices(app);
-    await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('1× a week · 10 min');
+    await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('Minimal · 1 day a week · 10 min');
   });
 
   test('cancel adds nothing', async ({ app }) => {
@@ -181,7 +319,7 @@ test.describe('practices', () => {
       await expect(timeLine(app, 'Guitar')).toHaveText('20m this week · 20m since October');
     });
 
-    test('picking a practice presets the Timed length to its level minimum', async ({ app }) => {
+    test('picking a practice presets the Timed length to its minutes a day', async ({ app }) => {
       await openPractices(app);
       await addPractice(app, 'Guitar', 'Serious');
       await addPractice(app, 'Drawing', 'Light');
@@ -192,6 +330,14 @@ test.describe('practices', () => {
       await expect(minutes).toHaveValue('30');
       await pickFor(app, 'Drawing');
       await expect(minutes).toHaveValue('15');
+    });
+
+    test('a Custom practice presets the Timed length to its own minutes', async ({ app }) => {
+      await openPractices(app);
+      await addCustom(app, 'Chess', { weekdays: ['Sat'], minutes: 45 });
+      await app.getByRole('group', { name: 'Timer mode' }).getByRole('button', { name: 'Timed' }).click();
+      await pickFor(app, 'Chess');
+      await expect(app.getByRole('spinbutton', { name: 'Custom minutes' })).toHaveValue('45');
     });
 
     test('Flow Focus, Rest, then Focus is one session of the Focus time', async ({ app }) => {
@@ -396,7 +542,8 @@ test.describe('practices', () => {
       await addPractice(app, 'Guitar', 'Steady');
       await addPractice(app, 'Drawing', 'Light');
       await addPractice(app, 'Spanish', 'Paused');
-      await expect(app.getByTestId('planned')).toHaveText('Planned 2h 20m a week · no cap');
+      // Days times minutes: 4 x 20 + 3 x 15.
+      await expect(app.getByTestId('planned')).toHaveText('Planned 2h 5m a week · no cap');
       await expect(app.getByTestId('over-cap')).toHaveCount(0);
     });
 
@@ -411,48 +558,49 @@ test.describe('practices', () => {
       await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
       await dialog.getByLabel('Hours a week').fill('8');
       await dialog.getByRole('button', { name: 'Save' }).click();
-      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 30m a week · cap 8h');
+      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 20m a week · cap 8h');
 
       await app.reload();
       await openPractices(app);
-      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 30m a week · cap 8h');
+      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 20m a week · cap 8h');
 
       await setCap(app, 8.5);
-      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 30m a week · cap 8h 30m');
+      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 20m a week · cap 8h 30m');
 
       await app.getByRole('button', { name: 'Change cap' }).click();
       await app.getByRole('dialog', { name: 'Weekly cap' }).getByRole('button', { name: 'Remove cap' }).click();
-      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 30m a week · no cap');
+      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 20m a week · no cap');
     });
 
-    test('a level that would pass the cap is disabled, and says why', async ({ app }) => {
+    test('a template that would pass the cap is disabled, and says why', async ({ app }) => {
       await openPractices(app);
       await addPractice(app, 'Guitar', 'Steady');
       await addPractice(app, 'Drawing', 'Light');
-      await setCap(app, 3); // 140 of 180 planned
+      await setCap(app, 2.5); // 125 of 150 planned
 
       await app.getByRole('button', { name: 'Add practice' }).click();
-      await expect(level(app, 'Serious')).toBeDisabled();
-      await expect(level(app, 'Steady')).toBeDisabled();
-      await expect(level(app, 'Light')).toBeDisabled();
-      await expect(level(app, 'Minimal')).toBeEnabled();
-      await expect(level(app, 'Paused')).toBeEnabled();
+      await expect(template(app, 'Serious')).toBeDisabled(); // 305
+      await expect(template(app, 'Steady')).toBeDisabled(); // 205
+      await expect(template(app, 'Light')).toBeDisabled(); // 170
+      await expect(template(app, 'Minimal')).toBeEnabled(); // 135
+      await expect(template(app, 'Paused')).toBeEnabled();
+      await expect(template(app, 'Custom')).toBeEnabled();
       // Steady does not fit, so the new practice starts at the most that does.
-      await expect(level(app, 'Minimal')).toHaveAttribute('aria-pressed', 'true');
-      await expect(app.getByTestId('cap-warning')).toHaveText('Over your 3h cap by 10m. Lower another practice or raise the cap.');
+      await expect(template(app, 'Minimal')).toHaveAttribute('aria-pressed', 'true');
+      await expect(app.getByTestId('cap-warning')).toHaveText('Over your 2h 30m cap by 20m. Lower another practice or raise the cap.');
     });
 
-    test('Serious is out for a third practice under a 2h cap with Steady and Light', async ({ app }) => {
+    test('only Paused is left for a third practice when the plan is already over a 2h cap', async ({ app }) => {
       await openPractices(app);
       await addPractice(app, 'Guitar', 'Steady');
       await addPractice(app, 'Drawing', 'Light');
-      await setCap(app, 2);
+      await setCap(app, 2); // 125 of 120 planned
       await app.getByRole('button', { name: 'Add practice' }).click();
-      await expect(level(app, 'Serious')).toBeDisabled();
-      // Already over the cap, so only Paused, which adds nothing, is left.
-      await expect(level(app, 'Minimal')).toBeDisabled();
-      await expect(level(app, 'Paused')).toBeEnabled();
-      await expect(level(app, 'Paused')).toHaveAttribute('aria-pressed', 'true');
+      await expect(template(app, 'Serious')).toBeDisabled();
+      await expect(template(app, 'Minimal')).toBeDisabled();
+      await expect(template(app, 'Paused')).toBeEnabled();
+      await expect(template(app, 'Paused')).toHaveAttribute('aria-pressed', 'true');
+      await expect(app.getByTestId('cap-warning')).toHaveText('Over your 2h cap by 15m. Lower another practice or raise the cap.');
     });
 
     test('lowering the cap below the plan warns in the header and changes nothing', async ({ app }) => {
@@ -462,39 +610,82 @@ test.describe('practices', () => {
       await setCap(app, 8);
       await expect(app.getByTestId('over-cap')).toHaveCount(0);
       await setCap(app, 2);
-      await expect(app.getByTestId('over-cap')).toHaveText('Over cap by 20m');
-      await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('4× a week · 20 min');
-      await expect(app.getByRole('button', { name: 'Edit Drawing' })).toContainText('3× a week · 15 min');
+      await expect(app.getByTestId('over-cap')).toHaveText('Over cap by 5m');
+      await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('4 days a week · 20 min');
+      await expect(app.getByRole('button', { name: 'Edit Drawing' })).toContainText('3 days a week · 15 min');
     });
 
-    test('an edited practice can keep or lower its level over the cap, but not raise it', async ({ app }) => {
+    test('an edited practice can keep or lower its cost over the cap, but not raise it', async ({ app }) => {
       await openPractices(app);
       await addPractice(app, 'Guitar', 'Steady');
       await addPractice(app, 'Drawing', 'Light');
       await setCap(app, 2);
 
       await app.getByRole('button', { name: 'Edit Drawing' }).click();
-      await expect(level(app, 'Light')).toBeEnabled();
-      await expect(level(app, 'Minimal')).toBeEnabled();
-      await expect(level(app, 'Steady')).toBeDisabled();
-      await pickLevel(app, 'Minimal');
+      await expect(template(app, 'Light')).toBeEnabled();
+      await expect(template(app, 'Minimal')).toBeEnabled();
+      await expect(template(app, 'Steady')).toBeDisabled();
+      await pickTemplate(app, 'Minimal');
       await app.getByRole('dialog', { name: 'Edit practice' }).getByRole('button', { name: 'Save' }).click();
-      // 90 + 15 = 105 of 120.
-      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 45m a week · cap 2h');
+      // 80 + 10 = 90 of 120.
+      await expect(app.getByTestId('planned')).toHaveText('Planned 1h 30m a week · cap 2h');
       await expect(app.getByTestId('over-cap')).toHaveCount(0);
 
-      // Raising Drawing back to Light (90 + 50 = 140) is over the cap again.
+      // Raising Drawing back to Light (80 + 45 = 125) is over the cap again.
       await app.getByRole('button', { name: 'Edit Drawing' }).click();
-      await expect(level(app, 'Light')).toBeDisabled();
-      await expect(app.getByTestId('cap-warning')).toHaveText('Over your 2h cap by 20m. Lower another practice or raise the cap.');
+      await expect(template(app, 'Light')).toBeDisabled();
+      await expect(app.getByTestId('cap-warning')).toHaveText('Over your 2h cap by 5m. Lower another practice or raise the cap.');
     });
 
-    test('with no cap every level is open', async ({ app }) => {
+    test('with no cap every template is open', async ({ app }) => {
       await openPractices(app);
       await addPractice(app, 'Guitar', 'Serious');
       await app.getByRole('button', { name: 'Add practice' }).click();
-      await expect(level(app, 'Serious')).toBeEnabled();
+      await expect(template(app, 'Serious')).toBeEnabled();
       await expect(app.getByTestId('cap-warning')).toHaveCount(0);
+    });
+
+    test('a Custom target over the cap shows the warning and blocks Save', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Steady');
+      await addPractice(app, 'Drawing', 'Light');
+      await setCap(app, 2.5); // 125 of 150 planned
+
+      await app.getByRole('button', { name: 'Add practice' }).click();
+      const dialog = app.getByRole('dialog', { name: 'Add practice' });
+      await dialog.getByLabel('Name').fill('Chess');
+      await pickTemplate(app, 'Custom'); // from Minimal: 1 day, 10 minutes
+      const save = dialog.getByRole('button', { name: 'Save' });
+      await expect(save).toBeEnabled();
+
+      // 7 x 10 = 70 on top of 125 is 45 over.
+      await daysGroup(app).getByRole('button', { name: '7', exact: true }).click();
+      await expect(save).toBeDisabled();
+      await expect(app.getByTestId('cap-warning')).toHaveText('Over your 2h 30m cap by 45m. Lower another practice or raise the cap.');
+
+      // 125 + 2 x 10 fits. 2 x 13 is 1 over.
+      await daysGroup(app).getByRole('button', { name: '2', exact: true }).click();
+      await expect(save).toBeEnabled();
+      await minutesField(app).fill('13');
+      await expect(save).toBeDisabled();
+      await expect(app.getByTestId('cap-warning')).toHaveText('Over your 2h 30m cap by 1m. Lower another practice or raise the cap.');
+    });
+
+    test('a Custom target over the cap can be kept or lowered, but not raised', async ({ app }) => {
+      await openPractices(app);
+      await addCustom(app, 'Guitar', { days: 7, minutes: 60 }); // 420 a week
+      await setCap(app, 2);
+
+      await app.getByRole('button', { name: 'Edit Guitar' }).click();
+      const save = app.getByRole('dialog', { name: 'Edit practice' }).getByRole('button', { name: 'Save' });
+      // Unchanged is allowed, though it is over the cap.
+      await expect(save).toBeEnabled();
+      await minutesField(app).fill('61');
+      await expect(save).toBeDisabled();
+      await minutesField(app).fill('59');
+      await expect(save).toBeEnabled();
+      await save.click();
+      await expect(app.getByRole('button', { name: 'Edit Guitar' })).toContainText('7 days a week · 59 min');
     });
   });
 
@@ -519,11 +710,11 @@ test.describe('practices', () => {
       await addPractice(app, 'Guitar', 'Paused');
       await expect(card(app)).toBeVisible();
       await timedSession(app, 'Spanish', 10);
-      // The one session a week is done, and Paused has no target.
+      // The one day a week is done, and Paused has no target.
       await expect(card(app)).toHaveCount(0);
     });
 
-    test('lists the three furthest behind, most sessions left first, leaving out Paused', async ({ app }) => {
+    test('lists the three furthest behind, most days left first, leaving out Paused', async ({ app }) => {
       await openPractices(app);
       await addPractice(app, 'Chess', 'Minimal');
       await addPractice(app, 'Spanish', 'Minimal');
@@ -531,27 +722,75 @@ test.describe('practices', () => {
       await addPractice(app, 'Guitar', 'Steady');
       await addPractice(app, 'Piano', 'Paused');
       await expect(card(app).getByRole('button')).toHaveText([
-        'Guitar · 0 of 4 this week · 7 days left',
-        'Drawing · 0 of 3 this week · 7 days left',
-        'Chess · 0 of 1 this week · 7 days left',
+        'Guitar · 0 of 4 days this week · 7 days left',
+        'Drawing · 0 of 3 days this week · 7 days left',
+        'Chess · 0 of 1 day this week · 7 days left',
       ]);
     });
 
-    test('counts sessions that reach the level minimum, and the days left', async ({ app }) => {
+    test('counts a day by the minutes added up, and the days left', async ({ app }) => {
       await openPractices(app);
       await addPractice(app, 'Guitar', 'Steady');
       await timedSession(app, 'Guitar', 19); // under 20 minutes
-      await expect(card(app).getByRole('button')).toHaveText('Guitar · 0 of 4 this week · 7 days left');
-      await timedSession(app, 'Guitar', 20);
-      await expect(card(app).getByRole('button')).toHaveText('Guitar · 1 of 4 this week · 7 days left');
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 0 of 4 days this week · 7 days left');
+      await timedSession(app, 'Guitar', 1); // 20 minutes in the day
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 1 of 4 days this week · 7 days left');
 
       // Friday has three days left, Sunday one. The week's count stays until Monday.
       await advance(app, 4 * 24 * 60 * MIN);
-      await expect(card(app).getByRole('button')).toHaveText('Guitar · 1 of 4 this week · 3 days left');
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 1 of 4 days this week · 3 days left');
       await advance(app, 2 * 24 * 60 * MIN);
-      await expect(card(app).getByRole('button')).toHaveText('Guitar · 1 of 4 this week · 1 day left');
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 1 of 4 days this week · 1 day left');
       await advance(app, 24 * 60 * MIN);
-      await expect(card(app).getByRole('button')).toHaveText('Guitar · 0 of 4 this week · 7 days left');
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 0 of 4 days this week · 7 days left');
+    });
+
+    test('minutes on different days do not add up', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Steady');
+      await timedSession(app, 'Guitar', 19);
+      await advance(app, 24 * 60 * MIN);
+      await timedSession(app, 'Guitar', 19);
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 0 of 4 days this week · 6 days left');
+    });
+
+    test('a Flow stretch and a Timed session on one day add up', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Steady');
+      await pickFor(app, 'Guitar');
+      await startState(app, 'Focus');
+      await advance(app, 12 * MIN);
+      await app.getByRole('button', { name: 'Stop' }).click();
+      await app.getByRole('dialog', { name: 'Next step for Guitar' }).getByRole('button', { name: 'Skip' }).click();
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 0 of 4 days this week · 7 days left');
+
+      await timedSession(app, 'Guitar', 8);
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 1 of 4 days this week · 7 days left');
+    });
+
+    test('chosen weekdays decide the days left, falling back to the rest of the week', async ({ app }) => {
+      await openPractices(app);
+      await addCustom(app, 'Guitar', { weekdays: ['Mon', 'Wed', 'Fri'], minutes: 30 });
+      const button = card(app).getByRole('button');
+      await expect(button).toHaveText('Guitar · 0 of 3 days this week · 3 days left'); // Monday
+      await advance(app, 24 * 60 * MIN);
+      await expect(button).toHaveText('Guitar · 0 of 3 days this week · 2 days left'); // Tuesday: Wed, Fri
+      await advance(app, 2 * 24 * 60 * MIN);
+      await expect(button).toHaveText('Guitar · 0 of 3 days this week · 1 day left'); // Thursday: Fri
+      await advance(app, 2 * 24 * 60 * MIN);
+      await expect(button).toHaveText('Guitar · 0 of 3 days this week · 2 days left'); // Saturday: none chosen left, so Sat and Sun
+    });
+
+    test('a practice due today comes first, until today is done', async ({ app }) => {
+      await openPractices(app);
+      await addCustom(app, 'Chess', { weekdays: ['Fri', 'Sat'], minutes: 20 });
+      await addPractice(app, 'Guitar', 'Steady');
+      // Friday: Guitar is further behind (4 left in 3 days), but Chess is due today (2 left in 2 days).
+      await advance(app, 4 * 24 * 60 * MIN);
+      await expect(card(app).getByRole('button')).toHaveText(['Chess · 0 of 2 days this week · 2 days left', 'Guitar · 0 of 4 days this week · 3 days left']);
+
+      await timedSession(app, 'Chess', 20);
+      await expect(card(app).getByRole('button')).toHaveText(['Guitar · 0 of 4 days this week · 3 days left', 'Chess · 1 of 2 days this week · 2 days left']);
     });
 
     test('tapping one picks it for the next session, and starts nothing', async ({ app }) => {
@@ -569,7 +808,7 @@ test.describe('practices', () => {
       await expect(card(app).getByRole('button', { name: /^Guitar/ })).toHaveAttribute('aria-pressed', 'false');
       await expect(app.getByText('Stopped')).toBeVisible();
 
-      // Timed starts at its level's minimum, as when picked from the list.
+      // Timed starts at its minutes a day, as when picked from the list.
       await app.getByRole('group', { name: 'Timer mode' }).getByRole('button', { name: 'Timed' }).click();
       await expect(app.getByRole('spinbutton', { name: 'Custom minutes' })).toHaveValue('15');
       await card(app)

@@ -136,7 +136,7 @@ describe('row mapping', () => {
       level: 'steady',
       small_step: 'Scale',
       low_step: '',
-      small_needs: ['energy'],
+      small_needs: ['legacy'],
       low_needs: [],
       next_step: null,
       sort_order: 1,
