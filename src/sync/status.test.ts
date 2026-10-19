@@ -10,18 +10,36 @@ describe('sync meta migration', () => {
     },
   };
 
-  it('adds the practices cursors to a version 1 state, keeping the others', () => {
+  const v2 = {
+    userId: 'u1',
+    cursors: {
+      pushed: { entries: 5, items: 6, practices: 8, settings: 7 },
+      pulled: { entries: '10', items: '11', practices: '13', settings: '12' },
+    },
+  };
+
+  it('brings a version 1 state up to date, keeping the others and starting the new tables from zero', () => {
     expect(migrateSyncMeta(v1, 1)).toEqual({
       userId: 'u1',
       cursors: {
-        pushed: { entries: 5, items: 6, practices: 0, settings: 7 },
-        pulled: { entries: '10', items: '11', practices: null, settings: '12' },
+        pushed: { entries: 5, items: 6, practices: 0, getReadyDays: 0, settings: 7 },
+        pulled: { entries: '10', items: '11', practices: null, getReadyDays: null, settings: '12' },
+      },
+    });
+  });
+
+  it('adds only the Get ready cursors to a version 2 state, keeping the practices cursors', () => {
+    expect(migrateSyncMeta(v2, 2)).toEqual({
+      userId: 'u1',
+      cursors: {
+        pushed: { entries: 5, items: 6, practices: 8, getReadyDays: 0, settings: 7 },
+        pulled: { entries: '10', items: '11', practices: '13', getReadyDays: null, settings: '12' },
       },
     });
   });
 
   it('leaves a current state as it is', () => {
-    const v2 = migrateSyncMeta(v1, 1);
-    expect(migrateSyncMeta(v2, 2)).toBe(v2);
+    const v3 = migrateSyncMeta(v2, 2);
+    expect(migrateSyncMeta(v3, 3)).toBe(v3);
   });
 });

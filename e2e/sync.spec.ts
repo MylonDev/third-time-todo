@@ -312,6 +312,65 @@ test.describe('syncing', () => {
     await expect(app.getByRole('button', { name: 'Edit Painting' })).toContainText('6× a week · 30 min');
   });
 
+  test('sends the get ready steps in the settings upsert', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    await signIn(app);
+    await expect(app.getByText('Signed in as')).toBeVisible();
+    const field = app.getByRole('textbox', { name: 'Add a get ready step' });
+    await field.fill('Water');
+    await field.press('Enter');
+    await app.getByRole('button', { name: 'Done' }).click();
+    await advance(app, 2000);
+
+    await expect
+      .poll(() => mock.writes.filter((w) => w.table === 'user_settings' && JSON.stringify(w.body).includes('get_ready_steps')).length)
+      .toBeGreaterThan(0);
+    const write = mock.writes.filter((w) => w.table === 'user_settings').at(-1)!;
+    expect(write.url).toContain('on_conflict=user_id');
+    expect(write.body).toEqual([expect.objectContaining({ user_id: USER.id, get_ready_steps: [{ id: expect.any(String), text: 'Water' }] })]);
+  });
+
+  test('sends a get ready day to the server, owned by the signed-in user', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    await signIn(app);
+    await expect(app.getByText('Signed in as')).toBeVisible();
+    const field = app.getByRole('textbox', { name: 'Add a get ready step' });
+    await field.fill('Water');
+    await field.press('Enter');
+    await app.getByRole('button', { name: 'Done' }).click();
+    await advance(app, 2000);
+
+    await app.getByRole('group', { name: 'Timer state' }).getByRole('button', { name: 'Focus', exact: true }).click();
+    const dialog = app.getByRole('dialog', { name: 'Get ready' });
+    await dialog.getByRole('checkbox', { name: 'Water' }).check();
+    await dialog.getByRole('button', { name: 'Start', exact: true }).click();
+    await advance(app, 2000);
+
+    await expect.poll(() => mock.writes.filter((w) => w.table === 'get_ready_days').length).toBeGreaterThan(0);
+    const write = mock.writes.filter((w) => w.table === 'get_ready_days').at(-1)!;
+    expect(write.url).toContain('on_conflict=user_id%2Cid');
+    expect(write.body).toEqual([expect.objectContaining({ id: '2026-10-12', done: [expect.any(String)], skipped: false, user_id: USER.id })]);
+  });
+
+  test('shows get ready steps another device set', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    mock.serve['user_settings'] = [
+      {
+        day_end_hour: 0,
+        should_target_min: null,
+        weekly_cap_min: null,
+        get_ready_steps: [{ id: 'from-phone', text: 'Stretch' }],
+        updated_at: 1_760_000_000_000,
+        server_updated_at: '2026-10-12T09:00:00.000001+00:00',
+      },
+    ];
+    await signIn(app);
+    await expect(app.getByText('Signed in as')).toBeVisible();
+    await advance(app, 2000);
+
+    await expect(app.getByRole('textbox', { name: 'Get ready step 1' })).toHaveValue('Stretch');
+  });
+
   test('works with no sign-in at all', async ({ app }) => {
     await addItem(app, 'Should', 'Just local');
     await app.reload();

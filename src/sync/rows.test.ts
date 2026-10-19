@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import type { Item, Practice, TimeEntry } from '../types';
-import { entryToRow, itemToRow, practiceToRow, rowToEntry, rowToItem, rowToPractice, rowToSettings, settingsToRow } from './rows';
+import type { GetReadyDay, Item, Practice, TimeEntry } from '../types';
+import {
+  entryToRow,
+  getReadyDayToRow,
+  itemToRow,
+  practiceToRow,
+  rowToEntry,
+  rowToGetReadyDay,
+  rowToItem,
+  rowToPractice,
+  rowToSettings,
+  settingsToRow,
+} from './rows';
 
 describe('row mapping', () => {
   it('round-trips an open entry', () => {
@@ -133,15 +144,32 @@ describe('row mapping', () => {
     expect(p.updatedAt).toBe(5);
   });
 
+  it('round-trips a Get ready day, writing no tombstone', () => {
+    const d: GetReadyDay = { id: '2026-10-12', done: ['water', 'desk'], skipped: false, updatedAt: 9 };
+    const row = getReadyDayToRow(d);
+    expect(row).toEqual({ id: '2026-10-12', done: ['water', 'desk'], skipped: false, updated_at: 9 });
+    expect(rowToGetReadyDay(row)).toEqual(d);
+  });
+
+  it('reads a bigint string in a Get ready day as a number', () => {
+    const row = { ...getReadyDayToRow({ id: 'd', done: [], skipped: true, updatedAt: 1 }), updated_at: '1760000000000' as unknown as number };
+    expect(rowToGetReadyDay(row)).toEqual({ id: 'd', done: [], skipped: true, updatedAt: 1760000000000 });
+  });
+
   it('round-trips settings', () => {
-    const s = { dayEndHour: 3, shouldTargetMin: 240, weeklyCapMin: 480, updatedAt: 7 };
-    expect(settingsToRow(s)).toMatchObject({ weekly_cap_min: 480 });
+    const s = { dayEndHour: 3, shouldTargetMin: 240, weeklyCapMin: 480, getReadySteps: [{ id: 'w', text: 'Water' }], updatedAt: 7 };
+    expect(settingsToRow(s)).toMatchObject({ weekly_cap_min: 480, get_ready_steps: [{ id: 'w', text: 'Water' }] });
     expect(rowToSettings(settingsToRow(s))).toEqual(s);
   });
 
   it('round-trips settings with no cap, and reads a row without the column as no cap', () => {
-    const s = { dayEndHour: 0, shouldTargetMin: null, weeklyCapMin: null, updatedAt: 7 };
+    const s = { dayEndHour: 0, shouldTargetMin: null, weeklyCapMin: null, getReadySteps: [], updatedAt: 7 };
     expect(rowToSettings(settingsToRow(s))).toEqual(s);
     expect(rowToSettings({ day_end_hour: 0, should_target_min: null, updated_at: 7 }).weeklyCapMin).toBeNull();
+  });
+
+  it('reads a settings row that predates Get ready as no steps', () => {
+    expect(rowToSettings({ day_end_hour: 0, should_target_min: null, updated_at: 7 }).getReadySteps).toEqual([]);
+    expect(rowToSettings({ day_end_hour: 0, should_target_min: null, get_ready_steps: null, updated_at: 7 }).getReadySteps).toEqual([]);
   });
 });

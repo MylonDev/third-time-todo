@@ -3,6 +3,7 @@ import { useSettings } from '../store/settings';
 import type { Theme } from '../types';
 import { requestNotificationPermission } from '../utils/notifications';
 import { AccountSection } from './AccountSection';
+import { GetReadySettings } from './GetReadySettings';
 import { Modal } from './Modal';
 import { Segmented } from './Segmented';
 
@@ -88,6 +89,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           className="switch"
         />
       </label>
+
+      <GetReadySettings />
 
       <div className="flex flex-col gap-1.5">
         <span className="section-label">Theme</span>

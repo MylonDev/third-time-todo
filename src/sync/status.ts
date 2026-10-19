@@ -28,17 +28,31 @@ interface SyncMeta {
   set: (userId: string | null, cursors: Cursors) => void;
 }
 
-/** Version 1 cursors had no practices table. Start it from the beginning, as a fresh device would. */
+/**
+ * Older cursors lack the tables added since: practices in version 2, Get ready days
+ * in version 3. Each starts from the beginning, as a fresh device would.
+ */
 export function migrateSyncMeta(state: unknown, version: number): SyncMeta {
-  const meta = state as SyncMeta;
-  if (version >= 2) return meta;
-  return {
-    ...meta,
-    cursors: {
-      pushed: { ...meta.cursors.pushed, practices: 0 },
-      pulled: { ...meta.cursors.pulled, practices: null },
-    },
-  };
+  let meta = state as SyncMeta;
+  if (version < 2) {
+    meta = {
+      ...meta,
+      cursors: {
+        pushed: { ...meta.cursors.pushed, practices: 0 },
+        pulled: { ...meta.cursors.pulled, practices: null },
+      },
+    };
+  }
+  if (version < 3) {
+    meta = {
+      ...meta,
+      cursors: {
+        pushed: { ...meta.cursors.pushed, getReadyDays: 0 },
+        pulled: { ...meta.cursors.pulled, getReadyDays: null },
+      },
+    };
+  }
+  return meta;
 }
 
 /** Where sync has got to. Kept, so a restart doesn't re-send or re-fetch everything. */
@@ -49,6 +63,6 @@ export const useSyncMeta = create<SyncMeta>()(
       cursors: FRESH_CURSORS,
       set: (userId, cursors) => set({ userId, cursors }),
     }),
-    { name: 'tt2-sync', version: 2, migrate: migrateSyncMeta },
+    { name: 'tt2-sync', version: 3, migrate: migrateSyncMeta },
   ),
 );

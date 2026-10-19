@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Item, Practice, TimeEntry } from '../types';
+import type { GetReadyDay, Item, Practice, TimeEntry } from '../types';
 import { applyFix, startState, stopTimer } from '../utils/ledger';
+import { recordGetReady } from '../utils/getReady';
 import { completeItem, makeItem, removeItem, updateItem } from '../utils/items';
 import { makePractice, removePractice, setNextStep, updatePractice } from '../utils/practices';
 import { FRESH_CURSORS, mergeIncoming, syncOnce, type Cursors, type Local, type Pull, type Remote, type Snapshot } from './engine';
@@ -17,6 +18,7 @@ class FakeServer implements Remote {
   private entries = new Map<string, { row: TimeEntry; seq: number }>();
   private items = new Map<string, { row: Item; seq: number }>();
   private practices = new Map<string, { row: Practice; seq: number }>();
+  private getReadyDays = new Map<string, { row: GetReadyDay; seq: number }>();
   private settings: { row: SyncedSettings; seq: number } | null = null;
   pushes = 0;
 
@@ -51,6 +53,11 @@ class FakeServer implements Remote {
     this.pushes++;
     this.put(this.practices, rows);
   }
+  async pushGetReadyDays(rows: GetReadyDay[]) {
+    this.check();
+    this.pushes++;
+    this.put(this.getReadyDays, rows);
+  }
   async pushSettings(s: SyncedSettings) {
     this.check();
     if (!this.settings || s.updatedAt >= this.settings.row.updatedAt) this.settings = { row: s, seq: ++this.seq };
@@ -67,6 +74,10 @@ class FakeServer implements Remote {
     this.check();
     return this.pull(this.practices, since);
   }
+  async pullGetReadyDays(since: string | null) {
+    this.check();
+    return this.pull(this.getReadyDays, since);
+  }
   async pullSettings(since: string | null) {
     this.check();
     const hit = this.settings && this.settings.seq >= (since === null ? 0 : Number(since)) ? [this.settings] : [];
@@ -81,7 +92,8 @@ class Device {
     entries: [],
     items: [],
     practices: [],
-    settings: { dayEndHour: 0, shouldTargetMin: null, weeklyCapMin: null, updatedAt: 0 },
+    getReadyDays: [],
+    settings: { dayEndHour: 0, shouldTargetMin: null, weeklyCapMin: null, getReadySteps: [], updatedAt: 0 },
   };
   cursors: Cursors = FRESH_CURSORS;
 
@@ -112,6 +124,10 @@ class Device {
     this.state = { ...this.state, practices: stampChanged(this.state.practices, change(this.state.practices)) };
   }
 
+  setGetReadyDays(change: (d: GetReadyDay[]) => GetReadyDay[]) {
+    this.state = { ...this.state, getReadyDays: stampChanged(this.state.getReadyDays, change(this.state.getReadyDays)) };
+  }
+
   async sync(opts?: { pull: boolean }) {
     this.cursors = await syncOnce(this.local, this.server, this.cursors, opts);
   }
@@ -138,6 +154,7 @@ function expectSame(a: Device, b: Device) {
   expect(byId(a.state.entries)).toEqual(byId(b.state.entries));
   expect(byId(a.state.items)).toEqual(byId(b.state.items));
   expect(byId(a.state.practices)).toEqual(byId(b.state.practices));
+  expect(byId(a.state.getReadyDays)).toEqual(byId(b.state.getReadyDays));
   expect(a.state.settings).toEqual(b.state.settings);
 }
 
@@ -295,9 +312,9 @@ describe('sync between two devices', () => {
     const server = new FakeServer();
     const a = new Device('a', server);
     const b = new Device('b', server);
-    a.state = { ...a.state, settings: { dayEndHour: 3, shouldTargetMin: 240, weeklyCapMin: 480, updatedAt: T(0) } };
+    a.state = { ...a.state, settings: { dayEndHour: 3, shouldTargetMin: 240, weeklyCapMin: 480, getReadySteps: [], updatedAt: T(0) } };
     await settle([a, b]);
-    expect(b.state.settings).toEqual({ dayEndHour: 3, shouldTargetMin: 240, weeklyCapMin: 480, updatedAt: T(0) });
+    expect(b.state.settings).toEqual({ dayEndHour: 3, shouldTargetMin: 240, weeklyCapMin: 480, getReadySteps: [], updatedAt: T(0) });
 
     // A fresh device with untouched defaults must not push them over.
     const c = new Device('c', server);
@@ -385,6 +402,51 @@ describe('practices between two devices', () => {
   });
 });
 
+describe('Get ready between two devices', () => {
+  const steps = [
+    { id: 'water', text: 'Water' },
+    { id: 'desk', text: 'Clear desk' },
+  ];
+
+  it('steps set on one device appear on the other', async () => {
+    const server = new FakeServer();
+    const a = new Device('a', server);
+    const b = new Device('b', server);
+    a.state = { ...a.state, settings: { ...a.state.settings, getReadySteps: steps, updatedAt: T(0) } };
+
+    await settle([a, b]);
+
+    expect(b.state.settings.getReadySteps).toEqual(steps);
+    expectSame(a, b);
+  });
+
+  it('a day recorded on one device is there on the other, and a later answer replaces it', async () => {
+    const server = new FakeServer();
+    const a = new Device('a', server);
+    const b = new Device('b', server);
+    a.setGetReadyDays((d) => recordGetReady(d, TODAY, ['water'], false, T(0)));
+    await settle([a, b]);
+    expect(b.state.getReadyDays).toEqual([{ id: TODAY, done: ['water'], skipped: false, updatedAt: T(0) }]);
+
+    b.setGetReadyDays((d) => recordGetReady(d, TODAY, [], true, T(5)));
+    await settle([a, b]);
+
+    expect(a.state.getReadyDays).toEqual([{ id: TODAY, done: [], skipped: true, updatedAt: T(5) }]);
+    expectSame(a, b);
+  });
+
+  it('a push sends only the days changed since the last one', async () => {
+    const server = new FakeServer();
+    const a = new Device('a', server);
+    a.setGetReadyDays((d) => recordGetReady(d, TODAY, [], true, T(0)));
+    await a.sync();
+    expect(a.cursors.pushed.getReadyDays).toBe(T(0));
+    const pushes = server.pushes;
+    await a.sync();
+    expect(server.pushes).toBe(pushes);
+  });
+});
+
 describe('when the server is not reachable', () => {
   it('keeps everything locally and sends it later, once', async () => {
     const server = new FakeServer();
@@ -394,7 +456,7 @@ describe('when the server is not reachable', () => {
 
     server.online = false;
     await expect(a.sync()).rejects.toThrow('offline');
-    expect(a.cursors.pushed).toEqual({ entries: 0, items: 0, practices: 0, settings: 0 });
+    expect(a.cursors.pushed).toEqual({ entries: 0, items: 0, practices: 0, getReadyDays: 0, settings: 0 });
 
     server.online = true;
     await a.sync();

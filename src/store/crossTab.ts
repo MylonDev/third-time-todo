@@ -1,3 +1,4 @@
+import { useGetReady } from './getReady';
 import { useItems } from './items';
 import { usePractices } from './practices';
 import { useSettings } from './settings';
@@ -13,6 +14,7 @@ export function watchOtherWindows() {
     'tt2-ledger': useTimer,
     'tt2-items': useItems,
     'tt2-practices': usePractices,
+    'tt2-getready': useGetReady,
     'tt2-settings': useSettings,
   };
   window.addEventListener('storage', (e) => {

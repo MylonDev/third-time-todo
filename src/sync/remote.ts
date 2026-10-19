@@ -1,16 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Item, Practice, TimeEntry } from '../types';
+import type { GetReadyDay, Item, Practice, TimeEntry } from '../types';
 import type { Pull, Remote } from './engine';
 import {
   entryToRow,
+  getReadyDayToRow,
   itemToRow,
   practiceToRow,
   rowToEntry,
+  rowToGetReadyDay,
   rowToItem,
   rowToPractice,
   rowToSettings,
   settingsToRow,
   type EntryRow,
+  type GetReadyDayRow,
   type ItemRow,
   type PracticeRow,
   type SettingsRow,
@@ -72,6 +75,12 @@ export function supabaseRemote(sb: SupabaseClient, userId: string): Remote {
         rows.map((r) => ({ ...practiceToRow(r), user_id: userId })),
         'user_id,id',
       ),
+    pushGetReadyDays: (rows: GetReadyDay[]) =>
+      upsert(
+        'get_ready_days',
+        rows.map((r) => ({ ...getReadyDayToRow(r), user_id: userId })),
+        'user_id,id',
+      ),
     pushSettings: (s: SyncedSettings) => upsert('user_settings', [{ ...settingsToRow(s), user_id: userId }], 'user_id'),
 
     async pullEntries(since): Promise<Pull<TimeEntry>> {
@@ -85,6 +94,10 @@ export function supabaseRemote(sb: SupabaseClient, userId: string): Remote {
     async pullPractices(since): Promise<Pull<Practice>> {
       const r = await pull<Stamped<PracticeRow>>('practices', since, ['server_updated_at', 'id']);
       return { rows: r.rows.map(rowToPractice), cursor: r.cursor };
+    },
+    async pullGetReadyDays(since): Promise<Pull<GetReadyDay>> {
+      const r = await pull<Stamped<GetReadyDayRow>>('get_ready_days', since, ['server_updated_at', 'id']);
+      return { rows: r.rows.map(rowToGetReadyDay), cursor: r.cursor };
     },
     async pullSettings(since): Promise<Pull<SyncedSettings>> {
       const r = await pull<Stamped<SettingsRow>>('user_settings', since, ['server_updated_at']);

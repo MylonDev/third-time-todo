@@ -90,4 +90,23 @@ export interface Practice {
   deletedAt?: number;
 }
 
+/** One line of the Get ready checklist. The list lives in the settings. */
+export interface GetReadyStep {
+  id: string;
+  text: string;
+}
+
+/**
+ * What happened to the checklist on one day. Its existence also means the
+ * checklist was already offered that day. Nothing deletes a day, so it has no
+ * tombstone. `done` holds step ids, so a rename keeps the history.
+ */
+export interface GetReadyDay {
+  /** The day key. */
+  id: string;
+  done: string[];
+  skipped: boolean;
+  updatedAt: number;
+}
+
 export type Theme = 'system' | 'light' | 'dark';
