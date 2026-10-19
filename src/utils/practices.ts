@@ -1,50 +1,76 @@
-import type { Need, Practice, PracticeLevel, TimeEntry } from '../types';
+import type { Practice, TimeEntry } from '../types';
 import { endOf, runningEntry } from './ledger';
-import { dayKeyOf, weekdayOfKey, weekWindowOf, type DayWindow } from './time';
+import { dayKeyOf, shiftDayKey, weekdayOfKey, weekWindowOf, windowOf, type DayWindow } from './time';
+
+const MIN_MS = 60_000;
+const HOUR_MS = 3_600_000;
+
+/** What a practice asks of you: the part of `Practice` that sets its weekly target. */
+export type Target = Pick<Practice, 'targetDays' | 'targetWeekdays' | 'targetMin'>;
+
+export type TemplateKey = 'paused' | 'minimal' | 'light' | 'steady' | 'serious';
 
 /**
- * What each commitment level asks for. One table, so a level is easy to change.
- * `weekMin` is what a level costs against the weekly cap. It is the low end of
- * the "about" range in the product spec (Steady 1.5-2 h, Serious 3-10 h), the
- * floor you commit to, so a cap is never reached on a practice's best week.
+ * The presets a target can be picked from. They are only presets: nothing
+ * stores the template, a practice stores the three values. The minutes are what
+ * a session had to reach under the old levels, so no practice's bar moved.
  */
-export const LEVELS: Record<PracticeLevel, { label: string; sessions: number; minMin: number; weekMin: number }> = {
-  paused: { label: 'Paused', sessions: 0, minMin: 0, weekMin: 0 },
-  minimal: { label: 'Minimal', sessions: 1, minMin: 10, weekMin: 15 },
-  light: { label: 'Light', sessions: 3, minMin: 15, weekMin: 50 },
-  steady: { label: 'Steady', sessions: 4, minMin: 20, weekMin: 90 },
-  serious: { label: 'Serious', sessions: 6, minMin: 30, weekMin: 180 },
+export const TEMPLATES: Record<TemplateKey, { label: string; days: number; minutes: number }> = {
+  paused: { label: 'Paused', days: 0, minutes: 0 },
+  minimal: { label: 'Minimal', days: 1, minutes: 10 },
+  light: { label: 'Light', days: 3, minutes: 15 },
+  steady: { label: 'Steady', days: 4, minutes: 20 },
+  serious: { label: 'Serious', days: 6, minutes: 30 },
 };
 
-/** The levels from least to most, as a picker lists them. */
-export const LEVEL_ORDER = ['paused', 'minimal', 'light', 'steady', 'serious'] as const satisfies readonly PracticeLevel[];
+/** The templates from least to most, as a picker lists them. */
+export const TEMPLATE_ORDER = ['paused', 'minimal', 'light', 'steady', 'serious'] as const satisfies readonly TemplateKey[];
 
-/** "4× a week · 20 min", or "Paused". */
-export function describeLevel(level: PracticeLevel): string {
-  const { label, sessions, minMin } = LEVELS[level];
-  return sessions === 0 ? label : `${sessions}× a week · ${minMin} min`;
+/** The target a template sets, with no chosen weekdays. */
+export function targetOf(template: TemplateKey): Target {
+  const { days, minutes } = TEMPLATES[template];
+  return { targetDays: days, targetWeekdays: [], targetMin: minutes };
 }
 
-/** The short form for a picker button: "4× · 20 min". */
-export function levelHint(level: PracticeLevel): string {
-  const { sessions, minMin } = LEVELS[level];
-  return sessions === 0 ? 'No target' : `${sessions}× · ${minMin} min`;
+/** The template a target matches, or null (Custom). Chosen weekdays always mean Custom. */
+export function templateOf(target: Target): TemplateKey | null {
+  if (target.targetWeekdays.length > 0) return null;
+  return TEMPLATE_ORDER.find((t) => TEMPLATES[t].days === target.targetDays && TEMPLATES[t].minutes === target.targetMin) ?? null;
+}
+
+export const isPaused = (p: Pick<Practice, 'targetDays'>) => p.targetDays === 0;
+
+const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const daysWord = (n: number) => (n === 1 ? '1 day' : `${n} days`);
+
+/** "Steady · 4 days a week · 20 min", "3 days a week · 25 min", "Mon Wed Fri · 30 min", or "Paused". */
+export function describeTarget(target: Target): string {
+  if (target.targetDays === 0) return TEMPLATES.paused.label;
+  const minutes = `${target.targetMin} min`;
+  if (target.targetWeekdays.length > 0) {
+    const names = [...target.targetWeekdays].sort((a, b) => a - b).map((d) => WEEKDAY_NAMES[d]);
+    return `${names.join(' ')} · ${minutes}`;
+  }
+  const template = templateOf(target);
+  const base = `${daysWord(target.targetDays)} a week · ${minutes}`;
+  return template ? `${TEMPLATES[template].label} · ${base}` : base;
+}
+
+/** The short form for a template button: "4 days · 20 min". */
+export function targetHint(template: TemplateKey): string {
+  const { days, minutes } = TEMPLATES[template];
+  return days === 0 ? 'No target' : `${daysWord(days)} · ${minutes} min`;
 }
 
 const isLive = (p: Practice) => p.deletedAt === undefined;
 
 /** The live practices as the list shows them: in order, with Paused ones last. */
 export function listPractices(practices: Practice[]): Practice[] {
-  return practices.filter(isLive).sort((a, b) => Number(a.level === 'paused') - Number(b.level === 'paused') || a.order - b.order);
+  return practices.filter(isLive).sort((a, b) => Number(isPaused(a)) - Number(isPaused(b)) || a.order - b.order);
 }
 
-export interface PracticeFields {
+export interface PracticeFields extends Target {
   name: string;
-  level: PracticeLevel;
-  smallStep: string;
-  lowStep: string;
-  smallNeeds: Need[];
-  lowNeeds: Need[];
 }
 
 export function makePractice(practices: Practice[], fields: PracticeFields, now: number): Practice {
@@ -90,107 +116,123 @@ export function reorderPractices(practices: Practice[], id: string, index: numbe
 
 // ── Weekly cap ────────────────────────────────────────────────────────────────
 
-/** What the live practices add up to in a week, in minutes, by their levels' `weekMin`. */
+/** What a target costs against the weekly cap, in minutes: days times minutes a day. */
+export const weekCost = (target: Target) => target.targetDays * target.targetMin;
+
+/** What the live practices add up to in a week, in minutes. */
 export function plannedMinutes(practices: Practice[]): number {
-  return practices.filter(isLive).reduce((sum, p) => sum + LEVELS[p.level].weekMin, 0);
+  return practices.filter(isLive).reduce((sum, p) => sum + weekCost(p), 0);
 }
 
 /**
  * How many minutes over `cap` the practices would be if practice `id` (a new
- * one when undefined or unknown) took `level`. Never blocks a level that asks
- * for no more than the practice has now, so a lowered cap can still be
+ * one when undefined or unknown) took `target`. Never blocks a target that
+ * costs no more than the practice does now, so a lowered cap can still be
  * worked down to. No cap is never over.
  */
-export function levelOverBy(practices: Practice[], id: string | undefined, level: PracticeLevel, cap: number | null): number {
+export function targetOverBy(practices: Practice[], id: string | undefined, target: Target, cap: number | null): number {
   if (cap === null) return 0;
   const current = practices.find((p) => p.id === id && isLive(p));
-  if (LEVELS[level].weekMin <= (current ? LEVELS[current.level].weekMin : 0)) return 0;
+  if (weekCost(target) <= (current ? weekCost(current) : 0)) return 0;
   const others = plannedMinutes(practices.filter((p) => p.id !== id));
-  return Math.max(0, others + LEVELS[level].weekMin - cap);
+  return Math.max(0, others + weekCost(target) - cap);
 }
 
-/** Whether the practice can take `level` without going past the cap. */
-export function levelFits(practices: Practice[], id: string | undefined, level: PracticeLevel, cap: number | null): boolean {
-  return levelOverBy(practices, id, level, cap) === 0;
+/** Whether the practice can take `target` without going past the cap. */
+export function targetFits(practices: Practice[], id: string | undefined, target: Target, cap: number | null): boolean {
+  return targetOverBy(practices, id, target, cap) === 0;
 }
 
-// ── Sessions and time ─────────────────────────────────────────────────────────
+// ── Days and time ─────────────────────────────────────────────────────────────
 //
 // Nothing here is stored: a practice's time is read from the ledger. Only Focus
-// and Timed entries count as time; Rest only keeps a Flow stretch in one piece.
+// and Timed entries count as time; Rest never does.
 
-/** One sitting with a practice: when it began, and how much Focus or Timed time it held. */
-export interface PracticeSession {
-  startedAt: number;
-  ms: number;
+/** Focus and Timed minutes on a practice inside one day's window. */
+export function dayMinutes(entries: TimeEntry[], practiceId: string, day: DayWindow, now: number): number {
+  return practiceTime(entries, practiceId, day, now) / MIN_MS;
 }
 
 /**
- * The practice's sessions, oldest first. A Timed entry is a session. A run of
- * back-to-back Flow entries for the practice is one session, with the Focus in
- * it as its length: Rest inside the run does not count, and a gap (a Stop), a
- * Timed entry or another practice's time starts a new one.
+ * The day keys of the week on which the practice reached its daily minutes.
+ * `week` starts at a Monday's day start. Each day is its own window, so a stint
+ * across a day end is split between the two days.
  */
-export function practiceSessions(entries: TimeEntry[], practiceId: string, now: number): PracticeSession[] {
-  const mine = entries.filter((e) => e.deletedAt === undefined && e.practiceId === practiceId).sort((a, b) => a.startedAt - b.startedAt);
-  const sessions: PracticeSession[] = [];
-  let current: PracticeSession | undefined;
-  let flowEnd: number | undefined;
-  for (const e of mine) {
-    const end = endOf(e, now);
-    if (e.state === 'timed') {
-      sessions.push({ startedAt: e.startedAt, ms: Math.max(0, end - e.startedAt) });
-      flowEnd = undefined;
-      continue;
-    }
-    if (flowEnd !== e.startedAt || !current) {
-      current = { startedAt: e.startedAt, ms: 0 };
-      sessions.push(current);
-    }
-    if (e.state === 'should') current.ms += Math.max(0, end - e.startedAt);
-    flowEnd = end;
+export function countedDays(entries: TimeEntry[], practice: Pick<Practice, 'id' | 'targetMin'>, week: DayWindow, now: number, dayEndHour: number): string[] {
+  // This runs on every clock tick, so cut the ledger down once, not once a day.
+  const mine = entries.filter(
+    (e) => e.practiceId === practice.id && e.deletedAt === undefined && e.state !== 'want' && e.startedAt < week.end && endOf(e, now) > week.start,
+  );
+  // Noon on Monday is the same day under any day end hour, DST shift or not.
+  const monday = dayKeyOf(week.start + 12 * HOUR_MS, dayEndHour);
+  const need = practice.targetMin * MIN_MS;
+  const counted: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const key = shiftDayKey(monday, i);
+    const ms = practiceTime(mine, practice.id, windowOf(key, dayEndHour), now);
+    // A target of no minutes counts nothing rather than every day.
+    if (ms > 0 && ms >= need) counted.push(key);
   }
-  return sessions.filter((s) => s.ms > 0);
-}
-
-/** The sessions that began in `win` and reached the level's minimum length. */
-export function countedSessions(entries: TimeEntry[], practice: Pick<Practice, 'id' | 'level'>, win: DayWindow, now: number): PracticeSession[] {
-  const min = LEVELS[practice.level].minMin * 60_000;
-  return practiceSessions(entries, practice.id, now).filter((s) => s.startedAt >= win.start && s.startedAt < win.end && s.ms >= min);
+  return counted;
 }
 
 /** A practice that is behind this week, and how far. */
 export interface Attention {
   practice: Practice;
-  /** Sessions counted so far this week. */
+  /** Days that reached the daily minutes so far this week. */
   done: number;
-  /** Sessions still needed to meet the weekly target. */
+  /** Days still needed to meet the weekly target. */
   left: number;
-  /** Days left in the week, today included. */
+  /** Days left to do them in, today included. */
   daysLeft: number;
 }
 
 /**
- * The practices that still need sessions this week, most pressing first: the
- * most sessions left per day left (today counts). A tie goes to the one
- * practised longest ago, or never. Paused and deleted practices, and ones that
- * met their target, are left out.
+ * The practices that still need days this week, most pressing first. One with
+ * chosen weekdays that include today, and still short today, comes first.
+ * After that the most days left per day left, then the one practised longest
+ * ago (or never). Paused and deleted practices, and ones that met their target,
+ * are left out. Any weekday can make up a day, so a missed chosen day still
+ * counts when done on another; the chosen weekdays only decide what is due and
+ * how many days are left.
  */
 export function needsAttention(practices: Practice[], entries: TimeEntry[], now: number, dayEndHour: number): Attention[] {
   const today = dayKeyOf(now, dayEndHour);
   const week = weekWindowOf(today, dayEndHour);
-  const daysLeft = 7 - weekdayOfKey(today);
+  const todayWindow = windowOf(today, dayEndHour);
+  const weekday = weekdayOfKey(today);
+  const lasts = lastPracticedAt(entries);
   return practices
-    .filter((p) => isLive(p) && p.level !== 'paused')
+    .filter((p) => isLive(p) && !isPaused(p))
     .map((practice) => {
-      const done = countedSessions(entries, practice, week, now).length;
+      const done = countedDays(entries, practice, week, now, dayEndHour).length;
+      const chosenLeft = practice.targetWeekdays.filter((d) => d >= weekday).length;
+      // With no chosen day left, a missed day can still be made up on any day.
+      const daysLeft = chosenLeft > 0 ? chosenLeft : 7 - weekday;
+      const left = practice.targetDays - done;
+      const due = left > 0 && practice.targetWeekdays.includes(weekday) && dayMinutes(entries, practice.id, todayWindow, now) < practice.targetMin;
       // Never practised sorts before any real session.
-      const last = practiceSessions(entries, practice.id, now).at(-1)?.startedAt ?? 0;
-      return { practice, done, left: LEVELS[practice.level].sessions - done, daysLeft, last };
+      return { practice, done, left, daysLeft, due, last: lasts.get(practice.id) ?? 0 };
     })
     .filter((a) => a.left > 0)
-    .sort((a, b) => b.left / b.daysLeft - a.left / a.daysLeft || a.last - b.last || a.practice.order - b.practice.order)
+    .sort((a, b) => Number(b.due) - Number(a.due) || b.left / b.daysLeft - a.left / a.daysLeft || a.last - b.last || a.practice.order - b.practice.order)
     .map(({ practice, done, left, daysLeft }) => ({ practice, done, left, daysLeft }));
+}
+
+/** Whether an entry is Focus or Timed time on the practice with some length. Rest, deleted and zero-length entries are not. */
+function isPracticeTime(e: TimeEntry, practiceId: string): boolean {
+  if (e.deletedAt !== undefined || e.practiceId !== practiceId || e.state === 'want') return false;
+  return e.endedAt === null || e.endedAt > e.startedAt;
+}
+
+/** When each practice's latest Focus or Timed entry began. */
+function lastPracticedAt(entries: TimeEntry[]): Map<string, number> {
+  const last = new Map<string, number>();
+  for (const e of entries) {
+    if (e.practiceId === undefined || !isPracticeTime(e, e.practiceId)) continue;
+    if (e.startedAt > (last.get(e.practiceId) ?? -Infinity)) last.set(e.practiceId, e.startedAt);
+  }
+  return last;
 }
 
 /**
@@ -212,8 +254,7 @@ export function practiceTime(entries: TimeEntry[], practiceId: string, win: DayW
 export function firstSessionAt(entries: TimeEntry[], practiceId: string): number | undefined {
   let first: number | undefined;
   for (const e of entries) {
-    if (e.deletedAt !== undefined || e.practiceId !== practiceId || e.state === 'want') continue;
-    if (e.endedAt !== null && e.endedAt <= e.startedAt) continue;
+    if (!isPracticeTime(e, practiceId)) continue;
     if (first === undefined || e.startedAt < first) first = e.startedAt;
   }
   return first;

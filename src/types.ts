@@ -60,27 +60,20 @@ export interface Item {
   deletedAt?: number;
 }
 
-/** How much a practice is committed to; the table of targets is in `utils/practices.ts`. */
-export type PracticeLevel = 'paused' | 'minimal' | 'light' | 'steady' | 'serious';
-
-/** What a step asks of you. A step tagged with neither is for when you have little of either. */
-export type Need = 'clarity' | 'energy';
-
 /**
- * A hobby or skill with no end point. It has a weekly target set by its level,
- * a small step and a smaller one for low days, and a note for the next session.
- * Time is not stored on it: sessions are read from the ledger.
+ * A hobby or skill with no end point. It has a weekly target: how many days,
+ * optionally on which weekdays, and how many minutes a day. Time is not stored
+ * on it: a day counts by the minutes the ledger holds for it.
  */
 export interface Practice {
   id: string;
   name: string;
-  level: PracticeLevel;
-  /** The smallest session that still counts. */
-  smallStep: string;
-  /** A smaller version for low days. */
-  lowStep: string;
-  smallNeeds: Need[];
-  lowNeeds: Need[];
+  /** Days a week, 0 to 7. Zero is Paused. With `targetWeekdays` chosen it is their count. */
+  targetDays: number;
+  /** The chosen weekdays, 0=Mon … 6=Sun, in order. Empty means any day. */
+  targetWeekdays: number[];
+  /** Minutes of Focus or Timed a day takes to count. */
+  targetMin: number;
   /** Written at the end of a session, shown at the start of the next. */
   nextStep?: string;
   order: number;

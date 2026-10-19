@@ -327,11 +327,9 @@ describe('sync between two devices', () => {
 describe('practices between two devices', () => {
   const fields = {
     name: 'Guitar',
-    level: 'steady' as const,
-    smallStep: 'Play one scale',
-    lowStep: 'Hold the guitar',
-    smallNeeds: [],
-    lowNeeds: [],
+    targetDays: 4,
+    targetWeekdays: [] as number[],
+    targetMin: 20,
   };
 
   it('a practice added on one device appears on the other', async () => {
@@ -354,7 +352,7 @@ describe('practices between two devices', () => {
     await settle([a, b]);
     const id = a.state.practices[0].id;
 
-    a.setPractices((ps) => updatePractice(ps, id, { level: 'light' }, T(5)));
+    a.setPractices((ps) => updatePractice(ps, id, { targetDays: 3, targetMin: 15 }, T(5)));
     b.setPractices((ps) => setNextStep(ps, id, 'Learn the intro', T(9)));
     await settle([a, b]);
 
