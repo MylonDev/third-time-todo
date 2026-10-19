@@ -16,27 +16,15 @@ export function todayItems(items: Item[], kind: TimerState, today: string, win: 
     .filter((i) => isLive(i) && i.kind === kind && !i.done && i.dueOn !== null && i.dueOn <= today)
     .sort((a, b) => (a.dueOn! < b.dueOn! ? -1 : a.dueOn! > b.dueOn! ? 1 : byOrder(a, b)));
   const done = items
-    .filter(
-      (i) =>
-        isLive(i) &&
-        i.kind === kind &&
-        i.done &&
-        i.doneAt !== undefined &&
-        i.doneAt >= win.start &&
-        i.doneAt < win.end
-    )
+    .filter((i) => isLive(i) && i.kind === kind && i.done && i.doneAt !== undefined && i.doneAt >= win.start && i.doneAt < win.end)
     .sort((a, b) => a.doneAt! - b.doneAt!);
   return [...open, ...done];
 }
 
 /** Later: dated items after today in date order, then undated ("someday"). */
 export function laterItems(items: Item[], kind: TimerState, today: string): Item[] {
-  const later = items.filter(
-    (i) => isLive(i) && i.kind === kind && !i.done && (i.dueOn === null || i.dueOn > today)
-  );
-  const dated = later
-    .filter((i) => i.dueOn !== null)
-    .sort((a, b) => (a.dueOn! < b.dueOn! ? -1 : a.dueOn! > b.dueOn! ? 1 : byOrder(a, b)));
+  const later = items.filter((i) => isLive(i) && i.kind === kind && !i.done && (i.dueOn === null || i.dueOn > today));
+  const dated = later.filter((i) => i.dueOn !== null).sort((a, b) => (a.dueOn! < b.dueOn! ? -1 : a.dueOn! > b.dueOn! ? 1 : byOrder(a, b)));
   const someday = later.filter((i) => i.dueOn === null).sort(byOrder);
   return [...dated, ...someday];
 }
@@ -50,20 +38,14 @@ export function overdueDays(item: Item, today: string): number {
 // ── Changing items ────────────────────────────────────────────────────────────
 
 function upsert(items: Item[], next: Item): Item[] {
-  return items.some((i) => i.id === next.id)
-    ? items.map((i) => (i.id === next.id ? next : i))
-    : [...items, next];
+  return items.some((i) => i.id === next.id) ? items.map((i) => (i.id === next.id ? next : i)) : [...items, next];
 }
 
 function nextOrder(items: Item[]): number {
   return items.reduce((m, i) => Math.max(m, i.order), 0) + 1;
 }
 
-export function makeItem(
-  items: Item[],
-  fields: { text: string; kind: TimerState; dueOn: string | null; repeat?: Recurrence },
-  now: number
-): Item {
+export function makeItem(items: Item[], fields: { text: string; kind: TimerState; dueOn: string | null; repeat?: Recurrence }, now: number): Item {
   return {
     id: crypto.randomUUID(),
     text: fields.text,
@@ -140,11 +122,6 @@ export function removeItem(items: Item[], id: string, now: number): Item[] {
   return items.map((i) => (i.id === id ? { ...i, deletedAt: now, updatedAt: now } : i));
 }
 
-export function updateItem(
-  items: Item[],
-  id: string,
-  patch: Partial<Pick<Item, 'text' | 'kind' | 'dueOn' | 'repeat'>>,
-  now: number
-): Item[] {
+export function updateItem(items: Item[], id: string, patch: Partial<Pick<Item, 'text' | 'kind' | 'dueOn' | 'repeat'>>, now: number): Item[] {
   return items.map((i) => (i.id === id ? { ...i, ...patch, updatedAt: now } : i));
 }

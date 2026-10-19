@@ -120,12 +120,7 @@ async function pullAll(local: Local, remote: Remote, cursors: Cursors): Promise<
  * the cursors it returns up to that point are lost and everything is retried,
  * which is safe because pushes and merges are idempotent.
  */
-export async function syncOnce(
-  local: Local,
-  remote: Remote,
-  start: Cursors,
-  opts: { pull: boolean } = { pull: true }
-): Promise<Cursors> {
+export async function syncOnce(local: Local, remote: Remote, start: Cursors, opts: { pull: boolean } = { pull: true }): Promise<Cursors> {
   let cursors = start;
   for (let round = 0; round < 4; round++) {
     cursors = (await pushDirty(local, remote, cursors)).cursors;
@@ -149,16 +144,8 @@ export function mergeIncoming(current: Snapshot, incoming: Incoming): Snapshot {
   const entries = merged === current.entries ? current.entries : repairEntries(merged);
   const items = mergeById(current.items, incoming.items);
   const practices = mergeById(current.practices, incoming.practices);
-  const settings =
-    incoming.settings && incoming.settings.updatedAt > current.settings.updatedAt
-      ? incoming.settings
-      : current.settings;
-  if (
-    entries === current.entries &&
-    items === current.items &&
-    practices === current.practices &&
-    settings === current.settings
-  ) {
+  const settings = incoming.settings && incoming.settings.updatedAt > current.settings.updatedAt ? incoming.settings : current.settings;
+  if (entries === current.entries && items === current.items && practices === current.practices && settings === current.settings) {
     return current;
   }
   return { entries, items, practices, settings };

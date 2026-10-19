@@ -11,7 +11,11 @@ const row = (id: string, updatedAt: number, v = 'x'): Row => ({ id, updatedAt, v
 
 describe('mergeById', () => {
   it('takes rows it has not seen', () => {
-    expect(mergeById([row('a', 1)], [row('b', 1)]).map((r) => r.id).sort()).toEqual(['a', 'b']);
+    expect(
+      mergeById([row('a', 1)], [row('b', 1)])
+        .map((r) => r.id)
+        .sort(),
+    ).toEqual(['a', 'b']);
   });
 
   it('the newer version wins, whichever side it is on', () => {

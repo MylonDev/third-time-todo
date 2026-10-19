@@ -1,28 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Item } from '../types';
-import {
-  completeItem,
-  laterItems,
-  makeItem,
-  overdueDays,
-  removeItem,
-  skipItem,
-  todayItems,
-  uncompleteItem,
-} from './items';
+import { completeItem, laterItems, makeItem, overdueDays, removeItem, skipItem, todayItems, uncompleteItem } from './items';
 import { windowOf } from './time';
 
 const TODAY = '2026-10-12'; // a Monday
 const win = windowOf(TODAY, 0);
 const NOW = new Date(2026, 9, 12, 10, 0).getTime();
 
-function add(
-  items: Item[],
-  text: string,
-  kind: 'should' | 'want',
-  dueOn: string | null,
-  repeat?: Item['repeat']
-): Item[] {
+function add(items: Item[], text: string, kind: 'should' | 'want', dueOn: string | null, repeat?: Item['repeat']): Item[] {
   return [...items, makeItem(items, { text, kind, dueOn, repeat }, NOW)];
 }
 const texts = (items: Item[]) => items.map((i) => i.text);

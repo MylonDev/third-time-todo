@@ -9,6 +9,4 @@ export const SUPABASE_URL = 'https://adsovripnuawbofptgml.supabase.co';
  * The e2e suite sets VITE_SUPABASE_ANON_KEY to a dummy so it can exercise
  * sign-in against mocked routes without ever reaching the real project.
  */
-export const SUPABASE_ANON_KEY: string =
-  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ??
-  'sb_publishable_OLFMNdYF241glTyqChQ-Rg_QGO4pGrE';
+export const SUPABASE_ANON_KEY: string = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? 'sb_publishable_OLFMNdYF241glTyqChQ-Rg_QGO4pGrE';

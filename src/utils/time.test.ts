@@ -1,15 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  daysBetween,
-  dayKeyOf,
-  describeDay,
-  formatClock,
-  formatDuration,
-  shiftDayKey,
-  weekdayOfKey,
-  weekWindowOf,
-  windowOf,
-} from './time';
+import { daysBetween, dayKeyOf, describeDay, formatClock, formatDuration, shiftDayKey, weekdayOfKey, weekWindowOf, windowOf } from './time';
 
 describe('time formatting', () => {
   it('formats a stopwatch', () => {

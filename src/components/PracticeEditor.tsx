@@ -71,10 +71,7 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
   const [name, setName] = useState(practice?.name ?? '');
   // A new practice starts at Steady, or the most that still fits under the cap.
   const [level, setLevel] = useState<PracticeLevel>(
-    () =>
-      practice?.level ??
-      LEVEL_ORDER.findLast((l) => LEVELS[l].weekMin <= LEVELS.steady.weekMin && levelFits(all, undefined, l, cap)) ??
-      'paused'
+    () => practice?.level ?? LEVEL_ORDER.findLast((l) => LEVELS[l].weekMin <= LEVELS.steady.weekMin && levelFits(all, undefined, l, cap)) ?? 'paused',
   );
   const [smallStep, setSmallStep] = useState(practice?.smallStep ?? '');
   const [smallNeeds, setSmallNeeds] = useState<Need[]>(practice?.smallNeeds ?? []);
@@ -116,12 +113,7 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
 
         <label className="flex flex-col gap-1.5">
           <span className="section-label">Name</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Guitar, drawing, Spanish…"
-            className={FIELD}
-          />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Guitar, drawing, Spanish…" className={FIELD} />
         </label>
 
         <div className="flex flex-col gap-1.5">
@@ -139,8 +131,7 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
           />
           {cap !== null && blocked && (
             <p data-testid="cap-warning" className="text-sm text-debt">
-              Over your {formatDuration(cap * 60_000)} cap by {formatDuration(overBy * 60_000)}. Lower another practice or
-              raise the cap.
+              Over your {formatDuration(cap * 60_000)} cap by {formatDuration(overBy * 60_000)}. Lower another practice or raise the cap.
             </p>
           )}
         </div>
@@ -153,14 +144,7 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
           onText={setSmallStep}
           onNeeds={setSmallNeeds}
         />
-        <StepField
-          label="Low-day step"
-          hint="An even smaller one, for low days"
-          text={lowStep}
-          needs={lowNeeds}
-          onText={setLowStep}
-          onNeeds={setLowNeeds}
-        />
+        <StepField label="Low-day step" hint="An even smaller one, for low days" text={lowStep} needs={lowNeeds} onText={setLowStep} onNeeds={setLowNeeds} />
 
         <div className="grid grid-cols-2 gap-3">
           <button
@@ -183,9 +167,7 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
           <div className="flex flex-col gap-3 border-t border-border pt-4">
             {confirmingDelete ? (
               <>
-                <p className="text-sm text-text-muted">
-                  Delete {practice.name}? The time you logged for it stays in your history.
-                </p>
+                <p className="text-sm text-text-muted">Delete {practice.name}? The time you logged for it stays in your history.</p>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"

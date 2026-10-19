@@ -49,9 +49,7 @@ export const MIN = 60_000;
 
 export async function startState(page: Page, name: 'Focus' | 'Rest') {
   await page.getByRole('group', { name: 'Timer state' }).getByRole('button', { name, exact: true }).click();
-  await expect(
-    page.getByRole('group', { name: 'Timer state' }).getByRole('button', { name, exact: true })
-  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('group', { name: 'Timer state' }).getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true');
 }
 
 export async function addItem(page: Page, list: 'Should' | 'Want', text: string) {
@@ -70,7 +68,10 @@ export type Level = 'Paused' | 'Minimal' | 'Light' | 'Steady' | 'Serious';
 
 /** Pick a level in the open practice editor. The buttons carry their target as a hint, so match the start of the name. */
 export async function pickLevel(page: Page, level: Level) {
-  await page.getByRole('group', { name: 'Level', exact: true }).getByRole('button', { name: new RegExp(`^${level}`) }).click();
+  await page
+    .getByRole('group', { name: 'Level', exact: true })
+    .getByRole('button', { name: new RegExp(`^${level}`) })
+    .click();
 }
 
 /** Add a practice from the Practices tab, which must be open. */

@@ -34,7 +34,7 @@ export function supabaseRemote(sb: SupabaseClient, userId: string): Remote {
   async function pull<R extends { server_updated_at: string }>(
     table: string,
     since: string | null,
-    order: string[]
+    order: string[],
   ): Promise<{ rows: R[]; cursor: string | null }> {
     const rows: R[] = [];
     for (let from = 0; ; from += PAGE) {
@@ -55,13 +55,24 @@ export function supabaseRemote(sb: SupabaseClient, userId: string): Remote {
 
   return {
     pushEntries: (rows: TimeEntry[]) =>
-      upsert('time_entries', rows.map((r) => ({ ...entryToRow(r), user_id: userId })), 'user_id,id'),
+      upsert(
+        'time_entries',
+        rows.map((r) => ({ ...entryToRow(r), user_id: userId })),
+        'user_id,id',
+      ),
     pushItems: (rows: Item[]) =>
-      upsert('items', rows.map((r) => ({ ...itemToRow(r), user_id: userId })), 'user_id,id'),
+      upsert(
+        'items',
+        rows.map((r) => ({ ...itemToRow(r), user_id: userId })),
+        'user_id,id',
+      ),
     pushPractices: (rows: Practice[]) =>
-      upsert('practices', rows.map((r) => ({ ...practiceToRow(r), user_id: userId })), 'user_id,id'),
-    pushSettings: (s: SyncedSettings) =>
-      upsert('user_settings', [{ ...settingsToRow(s), user_id: userId }], 'user_id'),
+      upsert(
+        'practices',
+        rows.map((r) => ({ ...practiceToRow(r), user_id: userId })),
+        'user_id,id',
+      ),
+    pushSettings: (s: SyncedSettings) => upsert('user_settings', [{ ...settingsToRow(s), user_id: userId }], 'user_id'),
 
     async pullEntries(since): Promise<Pull<TimeEntry>> {
       const r = await pull<Stamped<EntryRow>>('time_entries', since, ['server_updated_at', 'id']);

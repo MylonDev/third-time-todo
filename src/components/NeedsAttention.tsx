@@ -17,10 +17,7 @@ export function NeedsAttention({ selectedId, onPick }: { selectedId: string | un
   const entries = useTimer((s) => s.entries);
   const dayEndHour = useSettings((s) => s.dayEndHour);
   const now = useNow();
-  const top = useMemo(
-    () => needsAttention(practices, entries, now, dayEndHour).slice(0, SHOWN),
-    [practices, entries, now, dayEndHour]
-  );
+  const top = useMemo(() => needsAttention(practices, entries, now, dayEndHour).slice(0, SHOWN), [practices, entries, now, dayEndHour]);
 
   if (top.length === 0) return null;
 

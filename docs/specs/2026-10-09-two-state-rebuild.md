@@ -37,31 +37,33 @@ not running you are resting, and the app has no opinion about it.
 ```ts
 type TimerState = 'should' | 'want';
 
-interface TimeEntry {            // append-only ledger
-  id: string;                    // client-generated uuid
+interface TimeEntry {
+  // append-only ledger
+  id: string; // client-generated uuid
   state: TimerState;
-  startedAt: number;             // ms epoch
-  endedAt: number | null;        // null = the one running entry
-  updatedAt: number;             // last-writer-wins on sync
-  deletedAt?: number;            // tombstone, so deletes sync
+  startedAt: number; // ms epoch
+  endedAt: number | null; // null = the one running entry
+  updatedAt: number; // last-writer-wins on sync
+  deletedAt?: number; // tombstone, so deletes sync
 }
 
-interface Item {                 // a checklist line, no timer attached
+interface Item {
+  // a checklist line, no timer attached
   id: string;
   text: string;
   kind: 'should' | 'want';
-  dueOn: string | null;          // day key; null = Later ("someday")
+  dueOn: string | null; // day key; null = Later ("someday")
   done: boolean;
   doneAt?: number;
-  repeat?: Recurrence;           // daily | weekdays | weekly | every N days
-  nextId?: string;               // the occurrence a completion spawned
+  repeat?: Recurrence; // daily | weekdays | weekly | every N days
+  nextId?: string; // the occurrence a completion spawned
   order: number;
   updatedAt: number;
   deletedAt?: number;
 }
 
 interface Settings {
-  dayEndHour: number;            // 0 = midnight, up to 4
+  dayEndHour: number; // 0 = midnight, up to 4
   shouldTargetMin: number | null;
   soundsEnabled: boolean;
   theme: 'system' | 'light' | 'dark';
@@ -136,11 +138,11 @@ question and two answers:
 3. **Since then I've been:** Should, Want, or Stopped. This defaults to the
    current state.
 
-| You were | Those minutes were | Since then | Result |
-| --- | --- | --- | --- |
-| Running Should, did Want for 20 min and are still on it | Want | Want | Should up to now-20, Want runs from there |
-| Running Should, did Want for 20 min and are back | Want | Should | A 20 min Want entry, Should resumes now |
-| Forgot to stop 20 min ago | Rest | Stopped | The last 20 min are removed, timer off |
+| You were                                                | Those minutes were | Since then | Result                                    |
+| ------------------------------------------------------- | ------------------ | ---------- | ----------------------------------------- |
+| Running Should, did Want for 20 min and are still on it | Want               | Want       | Should up to now-20, Want runs from there |
+| Running Should, did Want for 20 min and are back        | Want               | Should     | A 20 min Want entry, Should resumes now   |
+| Forgot to stop 20 min ago                               | Rest               | Stopped    | The last 20 min are removed, timer off    |
 
 A one-line preview ("Want from 2:14 to 2:34, then Should") is shown before
 applying. Underneath it is a single ledger operation, **paint(from, to,
@@ -151,8 +153,6 @@ state merge. The same operation will power editing in the Days view.
 If the range reaches back over earlier entries it overwrites them, so a Fix can
 also repair a state switch you made late. A range longer than 12 hours is
 refused.
-
-
 
 ## What stays from the current code
 
@@ -176,6 +176,7 @@ optional extra if wanted.
 These three were named as important.
 
 ### Wake lock
+
 - Use the Screen Wake Lock API while a timer is running, behind a setting.
 - The lock is released whenever the page is hidden, so re-acquire it on
   `visibilitychange`.
@@ -186,6 +187,7 @@ These three were named as important.
   alarming error.
 
 ### Background tracking
+
 - The running entry is persisted the moment it starts, locally and to the
   server. The display is computed from `startedAt`, so a suspended, throttled or
   killed page recovers exactly on resume.
@@ -196,6 +198,7 @@ These three were named as important.
   later). Live Activities and Dynamic Island are not available to web apps.
 
 ### Reliable sync
+
 - **Local first.** Every action writes to local storage first. The app never
   waits on the network, and works signed out.
 - **Row level sync.** Each table row carries the device's own `updatedAt`. The

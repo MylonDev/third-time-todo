@@ -49,6 +49,6 @@ export const useSyncMeta = create<SyncMeta>()(
       cursors: FRESH_CURSORS,
       set: (userId, cursors) => set({ userId, cursors }),
     }),
-    { name: 'tt2-sync', version: 2, migrate: migrateSyncMeta }
-  )
+    { name: 'tt2-sync', version: 2, migrate: migrateSyncMeta },
+  ),
 );

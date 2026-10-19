@@ -35,9 +35,7 @@ const isLive = (p: Practice) => p.deletedAt === undefined;
 
 /** The live practices as the list shows them: in order, with Paused ones last. */
 export function listPractices(practices: Practice[]): Practice[] {
-  return practices
-    .filter(isLive)
-    .sort((a, b) => Number(a.level === 'paused') - Number(b.level === 'paused') || a.order - b.order);
+  return practices.filter(isLive).sort((a, b) => Number(a.level === 'paused') - Number(b.level === 'paused') || a.order - b.order);
 }
 
 export interface PracticeFields {
@@ -59,12 +57,7 @@ export function makePractice(practices: Practice[], fields: PracticeFields, now:
   };
 }
 
-export function updatePractice(
-  practices: Practice[],
-  id: string,
-  patch: Partial<PracticeFields>,
-  now: number
-): Practice[] {
+export function updatePractice(practices: Practice[], id: string, patch: Partial<PracticeFields>, now: number): Practice[] {
   return practices.map((p) => (p.id === id ? { ...p, ...patch, updatedAt: now } : p));
 }
 
@@ -139,9 +132,7 @@ export interface PracticeSession {
  * Timed entry or another practice's time starts a new one.
  */
 export function practiceSessions(entries: TimeEntry[], practiceId: string, now: number): PracticeSession[] {
-  const mine = entries
-    .filter((e) => e.deletedAt === undefined && e.practiceId === practiceId)
-    .sort((a, b) => a.startedAt - b.startedAt);
+  const mine = entries.filter((e) => e.deletedAt === undefined && e.practiceId === practiceId).sort((a, b) => a.startedAt - b.startedAt);
   const sessions: PracticeSession[] = [];
   let current: PracticeSession | undefined;
   let flowEnd: number | undefined;
@@ -163,16 +154,9 @@ export function practiceSessions(entries: TimeEntry[], practiceId: string, now: 
 }
 
 /** The sessions that began in `win` and reached the level's minimum length. */
-export function countedSessions(
-  entries: TimeEntry[],
-  practice: Pick<Practice, 'id' | 'level'>,
-  win: DayWindow,
-  now: number
-): PracticeSession[] {
+export function countedSessions(entries: TimeEntry[], practice: Pick<Practice, 'id' | 'level'>, win: DayWindow, now: number): PracticeSession[] {
   const min = LEVELS[practice.level].minMin * 60_000;
-  return practiceSessions(entries, practice.id, now).filter(
-    (s) => s.startedAt >= win.start && s.startedAt < win.end && s.ms >= min
-  );
+  return practiceSessions(entries, practice.id, now).filter((s) => s.startedAt >= win.start && s.startedAt < win.end && s.ms >= min);
 }
 
 /** A practice that is behind this week, and how far. */
@@ -192,12 +176,7 @@ export interface Attention {
  * practised longest ago, or never. Paused and deleted practices, and ones that
  * met their target, are left out.
  */
-export function needsAttention(
-  practices: Practice[],
-  entries: TimeEntry[],
-  now: number,
-  dayEndHour: number
-): Attention[] {
+export function needsAttention(practices: Practice[], entries: TimeEntry[], now: number, dayEndHour: number): Attention[] {
   const today = dayKeyOf(now, dayEndHour);
   const week = weekWindowOf(today, dayEndHour);
   const daysLeft = 7 - weekdayOfKey(today);

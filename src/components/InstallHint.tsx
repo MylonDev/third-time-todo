@@ -12,12 +12,8 @@ function read(): boolean {
 
 /** True in Safari on an iPhone or iPad, outside the installed app. */
 function shouldShow(): boolean {
-  const ios =
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const standalone =
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
   return ios && !standalone && !read();
 }
 
@@ -26,10 +22,7 @@ export function InstallHint() {
   const [visible, setVisible] = useState(shouldShow);
   if (!visible) return null;
   return (
-    <div
-      role="note"
-      className="flex items-start gap-3 rounded-2xl border border-accent-edge bg-accent-dim px-3 py-2 text-sm"
-    >
+    <div role="note" className="flex items-start gap-3 rounded-2xl border border-accent-edge bg-accent-dim px-3 py-2 text-sm">
       <p className="flex-1">
         For full screen, tap Share, then <strong>Add to Home Screen</strong>, and open it from there.
       </p>

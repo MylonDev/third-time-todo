@@ -77,18 +77,10 @@ function Section({
       rows.push(
         <li key={`h-${item.dueOn}`} className="section-label pt-3.5 pb-2 border-t border-border first:border-t-0">
           {item.dueOn === null ? 'Someday' : describeDay(item.dueOn, today)}
-        </li>
+        </li>,
       );
     }
-    rows.push(
-      <ItemRow
-        key={item.id}
-        item={item}
-        today={today}
-        onToggle={() => toggle(item.id)}
-        onEdit={() => onEdit(item)}
-      />
-    );
+    rows.push(<ItemRow key={item.id} item={item} today={today} onToggle={() => toggle(item.id)} onEdit={() => onEdit(item)} />);
   }
 
   const done = items.filter((i) => i.done).length;

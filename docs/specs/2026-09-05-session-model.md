@@ -37,7 +37,7 @@ and no version bump**.
 - stops whatever timer is running
 - **clears the accrued break time** (bank → 0) — confirmed intent
 - adds this session's unused rest to today's running total
-- shows a summary of *this session*, with today's total as a secondary line
+- shows a summary of _this session_, with today's total as a secondary line
 - **does not archive the day**
 
 ### 1.3 The day ends by itself
@@ -161,17 +161,17 @@ and the 14-period grid.
 Every change below gets an `e2e` test, each mutation-checked — break it on
 purpose, watch it go red — per `CLAUDE.md`.
 
-| Behaviour | Test |
-| --- | --- |
-| End Session clears the bank | bank reads 0 after ending |
-| End Session does not archive | history has no entry for today |
-| Two sessions in a day | unused rest is the **sum**, not the last one |
-| Day rolls over while idle | previous day archived exactly once |
-| Session open across midnight | not split; archived once it ends |
-| Session across midnight | previous day's sessions still present (1.5) |
-| Triage | appears on the carrying-over open, not at session end |
-| Triage default | dismissing keeps the tasks in today |
-| Removals | no estimate input, no deadline field, no streak |
+| Behaviour                    | Test                                                  |
+| ---------------------------- | ----------------------------------------------------- |
+| End Session clears the bank  | bank reads 0 after ending                             |
+| End Session does not archive | history has no entry for today                        |
+| Two sessions in a day        | unused rest is the **sum**, not the last one          |
+| Day rolls over while idle    | previous day archived exactly once                    |
+| Session open across midnight | not split; archived once it ends                      |
+| Session across midnight      | previous day's sessions still present (1.5)           |
+| Triage                       | appears on the carrying-over open, not at session end |
+| Triage default               | dismissing keeps the tasks in today                   |
+| Removals                     | no estimate input, no deadline field, no streak       |
 
 `npm run lint`, `npm run build` and `npm test` all green before merge.
 
@@ -193,7 +193,7 @@ effect now only ever widens the list.
 
 ## Judgement call
 
-The session summary leads with *this session* and shows today's total
+The session summary leads with _this session_ and shows today's total
 underneath, on the grounds that a button named End Session should report the
 session. Easy to flip.
 

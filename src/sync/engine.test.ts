@@ -207,10 +207,7 @@ describe('sync between two devices', () => {
     const server = new FakeServer();
     const a = new Device('a', server);
     const b = new Device('b', server);
-    a.setItems((items) => [
-      ...items,
-      makeItem(items, { text: 'Stretch', kind: 'should', dueOn: TODAY, repeat: { kind: 'daily' } }, T(0)),
-    ]);
+    a.setItems((items) => [...items, makeItem(items, { text: 'Stretch', kind: 'should', dueOn: TODAY, repeat: { kind: 'daily' } }, T(0))]);
     await settle([a, b]);
     const id = a.state.items[0].id;
 

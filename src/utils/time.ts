@@ -23,11 +23,7 @@ export function formatDuration(ms: number): string {
 
 /** YYYY-MM-DD for a Date, in local time. */
 function dateKey(d: Date): string {
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, '0'),
-    String(d.getDate()).padStart(2, '0'),
-  ].join('-');
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
 }
 
 function parseKey(key: string): [number, number, number] {

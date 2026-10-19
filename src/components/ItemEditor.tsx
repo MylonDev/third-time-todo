@@ -16,15 +16,7 @@ function initialWhen(item: Item, today: string): When {
   return 'date';
 }
 
-export function ItemEditor({
-  item,
-  today,
-  onClose,
-}: {
-  item: Item;
-  today: string;
-  onClose: () => void;
-}) {
+export function ItemEditor({ item, today, onClose }: { item: Item; today: string; onClose: () => void }) {
   const edit = useItems((s) => s.edit);
   const remove = useItems((s) => s.remove);
   const skip = useItems((s) => s.skip);
@@ -54,8 +46,7 @@ export function ItemEditor({
 
   const save = () => {
     if (!valid) return;
-    let dueOn: string | null =
-      when === 'today' ? today : when === 'tomorrow' ? shiftDayKey(today, 1) : when === 'date' ? date : null;
+    let dueOn: string | null = when === 'today' ? today : when === 'tomorrow' ? shiftDayKey(today, 1) : when === 'date' ? date : null;
     // A repeating item needs a date to repeat from.
     if (repeat && dueOn === null) dueOn = today;
     edit(item.id, { text: text.trim(), kind, dueOn, repeat });
@@ -145,9 +136,7 @@ export function ItemEditor({
                   aria-label={['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][d]}
                   onClick={() => setDays(days.includes(d) ? days.filter((x) => x !== d) : [...days, d])}
                   className={`flex-1 min-h-10 rounded-lg text-sm font-medium cursor-pointer border ${
-                    days.includes(d)
-                      ? 'bg-accent-dim border-accent-edge text-accent'
-                      : 'border-border text-text-muted'
+                    days.includes(d) ? 'bg-accent-dim border-accent-edge text-accent' : 'border-border text-text-muted'
                   }`}
                 >
                   {label}

@@ -1,15 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Item, Practice, TimeEntry } from '../types';
-import {
-  entryToRow,
-  itemToRow,
-  practiceToRow,
-  rowToEntry,
-  rowToItem,
-  rowToPractice,
-  rowToSettings,
-  settingsToRow,
-} from './rows';
+import { entryToRow, itemToRow, practiceToRow, rowToEntry, rowToItem, rowToPractice, rowToSettings, settingsToRow } from './rows';
 
 describe('row mapping', () => {
   it('round-trips an open entry', () => {

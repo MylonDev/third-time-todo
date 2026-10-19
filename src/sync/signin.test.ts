@@ -12,8 +12,7 @@ describe('parseSignInInput', () => {
   });
 
   it('reads the link as it sits in the email', () => {
-    const url =
-      'https://abc.supabase.co/auth/v1/verify?token=pkce_8f3a&type=magiclink&redirect_to=https%3A%2F%2Fexample.com%2F';
+    const url = 'https://abc.supabase.co/auth/v1/verify?token=pkce_8f3a&type=magiclink&redirect_to=https%3A%2F%2Fexample.com%2F';
     expect(parseSignInInput(url)).toEqual({ kind: 'link', tokenHash: 'pkce_8f3a', type: 'magiclink' });
   });
 

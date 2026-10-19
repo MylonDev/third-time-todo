@@ -31,9 +31,7 @@ export function CapModal({ onClose }: { onClose: () => void }) {
       >
         <div>
           <h2 className="text-lg font-semibold">Weekly cap</h2>
-          <p className="text-sm text-text-muted">
-            The most time your practices may add up to in a week. Raising one practice past it means lowering another.
-          </p>
+          <p className="text-sm text-text-muted">The most time your practices may add up to in a week. Raising one practice past it means lowering another.</p>
         </div>
         <label className="flex flex-col gap-1.5">
           <span className="section-label">Hours a week</span>

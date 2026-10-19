@@ -9,8 +9,8 @@
 
 ## Why
 
-The app tracks time against *goals* and asks you to bracket work inside a
-*session*. Real use is Toggl-shaped: a handful of long-lived **projects** you
+The app tracks time against _goals_ and asks you to bracket work inside a
+_session_. Real use is Toggl-shaped: a handful of long-lived **projects** you
 pour hours into, some with a target per week, and a running timer you start and
 stop without ceremony. The session bracket adds a step and earns nothing, and
 habits — a flat list of boolean daily ticks — went unused because they sit
@@ -34,12 +34,12 @@ Three tabs: **Projects · Tasks · Activity**.
 
 Sequential — each phase depends on the stores the one before it migrates.
 
-| Phase | Scope | Stores touched |
-| --- | --- | --- |
-| 1 | The day boundary + projects + the time-entry ledger + derived bank | `tt-goals`, `tt-session`, `tt-tasks`, `tt-settings`, `tt-habits` (orphaned) |
-| 2 | The editable day timeline | none (built on phase 1) |
-| 3 | Weekly schedule: recurrence, views, project filter | `tt-tasks` |
-| 4 | Per-day difficulty with a reduction quota | `tt-session`, `tt-settings` |
+| Phase | Scope                                                              | Stores touched                                                              |
+| ----- | ------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| 1     | The day boundary + projects + the time-entry ledger + derived bank | `tt-goals`, `tt-session`, `tt-tasks`, `tt-settings`, `tt-habits` (orphaned) |
+| 2     | The editable day timeline                                          | none (built on phase 1)                                                     |
+| 3     | Weekly schedule: recurrence, views, project filter                 | `tt-tasks`                                                                  |
+| 4     | Per-day difficulty with a reduction quota                          | `tt-session`, `tt-settings`                                                 |
 
 Phases 3 and 4 are independent of each other once 1 and 2 land.
 
@@ -58,7 +58,7 @@ the work lands on a day they were asleep for.
 
 ```ts
 // tt-settings
-dayEndHour: number;   // 0–4, local time. Default 0 (midnight).
+dayEndHour: number; // 0–4, local time. Default 0 (midnight).
 ```
 
 Offered as midnight / 1 AM / 2 AM / 3 AM / 4 AM — a short list, not a free
@@ -69,8 +69,8 @@ The whole app routes through one function:
 
 ```ts
 // utils/thirdTime.ts
-export function dayKeyOf(t: number, dayEndHour: number): string  // dateKey(t - dayEndHour hours)
-export function todayKey(dayEndHour: number): string             // dayKeyOf(Date.now(), …)
+export function dayKeyOf(t: number, dayEndHour: number): string; // dateKey(t - dayEndHour hours)
+export function todayKey(dayEndHour: number): string; // dayKeyOf(Date.now(), …)
 ```
 
 `dayKeyOf` shifts the timestamp back by `dayEndHour` hours and then takes the
@@ -96,18 +96,18 @@ Consequences, all in phase 1:
 
 ```ts
 export interface PeriodTarget {
-  metric: 'time';                 // count is not offered; see 1.2
-  amount: number;                 // ms
+  metric: 'time'; // count is not offered; see 1.2
+  amount: number; // ms
   period: 'daily' | 'weekly' | 'custom';
-  periodDays?: number;            // custom only
+  periodDays?: number; // custom only
 }
 
 export interface Project {
   id: string;
   name: string;
-  color?: string;                 // swatch for the timeline and task tags
+  color?: string; // swatch for the timeline and task tags
   target?: PeriodTarget;
-  deadline?: string;              // YYYY-MM-DD; absent = no pace readout
+  deadline?: string; // YYYY-MM-DD; absent = no pace readout
   createdAt: number;
   order: number;
   /** metric → periodKey → amount. Time values are ms. */
@@ -159,11 +159,11 @@ Per goal:
 export interface TimeEntry {
   id: string;
   kind: 'work' | 'break';
-  startedAt: number;              // wall clock ms
-  endedAt: number;                // wall clock ms; > startedAt
-  projectId?: string;             // work only
-  taskId?: string;                // work only; implies the task's projectId
-  mode: Mode;                     // the ratio in force when this was earned
+  startedAt: number; // wall clock ms
+  endedAt: number; // wall clock ms; > startedAt
+  projectId?: string; // work only
+  taskId?: string; // work only; implies the task's projectId
+  mode: Mode; // the ratio in force when this was earned
 }
 ```
 
@@ -206,7 +206,7 @@ its own unit-level e2e check with a hand-built fixture.
 
 ```ts
 // utils/thirdTime.ts
-export function bankOf(entries: TimeEntry[], open?: OpenSegment, now?: number): number
+export function bankOf(entries: TimeEntry[], open?: OpenSegment, now?: number): number;
 ```
 
 `bank = Σ earnBreak(duration, entry.mode) over work entries − Σ duration over
@@ -285,12 +285,12 @@ adherence block in `Activity`. `e2e/habits.spec.ts` goes with them.
 **Kept and renamed**, because phase 3 needs exactly this and it is already
 written and tested:
 
-| Now | Becomes | Where |
-| --- | --- | --- |
-| `HabitFreq` | `Recurrence` | `types/index.ts` |
-| `isHabitDueOn(habit, date)` | `isDueOn(rule, anchorCreatedAt, date)` | `utils/goalPeriod.ts` |
-| `freqLabel` | `recurrenceLabel` | `utils/recurrence.ts` (was `habitFreq.ts`) |
-| `WEEKDAY_LABELS`, `WEEKDAY_SHORT` | unchanged | same file |
+| Now                               | Becomes                                | Where                                      |
+| --------------------------------- | -------------------------------------- | ------------------------------------------ |
+| `HabitFreq`                       | `Recurrence`                           | `types/index.ts`                           |
+| `isHabitDueOn(habit, date)`       | `isDueOn(rule, anchorCreatedAt, date)` | `utils/goalPeriod.ts`                      |
+| `freqLabel`                       | `recurrenceLabel`                      | `utils/recurrence.ts` (was `habitFreq.ts`) |
+| `WEEKDAY_LABELS`, `WEEKDAY_SHORT` | unchanged                              | same file                                  |
 
 `isDueOn` loses its dependency on a `Habit` object and takes the rule plus an
 anchor timestamp, so a recurring task can use it. `utils/habit.ts`'s
@@ -301,19 +301,19 @@ The `tt-habits` localStorage key is left untouched.
 
 ## 1.8 Phase 1 e2e
 
-| Behaviour | Check |
-| --- | --- |
-| Migration split | a fixture `SessionLog` becomes work `[t, t+w]` + break `[t+w, t+w+b]` |
-| Migration, goals | a time goal's progress lands under `progress.time`; a count goal's does not |
-| Derived bank | bank reads the same number after a reload with no stored `bankMs` |
-| Live bank | bank advances every second while a work timer runs |
-| Attribution | starting a timer on a task credits the task's project |
-| Day turnover | bank is 0 after rollover; unused rest recorded on the archived entry |
-| Timer across the boundary | yesterday archived; a fresh entry continues today |
-| `dayEndHour: 2` | work logged at 01:30 files under the previous day |
-| `dayEndHour: 2` | the turnover fires at 02:00, not 00:00 |
-| Changing `dayEndHour` | archived days keep the keys they were filed under |
-| No sessions | no End Session control anywhere in the UI |
+| Behaviour                 | Check                                                                       |
+| ------------------------- | --------------------------------------------------------------------------- |
+| Migration split           | a fixture `SessionLog` becomes work `[t, t+w]` + break `[t+w, t+w+b]`       |
+| Migration, goals          | a time goal's progress lands under `progress.time`; a count goal's does not |
+| Derived bank              | bank reads the same number after a reload with no stored `bankMs`           |
+| Live bank                 | bank advances every second while a work timer runs                          |
+| Attribution               | starting a timer on a task credits the task's project                       |
+| Day turnover              | bank is 0 after rollover; unused rest recorded on the archived entry        |
+| Timer across the boundary | yesterday archived; a fresh entry continues today                           |
+| `dayEndHour: 2`           | work logged at 01:30 files under the previous day                           |
+| `dayEndHour: 2`           | the turnover fires at 02:00, not 00:00                                      |
+| Changing `dayEndHour`     | archived days keep the keys they were filed under                           |
+| No sessions               | no End Session control anywhere in the UI                                   |
 
 ---
 
@@ -410,16 +410,16 @@ the next read, with no changes of its own.
 
 ## 2.4 Phase 2 e2e
 
-| Behaviour | Check |
-| --- | --- |
-| Render | a day with three entries draws three blocks in wall-clock order |
-| Trim | shortening a work block lowers the bank by the break it had earned |
-| Trim, project | the same edit lowers that project's period progress |
-| Trim, archived day | the archived `totalWorkMs` is re-summed, not patched |
-| Overlap | an edit that would overlap a neighbour is refused |
-| Manual add | dragging empty rail creates an entry that earns break time |
-| Reassign | moving an entry to another project moves the time with it |
-| Live block | the running entry grows on the shared second clock |
+| Behaviour          | Check                                                              |
+| ------------------ | ------------------------------------------------------------------ |
+| Render             | a day with three entries draws three blocks in wall-clock order    |
+| Trim               | shortening a work block lowers the bank by the break it had earned |
+| Trim, project      | the same edit lowers that project's period progress                |
+| Trim, archived day | the archived `totalWorkMs` is re-summed, not patched               |
+| Overlap            | an edit that would overlap a neighbour is refused                  |
+| Manual add         | dragging empty rail creates an entry that earns break time         |
+| Reassign           | moving an entry to another project moves the time with it          |
+| Live block         | the running entry grows on the shared second clock                 |
 
 ---
 
@@ -457,14 +457,14 @@ export interface RecurringTask {
   id: string;
   title: string;
   projectId?: string;
-  rule: Recurrence;               // daily | weekly | everyN | weekdays (1.7)
-  createdAt: number;              // the everyN anchor
+  rule: Recurrence; // daily | weekly | everyN | weekdays (1.7)
+  createdAt: number; // the everyN anchor
   order: number;
   /** dateKey → true when that occurrence was completed. */
   completions: Record<string, true>;
   /** dateKey → true when that occurrence was skipped for this date only. */
   skipped?: Record<string, true>;
-  endedAt?: number;               // stop generating occurrences after this
+  endedAt?: number; // stop generating occurrences after this
 }
 ```
 
@@ -489,15 +489,15 @@ next occurrence stands on its own.
 
 ## 3.4 Phase 3 e2e
 
-| Behaviour | Check |
-| --- | --- |
-| Views | This week shows Mon–Sun; Rolling starts at today |
-| Virtual occurrences | a `weekdays: [Mon, Wed]` rule draws in future columns |
-| Completion | ticking a future occurrence marks that date only |
-| Skip | skipping one occurrence leaves the next one due |
-| Overdue strip | an unfinished past task appears in the strip, not in today's column |
-| Overdue, recurring | a missed recurring occurrence never enters the strip |
-| Filter | filtering by project hides tasks of other projects in every column |
+| Behaviour           | Check                                                               |
+| ------------------- | ------------------------------------------------------------------- |
+| Views               | This week shows Mon–Sun; Rolling starts at today                    |
+| Virtual occurrences | a `weekdays: [Mon, Wed]` rule draws in future columns               |
+| Completion          | ticking a future occurrence marks that date only                    |
+| Skip                | skipping one occurrence leaves the next one due                     |
+| Overdue strip       | an unfinished past task appears in the strip, not in today's column |
+| Overdue, recurring  | a missed recurring occurrence never enters the strip                |
+| Filter              | filtering by project hides tasks of other projects in every column  |
 
 ---
 
@@ -551,14 +551,14 @@ is lapse-aware after PR #17. No new heuristic:
 
 ## 4.3 Phase 4 e2e
 
-| Behaviour | Check |
-| --- | --- |
-| Per-day | a new day starts at the settings default, not yesterday's choice |
-| Quota | a second reduction in one day is refused with a reason |
-| Free | the same change succeeds under the free policy |
+| Behaviour       | Check                                                            |
+| --------------- | ---------------------------------------------------------------- |
+| Per-day         | a new day starts at the settings default, not yesterday's choice |
+| Quota           | a second reduction in one day is refused with a reason           |
+| Free            | the same change succeeds under the free policy                   |
 | Non-retroactive | entries recorded before a change keep their old ratio's earnings |
-| Warning | raising above the band shows the confirmation, then proceeds |
-| Archive | the day's mode and reductions land on the history entry |
+| Warning         | raising above the band shows the confirmation, then proceeds     |
+| Archive         | the day's mode and reductions land on the history entry          |
 
 ## Found while implementing
 

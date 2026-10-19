@@ -1,18 +1,18 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
-import { watchOtherWindows } from './store/crossTab'
-import { startSync } from './sync/runtime'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import './index.css';
+import App from './App.tsx';
+import { watchOtherWindows } from './store/crossTab';
+import { startSync } from './sync/runtime';
 
-watchOtherWindows()
-startSync()
+watchOtherWindows();
+startSync();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
   </StrictMode>,
-)
+);
 
 // Register service worker for PWA. The path must go through BASE_URL: the app
 // is served from a subpath on GitHub Pages, so an absolute '/sw.js' 404s there.
