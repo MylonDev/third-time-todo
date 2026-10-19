@@ -1,4 +1,4 @@
-import type { Item, TimeEntry } from '../types';
+import type { Item, Practice, TimeEntry } from '../types';
 import { mergeById, repairEntries } from './merge';
 import type { SyncedSettings } from './rows';
 
@@ -6,20 +6,21 @@ import type { SyncedSettings } from './rows';
 export interface Snapshot {
   entries: TimeEntry[];
   items: Item[];
+  practices: Practice[];
   settings: SyncedSettings;
 }
 
 /** Where sync has got to, per table. Kept on the device between runs. */
 export interface Cursors {
   /** The newest `updatedAt` this device has pushed. Anything above it is unsent. */
-  pushed: { entries: number; items: number; settings: number };
+  pushed: { entries: number; items: number; practices: number; settings: number };
   /** The server's own cursor for what this device has pulled. Opaque. */
-  pulled: { entries: string | null; items: string | null; settings: string | null };
+  pulled: { entries: string | null; items: string | null; practices: string | null; settings: string | null };
 }
 
 export const FRESH_CURSORS: Cursors = {
-  pushed: { entries: 0, items: 0, settings: 0 },
-  pulled: { entries: null, items: null, settings: null },
+  pushed: { entries: 0, items: 0, practices: 0, settings: 0 },
+  pulled: { entries: null, items: null, practices: null, settings: null },
 };
 
 export interface Pull<T> {
@@ -31,16 +32,26 @@ export interface Pull<T> {
 export interface Remote {
   pushEntries(rows: TimeEntry[]): Promise<void>;
   pushItems(rows: Item[]): Promise<void>;
+  pushPractices(rows: Practice[]): Promise<void>;
   pushSettings(settings: SyncedSettings): Promise<void>;
   pullEntries(since: string | null): Promise<Pull<TimeEntry>>;
   pullItems(since: string | null): Promise<Pull<Item>>;
+  pullPractices(since: string | null): Promise<Pull<Practice>>;
   pullSettings(since: string | null): Promise<Pull<SyncedSettings>>;
 }
 
 /** The app's side: read what's there, and fold in what came from the server. */
 export interface Local {
   read(): Snapshot;
-  apply(incoming: { entries: TimeEntry[]; items: Item[]; settings: SyncedSettings | null }): void;
+  apply(incoming: Incoming): void;
+}
+
+/** What a pull brings in. */
+interface Incoming {
+  entries: TimeEntry[];
+  items: Item[];
+  practices: Practice[];
+  settings: SyncedSettings | null;
 }
 
 const BATCH = 500;
@@ -53,6 +64,7 @@ async function pushDirty(local: Local, remote: Remote, cursors: Cursors): Promis
   const snap = local.read();
   const entries = snap.entries.filter((e) => e.updatedAt > cursors.pushed.entries);
   const items = snap.items.filter((i) => i.updatedAt > cursors.pushed.items);
+  const practices = snap.practices.filter((p) => p.updatedAt > cursors.pushed.practices);
   const settingsDirty = snap.settings.updatedAt > cursors.pushed.settings;
   const next: Cursors = { pushed: { ...cursors.pushed }, pulled: { ...cursors.pulled } };
 
@@ -66,6 +78,10 @@ async function pushDirty(local: Local, remote: Remote, cursors: Cursors): Promis
     await inBatches(items, (b) => remote.pushItems(b));
     next.pushed.items = Math.max(...items.map((i) => i.updatedAt));
   }
+  if (practices.length) {
+    await inBatches(practices, (b) => remote.pushPractices(b));
+    next.pushed.practices = Math.max(...practices.map((p) => p.updatedAt));
+  }
   if (settingsDirty) {
     await remote.pushSettings(snap.settings);
     next.pushed.settings = snap.settings.updatedAt;
@@ -74,14 +90,16 @@ async function pushDirty(local: Local, remote: Remote, cursors: Cursors): Promis
 }
 
 async function pullAll(local: Local, remote: Remote, cursors: Cursors): Promise<Cursors> {
-  const [entries, items, settings] = await Promise.all([
+  const [entries, items, practices, settings] = await Promise.all([
     remote.pullEntries(cursors.pulled.entries),
     remote.pullItems(cursors.pulled.items),
+    remote.pullPractices(cursors.pulled.practices),
     remote.pullSettings(cursors.pulled.settings),
   ]);
   local.apply({
     entries: entries.rows,
     items: items.rows,
+    practices: practices.rows,
     settings: settings.rows[0] ?? null,
   });
   return {
@@ -89,6 +107,7 @@ async function pullAll(local: Local, remote: Remote, cursors: Cursors): Promise<
     pulled: {
       entries: entries.cursor ?? cursors.pulled.entries,
       items: items.cursor ?? cursors.pulled.items,
+      practices: practices.cursor ?? cursors.pulled.practices,
       settings: settings.cursor ?? cursors.pulled.settings,
     },
   };
@@ -117,6 +136,7 @@ export async function syncOnce(
     const dirty =
       snap.entries.some((e) => e.updatedAt > cursors.pushed.entries) ||
       snap.items.some((i) => i.updatedAt > cursors.pushed.items) ||
+      snap.practices.some((p) => p.updatedAt > cursors.pushed.practices) ||
       snap.settings.updatedAt > cursors.pushed.settings;
     if (!dirty) break;
   }
@@ -124,17 +144,22 @@ export async function syncOnce(
 }
 
 /** The merge the app applies to its own state when rows arrive. Exported for the app and the tests. */
-export function mergeIncoming(
-  current: Snapshot,
-  incoming: { entries: TimeEntry[]; items: Item[]; settings: SyncedSettings | null }
-): Snapshot {
+export function mergeIncoming(current: Snapshot, incoming: Incoming): Snapshot {
   const merged = mergeById(current.entries, incoming.entries);
   const entries = merged === current.entries ? current.entries : repairEntries(merged);
   const items = mergeById(current.items, incoming.items);
+  const practices = mergeById(current.practices, incoming.practices);
   const settings =
     incoming.settings && incoming.settings.updatedAt > current.settings.updatedAt
       ? incoming.settings
       : current.settings;
-  if (entries === current.entries && items === current.items && settings === current.settings) return current;
-  return { entries, items, settings };
+  if (
+    entries === current.entries &&
+    items === current.items &&
+    practices === current.practices &&
+    settings === current.settings
+  ) {
+    return current;
+  }
+  return { entries, items, practices, settings };
 }

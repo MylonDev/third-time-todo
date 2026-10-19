@@ -81,6 +81,15 @@ export function windowOf(key: string, dayEndHour: number): DayWindow {
   return { start: dayStartOf(key, dayEndHour), end: dayEndOf(key, dayEndHour) };
 }
 
+/**
+ * The week the day named by `key` belongs to: Monday's start to the next
+ * Monday's, with days beginning at `dayEndHour` like `windowOf`.
+ */
+export function weekWindowOf(key: string, dayEndHour: number): DayWindow {
+  const monday = shiftDayKey(key, -weekdayOfKey(key));
+  return { start: dayStartOf(monday, dayEndHour), end: dayStartOf(shiftDayKey(monday, 7), dayEndHour) };
+}
+
 /** "Today", "Tomorrow", "Yesterday", else "Mon 12 Oct". */
 export function describeDay(key: string, today: string): string {
   if (key === today) return 'Today';

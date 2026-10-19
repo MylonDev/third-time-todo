@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { Item, TimeEntry } from '../types';
+import type { Item, Practice, TimeEntry } from '../types';
 import { applyFix, startState, stopTimer } from '../utils/ledger';
 import { completeItem, makeItem, removeItem, updateItem } from '../utils/items';
+import { makePractice, removePractice, setNextStep, updatePractice } from '../utils/practices';
 import { FRESH_CURSORS, mergeIncoming, syncOnce, type Cursors, type Local, type Pull, type Remote, type Snapshot } from './engine';
 import { stampChanged } from './merge';
 import type { SyncedSettings } from './rows';
@@ -15,6 +16,7 @@ class FakeServer implements Remote {
   private seq = 0;
   private entries = new Map<string, { row: TimeEntry; seq: number }>();
   private items = new Map<string, { row: Item; seq: number }>();
+  private practices = new Map<string, { row: Practice; seq: number }>();
   private settings: { row: SyncedSettings; seq: number } | null = null;
   pushes = 0;
 
@@ -44,6 +46,11 @@ class FakeServer implements Remote {
     this.pushes++;
     this.put(this.items, rows);
   }
+  async pushPractices(rows: Practice[]) {
+    this.check();
+    this.pushes++;
+    this.put(this.practices, rows);
+  }
   async pushSettings(s: SyncedSettings) {
     this.check();
     if (!this.settings || s.updatedAt >= this.settings.row.updatedAt) this.settings = { row: s, seq: ++this.seq };
@@ -55,6 +62,10 @@ class FakeServer implements Remote {
   async pullItems(since: string | null) {
     this.check();
     return this.pull(this.items, since);
+  }
+  async pullPractices(since: string | null) {
+    this.check();
+    return this.pull(this.practices, since);
   }
   async pullSettings(since: string | null) {
     this.check();
@@ -69,7 +80,8 @@ class Device {
   state: Snapshot = {
     entries: [],
     items: [],
-    settings: { dayEndHour: 0, shouldTargetMin: null, updatedAt: 0 },
+    practices: [],
+    settings: { dayEndHour: 0, shouldTargetMin: null, weeklyCapMin: null, updatedAt: 0 },
   };
   cursors: Cursors = FRESH_CURSORS;
 
@@ -94,6 +106,10 @@ class Device {
   }
   setItems(change: (i: Item[]) => Item[]) {
     this.state = { ...this.state, items: stampChanged(this.state.items, change(this.state.items)) };
+  }
+
+  setPractices(change: (p: Practice[]) => Practice[]) {
+    this.state = { ...this.state, practices: stampChanged(this.state.practices, change(this.state.practices)) };
   }
 
   async sync(opts?: { pull: boolean }) {
@@ -121,6 +137,7 @@ const byId = <T extends { id: string }>(rows: T[]) => [...rows].sort((a, b) => (
 function expectSame(a: Device, b: Device) {
   expect(byId(a.state.entries)).toEqual(byId(b.state.entries));
   expect(byId(a.state.items)).toEqual(byId(b.state.items));
+  expect(byId(a.state.practices)).toEqual(byId(b.state.practices));
   expect(a.state.settings).toEqual(b.state.settings);
 }
 
@@ -281,15 +298,93 @@ describe('sync between two devices', () => {
     const server = new FakeServer();
     const a = new Device('a', server);
     const b = new Device('b', server);
-    a.state = { ...a.state, settings: { dayEndHour: 3, shouldTargetMin: 240, updatedAt: T(0) } };
+    a.state = { ...a.state, settings: { dayEndHour: 3, shouldTargetMin: 240, weeklyCapMin: 480, updatedAt: T(0) } };
     await settle([a, b]);
-    expect(b.state.settings).toEqual({ dayEndHour: 3, shouldTargetMin: 240, updatedAt: T(0) });
+    expect(b.state.settings).toEqual({ dayEndHour: 3, shouldTargetMin: 240, weeklyCapMin: 480, updatedAt: T(0) });
 
     // A fresh device with untouched defaults must not push them over.
     const c = new Device('c', server);
     await settle([a, b, c]);
     expect(a.state.settings.dayEndHour).toBe(3);
     expect(c.state.settings.dayEndHour).toBe(3);
+  });
+});
+
+describe('practices between two devices', () => {
+  const fields = {
+    name: 'Guitar',
+    level: 'steady' as const,
+    smallStep: 'Play one scale',
+    lowStep: 'Hold the guitar',
+    smallNeeds: [],
+    lowNeeds: [],
+  };
+
+  it('a practice added on one device appears on the other', async () => {
+    const server = new FakeServer();
+    const phone = new Device('phone', server);
+    const desktop = new Device('desktop', server);
+    phone.setPractices((ps) => [...ps, makePractice(ps, fields, T(0))]);
+
+    await settle([phone, desktop]);
+
+    expect(live(desktop.state.practices).map((p) => p.name)).toEqual(['Guitar']);
+    expectSame(phone, desktop);
+  });
+
+  it('the later edit wins, whichever device made it', async () => {
+    const server = new FakeServer();
+    const a = new Device('a', server);
+    const b = new Device('b', server);
+    a.setPractices((ps) => [...ps, makePractice(ps, fields, T(0))]);
+    await settle([a, b]);
+    const id = a.state.practices[0].id;
+
+    a.setPractices((ps) => updatePractice(ps, id, { level: 'light' }, T(5)));
+    b.setPractices((ps) => setNextStep(ps, id, 'Learn the intro', T(9)));
+    await settle([a, b]);
+
+    expect(a.state.practices[0]).toMatchObject({ nextStep: 'Learn the intro', updatedAt: T(9) });
+    expectSame(a, b);
+  });
+
+  it('a delete reaches the other device and stays deleted', async () => {
+    const server = new FakeServer();
+    const a = new Device('a', server);
+    const b = new Device('b', server);
+    a.setPractices((ps) => [...ps, makePractice(ps, fields, T(0))]);
+    await settle([a, b]);
+
+    b.setPractices((ps) => removePractice(ps, ps[0].id, T(3)));
+    await settle([a, b]);
+
+    expect(live(a.state.practices)).toEqual([]);
+    expect(a.state.practices).toHaveLength(1);
+    expectSame(a, b);
+  });
+
+  it('an entry for a practice keeps its practice on the other device', async () => {
+    const server = new FakeServer();
+    const a = new Device('a', server);
+    const b = new Device('b', server);
+    a.setPractices((ps) => [...ps, makePractice(ps, fields, T(0))]);
+    const id = a.state.practices[0].id;
+    a.setEntries((e) => startState(e, 'should', T(1), id));
+    await settle([a, b]);
+
+    expect(live(b.state.entries)[0]).toMatchObject({ state: 'should', practiceId: id });
+    expectSame(a, b);
+  });
+
+  it('a push sends only the practices changed since the last one', async () => {
+    const server = new FakeServer();
+    const a = new Device('a', server);
+    a.setPractices((ps) => [...ps, makePractice(ps, fields, T(0))]);
+    await a.sync();
+    expect(a.cursors.pushed.practices).toBe(T(0));
+    const pushes = server.pushes;
+    await a.sync();
+    expect(server.pushes).toBe(pushes);
   });
 });
 
@@ -302,7 +397,7 @@ describe('when the server is not reachable', () => {
 
     server.online = false;
     await expect(a.sync()).rejects.toThrow('offline');
-    expect(a.cursors.pushed).toEqual({ entries: 0, items: 0, settings: 0 });
+    expect(a.cursors.pushed).toEqual({ entries: 0, items: 0, practices: 0, settings: 0 });
 
     server.online = true;
     await a.sync();

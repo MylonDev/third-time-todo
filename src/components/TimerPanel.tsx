@@ -1,14 +1,19 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useChimes } from '../hooks/useChimes';
 import { useDay } from '../hooks/useDay';
+import { useNextStepPrompt } from '../hooks/useNextStepPrompt';
 import { useSettleTimed } from '../hooks/useSettleTimed';
 import { useWakeLock } from '../hooks/useWakeLock';
+import { usePractices } from '../store/practices';
 import { useSettings } from '../store/settings';
 import { useTimer } from '../store/timer';
 import type { TimerState } from '../types';
 import { RATIO } from '../utils/ledger';
+import { LEVELS, listPractices } from '../utils/practices';
 import { formatClock, formatDuration } from '../utils/time';
 import { Modal } from './Modal';
+import { NeedsAttention } from './NeedsAttention';
+import { NextStepModal } from './NextStepModal';
 import { Scene } from './Scene';
 import { Segmented } from './Segmented';
 import { sceneInk, seasonOf, timeOfDayOf } from './sceneTheme';
@@ -42,9 +47,14 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   // Which kind of session the next start begins. Only chosen while stopped.
   const [mode, setMode] = useState<Mode>('flow');
   const [confirmingStop, setConfirmingStop] = useState(false);
+  // The practice the next start is for. Locked while a session runs.
+  const [forId, setForId] = useState('');
+  const allPractices = usePractices((s) => s.practices);
+  const practices = useMemo(() => listPractices(allPractices), [allPractices]);
 
   useSettleTimed();
   useChimes();
+  const [askedFor, dismissAsk] = useNextStepPrompt();
 
   const state = running?.state ?? null;
   const elapsed = running ? now - running.startedAt : 0;
@@ -69,7 +79,14 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   const date = new Date(now);
   const time = timeOfDayOf(date);
   const clock = plannedMs !== null ? formatClock(Math.max(0, plannedMs - elapsed)) : running ? formatClock(elapsed) : '0:00';
-  const headline = state === 'timed' ? 'Timed running' : state ? `${LABEL[state]} running` : 'Stopped';
+  // A deleted practice is no longer named, but its time stays on the entry.
+  const selected = practices.find((p) => p.id === (running ? running.practiceId : forId));
+  const headline = `${state === 'timed' ? 'Timed running' : state ? `${LABEL[state]} running` : 'Stopped'}${
+    running && selected ? ` · ${selected.name}` : ''
+  }`;
+  // Only a start from stopped names a practice; switching while running keeps the running one.
+  const practiceId = running ? undefined : selected?.id;
+  const asking = practices.find((p) => p.id === askedFor);
 
   return (
     <section aria-label="Timer" className="flex flex-col gap-4">
@@ -119,9 +136,45 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
         )}
       </div>
 
+      {practices.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <span aria-hidden="true" className="section-label">
+              For
+            </span>
+            <select
+              aria-label="For"
+              value={selected?.id ?? ''}
+              disabled={running !== undefined}
+              onChange={(e) => setForId(e.target.value)}
+              className="min-h-12 min-w-0 flex-1 cursor-pointer rounded-2xl border border-border bg-surface-2 px-4 text-base text-text outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">None</option>
+              {practices.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.level === 'paused' ? `${p.name} (paused)` : p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {selected?.nextStep && (
+            <p data-testid="next-step" className="text-sm text-text-muted">
+              Next: <span className="text-text">{selected.nextStep}</span>
+            </p>
+          )}
+        </div>
+      )}
+
       {!running && <Segmented<Mode> label="Timer mode" value={mode} options={[...MODES]} onChange={setMode} />}
 
-      {!running && mode === 'timed' && <TimedStart onStart={startTimed} />}
+      {!running && mode === 'timed' && (
+        <TimedStart
+          // Picking a practice starts the length at its level's minimum.
+          key={selected?.id ?? ''}
+          initialMinutes={selected && LEVELS[selected.level].minMin > 0 ? LEVELS[selected.level].minMin : undefined}
+          onStart={(ms) => startTimed(ms, practiceId)}
+        />
+      )}
 
       {(state === 'should' || state === 'want' || (!running && mode === 'flow')) && (
         <div role="group" aria-label="Timer state" className="grid grid-cols-2 gap-3">
@@ -134,7 +187,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
                 type="button"
                 aria-label={LABEL[s]}
                 aria-pressed={active}
-                onClick={() => start(s)}
+                onClick={() => start(s, practiceId)}
                 className={`press flex min-h-[92px] cursor-pointer flex-col justify-end rounded-3xl border-0 px-[18px] py-3.5 text-left transition-[opacity,box-shadow] duration-300 ${TILE[s].fill}`}
                 style={{
                   opacity: dimmed ? 0.45 : 1,
@@ -220,6 +273,8 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           </div>
         )}
       </div>
+      {!running && <NeedsAttention selectedId={selected?.id} onPick={setForId} />}
+      {asking && <NextStepModal practice={asking} onClose={dismissAsk} />}
       {confirmingStop && stopClears && (
         <Modal label="Stop the timer" onClose={() => setConfirmingStop(false)} size="sm" className="p-5 gap-5">
           <div>

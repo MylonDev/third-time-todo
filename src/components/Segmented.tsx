@@ -1,6 +1,9 @@
 export interface SegmentOption<T extends string> {
   value: T;
   label: string;
+  /** A second, smaller line under the label. */
+  hint?: string;
+  disabled?: boolean;
 }
 
 /**
@@ -21,23 +24,29 @@ export function Segmented<T extends string>({
   label: string;
   className?: string;
 }) {
+  // With a hint each button is narrow and two lines tall, so it gets corners instead of a pill.
+  const dense = options.some((o) => o.hint);
   return (
     <div
       role="group"
       aria-label={label}
-      className={`flex gap-1 rounded-full border border-border p-1 ${className}`}
+      className={`flex gap-1 border border-border p-1 ${dense ? 'rounded-2xl' : 'rounded-full'} ${className}`}
     >
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           aria-pressed={value === o.value}
+          disabled={o.disabled}
           onClick={() => onChange(o.value)}
-          className={`press flex-1 min-h-11 rounded-full px-3 text-sm font-semibold transition-colors cursor-pointer ${
+          className={`press flex-1 min-h-11 text-sm font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+            dense ? 'rounded-xl px-1 py-1.5' : 'rounded-full px-3'
+          } ${
             value === o.value ? 'bg-accent text-on-accent' : 'text-text-muted hover:text-text'
           }`}
         >
           {o.label}
+          {o.hint && <span className="block text-[0.625rem] font-normal leading-tight opacity-80">{o.hint}</span>}
         </button>
       ))}
     </div>

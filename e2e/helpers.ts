@@ -60,3 +60,26 @@ export async function addItem(page: Page, list: 'Should' | 'Want', text: string)
   await input.press('Enter');
   await expect(page.getByRole('checkbox', { name: text })).toBeVisible();
 }
+
+export async function openPractices(page: Page) {
+  await page.getByRole('navigation', { name: 'Views' }).getByRole('button', { name: 'Practices', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Practices' })).toBeVisible();
+}
+
+export type Level = 'Paused' | 'Minimal' | 'Light' | 'Steady' | 'Serious';
+
+/** Pick a level in the open practice editor. The buttons carry their target as a hint, so match the start of the name. */
+export async function pickLevel(page: Page, level: Level) {
+  await page.getByRole('group', { name: 'Level', exact: true }).getByRole('button', { name: new RegExp(`^${level}`) }).click();
+}
+
+/** Add a practice from the Practices tab, which must be open. */
+export async function addPractice(page: Page, name: string, level?: Level) {
+  await page.getByRole('button', { name: 'Add practice' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Add practice' });
+  await dialog.getByLabel('Name').fill(name);
+  if (level) await pickLevel(page, level);
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('button', { name: `Edit ${name}` })).toBeVisible();
+}

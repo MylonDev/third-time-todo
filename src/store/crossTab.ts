@@ -1,4 +1,5 @@
 import { useItems } from './items';
+import { usePractices } from './practices';
 import { useSettings } from './settings';
 import { useTimer } from './timer';
 
@@ -11,6 +12,7 @@ export function watchOtherWindows() {
   const stores: Record<string, { persist: { rehydrate: () => Promise<void> | void } }> = {
     'tt2-ledger': useTimer,
     'tt2-items': useItems,
+    'tt2-practices': usePractices,
     'tt2-settings': useSettings,
   };
   window.addEventListener('storage', (e) => {

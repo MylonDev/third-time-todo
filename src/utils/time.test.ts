@@ -7,6 +7,7 @@ import {
   formatDuration,
   shiftDayKey,
   weekdayOfKey,
+  weekWindowOf,
   windowOf,
 } from './time';
 
@@ -55,6 +56,22 @@ describe('day keys', () => {
     const w = windowOf('2026-10-12', 3);
     expect(w.start).toBe(new Date(2026, 9, 12, 3).getTime());
     expect(w.end).toBe(new Date(2026, 9, 13, 3).getTime());
+  });
+
+  it('windows a week from Monday to the next Monday', () => {
+    for (const key of ['2026-10-12', '2026-10-15', '2026-10-18']) {
+      const w = weekWindowOf(key, 0);
+      expect(w.start).toBe(new Date(2026, 9, 12).getTime());
+      expect(w.end).toBe(new Date(2026, 9, 19).getTime());
+    }
+  });
+
+  it('starts the week at the day end hour, and across a month end', () => {
+    const w = weekWindowOf('2026-11-01', 3);
+    expect(w.start).toBe(new Date(2026, 9, 26, 3).getTime());
+    expect(w.end).toBe(new Date(2026, 10, 2, 3).getTime());
+    // 1 AM Monday with a 3 AM day end is still Sunday's week.
+    expect(weekWindowOf(dayKeyOf(new Date(2026, 9, 19, 1).getTime(), 3), 3).start).toBe(new Date(2026, 9, 12, 3).getTime());
   });
 
   it('names nearby days', () => {

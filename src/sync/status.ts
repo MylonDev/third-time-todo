@@ -28,6 +28,19 @@ interface SyncMeta {
   set: (userId: string | null, cursors: Cursors) => void;
 }
 
+/** Version 1 cursors had no practices table. Start it from the beginning, as a fresh device would. */
+export function migrateSyncMeta(state: unknown, version: number): SyncMeta {
+  const meta = state as SyncMeta;
+  if (version >= 2) return meta;
+  return {
+    ...meta,
+    cursors: {
+      pushed: { ...meta.cursors.pushed, practices: 0 },
+      pulled: { ...meta.cursors.pulled, practices: null },
+    },
+  };
+}
+
 /** Where sync has got to. Kept, so a restart doesn't re-send or re-fetch everything. */
 export const useSyncMeta = create<SyncMeta>()(
   persist(
@@ -36,6 +49,6 @@ export const useSyncMeta = create<SyncMeta>()(
       cursors: FRESH_CURSORS,
       set: (userId, cursors) => set({ userId, cursors }),
     }),
-    { name: 'tt2-sync', version: 1 }
+    { name: 'tt2-sync', version: 2, migrate: migrateSyncMeta }
   )
 );

@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useItems } from '../store/items';
+import { usePractices } from '../store/practices';
 import { useSettings } from '../store/settings';
 import { useTimer } from '../store/timer';
 import { FRESH_CURSORS, mergeIncoming, syncOnce, type Local } from './engine';
@@ -18,7 +19,13 @@ const local: Local = {
     return {
       entries: useTimer.getState().entries,
       items: useItems.getState().items,
-      settings: { dayEndHour: s.dayEndHour, shouldTargetMin: s.shouldTargetMin, updatedAt: s.updatedAt },
+      practices: usePractices.getState().practices,
+      settings: {
+        dayEndHour: s.dayEndHour,
+        shouldTargetMin: s.shouldTargetMin,
+        weeklyCapMin: s.weeklyCapMin,
+        updatedAt: s.updatedAt,
+      },
     };
   },
   apply: (incoming) => {
@@ -28,6 +35,7 @@ const local: Local = {
     // Only write what changed, so an idle sync wakes nothing.
     if (next.entries !== cur.entries) useTimer.setState({ entries: next.entries });
     if (next.items !== cur.items) useItems.setState({ items: next.items });
+    if (next.practices !== cur.practices) usePractices.setState({ practices: next.practices });
     if (next.settings !== cur.settings) useSettings.setState({ ...next.settings });
   },
 };
@@ -88,6 +96,7 @@ function listen() {
     .channel('tt-sync')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'time_entries' }, ping)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, ping)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'practices' }, ping)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'user_settings' }, ping)
     .subscribe();
 }
@@ -190,6 +199,7 @@ export function startSync() {
   const changed = () => schedule('push', 800);
   useTimer.subscribe(changed);
   useItems.subscribe(changed);
+  usePractices.subscribe(changed);
   useSettings.subscribe(changed);
   const resume = () => schedule('full', 0);
   document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && resume());
