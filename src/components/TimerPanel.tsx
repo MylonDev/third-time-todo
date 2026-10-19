@@ -104,7 +104,8 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   };
   const answerGetReady = (done: string[], skipped: boolean) => {
     recordGetReady(dayKeyOf(Date.now(), dayEndHour), done, skipped);
-    pending?.();
+    // Another tab or a sync may have started a session while the modal was open.
+    if (!running) pending?.();
     setPending(null);
   };
 

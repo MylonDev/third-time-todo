@@ -49,7 +49,8 @@ function StepField({
   useEffect(
     () => () => {
       const l = latest.current;
-      if (l.dirty) l.onCommit(l.draft);
+      // A cleared box on close is a cancelled edit, not a request to remove the step.
+      if (l.dirty && l.draft.trim()) l.onCommit(l.draft);
     },
     [],
   );

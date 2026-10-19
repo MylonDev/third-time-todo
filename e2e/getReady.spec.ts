@@ -162,6 +162,17 @@ test.describe('get ready', () => {
     await expect(app.getByRole('textbox', { name: 'Get ready step 1' })).toHaveValue('Open the window');
   });
 
+  test('clearing a step and closing Settings on Escape keeps the step', async ({ app }) => {
+    await addSteps(app, 'Water');
+    await app.getByRole('button', { name: 'Settings' }).click();
+    await app.getByRole('textbox', { name: 'Get ready step 1' }).fill('');
+    await app.keyboard.press('Escape');
+    await expect(app.getByRole('dialog')).toHaveCount(0);
+
+    await app.getByRole('button', { name: 'Settings' }).click();
+    await expect(app.getByRole('textbox', { name: 'Get ready step 1' })).toHaveValue('Water');
+  });
+
   test('a blank step is dropped', async ({ app }) => {
     await addSteps(app, 'Water');
     await app.getByRole('button', { name: 'Settings' }).click();
