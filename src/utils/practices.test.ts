@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Practice, TimeEntry } from '../types';
 import {
+  countedSessions,
   describeLevel,
   describeSince,
   endedPractice,
@@ -12,6 +13,7 @@ import {
   levelOverBy,
   listPractices,
   makePractice,
+  needsAttention,
   plannedMinutes,
   practiceSessions,
   practiceTime,
@@ -377,5 +379,100 @@ describe('a practice session ending', () => {
     const e = entry('should', 0, 25, 'g', { deletedAt: 25 });
     expect(endedPractice([e], was(e), at(25))).toBeUndefined();
     expect(endedPractice([], was(e), at(25))).toBeUndefined();
+  });
+});
+
+// ── Needs attention ───────────────────────────────────────────────────────────
+
+describe('needs attention', () => {
+  const DAY = 24 * 60;
+  /** A Timed session of `min` minutes, `day` days after Monday 12 Oct at 10:00. */
+  const sit = (practiceId: string, day: number, min: number) => timedEntry(day * DAY, min, day * DAY + min, practiceId);
+  /** A moment `day` days after Monday 10:00 plus `min` minutes: day 4 is Friday. */
+  const when = (day: number, min = 0) => at(day * DAY + min);
+  const named = (level: Practice['level'], name: string, order = 1): Practice => ({
+    ...makePractice([], { ...fields, name, level }, 1),
+    id: name,
+    order,
+  });
+  const names = (out: ReturnType<typeof needsAttention>) => out.map((a) => a.practice.name);
+
+  const guitar = named('steady', 'Guitar'); // 4 a week, from 20 min
+  const drawing = named('light', 'Drawing', 2); // 3 a week, from 15 min
+  const spanish = named('minimal', 'Spanish', 3); // 1 a week, from 10 min
+
+  it('counts only sessions that began this week and reached the level minimum', () => {
+    const week = { start: when(0, -600), end: when(7, -600) };
+    const entries = [sit('Guitar', 0, 20), sit('Guitar', 1, 19), sit('Guitar', -1, 30), sit('Guitar', 7, 30), sit('Drawing', 1, 40)];
+    expect(countedSessions(entries, guitar, week, when(2)).map((s) => s.ms / MIN)).toEqual([20]);
+  });
+
+  it('lists what is behind, with the sessions left and the days left', () => {
+    const out = needsAttention([guitar, drawing], [sit('Guitar', 0, 30)], when(0, 60), 0);
+    expect(out.map((a) => [a.practice.name, a.done, a.left, a.daysLeft])).toEqual([
+      ['Drawing', 0, 3, 7],
+      ['Guitar', 1, 3, 7],
+    ]);
+  });
+
+  it('ranks by sessions left, the same days left for all, on a Monday and on a Friday', () => {
+    const entries = [sit('Guitar', 0, 30), sit('Guitar', 1, 30), sit('Spanish', 0, 15)];
+    // Monday: Drawing 3 left, Guitar 2 left, Spanish met its one.
+    expect(names(needsAttention([guitar, drawing, spanish], entries, when(0, 600), 0))).toEqual(['Drawing', 'Guitar']);
+    // Friday: three days left (Fri, Sat, Sun).
+    const friday = needsAttention([guitar, drawing, spanish], entries, when(4, 60), 0);
+    expect(names(friday)).toEqual(['Drawing', 'Guitar']);
+    expect(friday.map((a) => a.daysLeft)).toEqual([3, 3]);
+    // Sunday: one day left.
+    expect(needsAttention([guitar], [], when(6, 60), 0)[0].daysLeft).toBe(1);
+  });
+
+  it('leaves out paused and deleted practices and ones that met their target', () => {
+    const entries = [sit('Spanish', 2, 10)];
+    const paused = named('paused', 'Paused', 4);
+    const gone = { ...named('steady', 'Gone', 5), deletedAt: 9 };
+    expect(names(needsAttention([guitar, spanish, paused, gone], entries, when(3), 0))).toEqual(['Guitar']);
+  });
+
+  it('does not count a session shorter than the minimum', () => {
+    const entries = [sit('Spanish', 1, 9), sit('Guitar', 1, 19)];
+    const out = needsAttention([guitar, spanish], entries, when(3), 0);
+    expect(out.map((a) => [a.practice.name, a.done])).toEqual([
+      ['Guitar', 0],
+      ['Spanish', 0],
+    ]);
+  });
+
+  it('counts a Flow session by its Focus time', () => {
+    const entries = [entry('should', 0, 12, 'Spanish'), entry('want', 12, 30, 'Spanish')];
+    expect(names(needsAttention([spanish], entries, at(60), 0))).toEqual([]);
+    const short = [entry('should', 0, 8, 'Spanish'), entry('want', 8, 30, 'Spanish')];
+    expect(names(needsAttention([spanish], short, at(60), 0))).toEqual(['Spanish']);
+  });
+
+  it("does not count last week's sessions", () => {
+    const entries = [sit('Spanish', -2, 30)];
+    expect(names(needsAttention([spanish], entries, when(0, 60), 0))).toEqual(['Spanish']);
+  });
+
+  it('breaks a tie by the oldest last session, a practice never done first', () => {
+    const a = named('light', 'A', 1);
+    const b = named('light', 'B', 2);
+    const c = named('light', 'C', 3);
+    // All three have 3 sessions left of 3, so a short one (not counted) decides.
+    const entries = [sit('A', 2, 5), sit('B', 1, 5)];
+    expect(names(needsAttention([a, b, c], entries, when(3), 0))).toEqual(['C', 'B', 'A']);
+  });
+
+  it('falls back to the list order on a full tie', () => {
+    const a = named('light', 'A', 2);
+    const b = named('light', 'B', 1);
+    expect(names(needsAttention([a, b], [], when(1), 0))).toEqual(['B', 'A']);
+  });
+
+  it('follows the day end hour: 1 AM Monday is still last week', () => {
+    const monday1am = new Date(2026, 9, 19, 1, 0).getTime();
+    expect(needsAttention([guitar], [], monday1am, 3)[0].daysLeft).toBe(1);
+    expect(needsAttention([guitar], [], monday1am, 0)[0].daysLeft).toBe(7);
   });
 });

@@ -504,4 +504,90 @@ test.describe('practices', () => {
       await expect(app.getByTestId('cap-warning')).toHaveCount(0);
     });
   });
+
+  test.describe('needs attention', () => {
+    const card = (page: Page) => page.getByRole('region', { name: 'Needs attention' });
+
+    /** Run a Timed session for a practice to its end and skip the next-step question. */
+    async function timedSession(page: Page, name: string, minutes: number) {
+      await pickFor(page, name);
+      await startTimed(page, minutes);
+      await advance(page, minutes * MIN);
+      await page.getByRole('dialog', { name: `Next step for ${name}` }).getByRole('button', { name: 'Skip' }).click();
+    }
+
+    test('is not there without practices, or when none is behind', async ({ app }) => {
+      await expect(card(app)).toHaveCount(0);
+      await openPractices(app);
+      await addPractice(app, 'Spanish', 'Minimal');
+      await addPractice(app, 'Guitar', 'Paused');
+      await expect(card(app)).toBeVisible();
+      await timedSession(app, 'Spanish', 10);
+      // The one session a week is done, and Paused has no target.
+      await expect(card(app)).toHaveCount(0);
+    });
+
+    test('lists the three furthest behind, most sessions left first, leaving out Paused', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Chess', 'Minimal');
+      await addPractice(app, 'Spanish', 'Minimal');
+      await addPractice(app, 'Drawing', 'Light');
+      await addPractice(app, 'Guitar', 'Steady');
+      await addPractice(app, 'Piano', 'Paused');
+      await expect(card(app).getByRole('button')).toHaveText([
+        'Guitar · 0 of 4 this week · 7 days left',
+        'Drawing · 0 of 3 this week · 7 days left',
+        'Chess · 0 of 1 this week · 7 days left',
+      ]);
+    });
+
+    test('counts sessions that reach the level minimum, and the days left', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Steady');
+      await timedSession(app, 'Guitar', 19); // under 20 minutes
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 0 of 4 this week · 7 days left');
+      await timedSession(app, 'Guitar', 20);
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 1 of 4 this week · 7 days left');
+
+      // Friday has three days left, Sunday one. The week's count stays until Monday.
+      await advance(app, 4 * 24 * 60 * MIN);
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 1 of 4 this week · 3 days left');
+      await advance(app, 2 * 24 * 60 * MIN);
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 1 of 4 this week · 1 day left');
+      await advance(app, 24 * 60 * MIN);
+      await expect(card(app).getByRole('button')).toHaveText('Guitar · 0 of 4 this week · 7 days left');
+    });
+
+    test('tapping one picks it for the next session, and starts nothing', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Steady');
+      await addPractice(app, 'Drawing', 'Light');
+      const picker = app.getByLabel('For', { exact: true });
+      await expect(picker).toHaveValue('');
+
+      await card(app).getByRole('button', { name: /^Drawing/ }).click();
+      await expect(picker.locator('option:checked')).toHaveText('Drawing');
+      await expect(card(app).getByRole('button', { name: /^Drawing/ })).toHaveAttribute('aria-pressed', 'true');
+      await expect(card(app).getByRole('button', { name: /^Guitar/ })).toHaveAttribute('aria-pressed', 'false');
+      await expect(app.getByText('Stopped')).toBeVisible();
+
+      // Timed starts at its level's minimum, as when picked from the list.
+      await app.getByRole('group', { name: 'Timer mode' }).getByRole('button', { name: 'Timed' }).click();
+      await expect(app.getByRole('spinbutton', { name: 'Custom minutes' })).toHaveValue('15');
+      await card(app).getByRole('button', { name: /^Guitar/ }).click();
+      await expect(app.getByRole('spinbutton', { name: 'Custom minutes' })).toHaveValue('20');
+    });
+
+    test('goes while a session runs, and comes back when it stops', async ({ app }) => {
+      await openPractices(app);
+      await addPractice(app, 'Guitar', 'Steady');
+      await card(app).getByRole('button', { name: /^Guitar/ }).click();
+      await startState(app, 'Focus');
+      await expect(card(app)).toHaveCount(0);
+      await advance(app, MIN);
+      await app.getByRole('button', { name: 'Stop' }).click();
+      await app.getByRole('dialog', { name: 'Next step for Guitar' }).getByRole('button', { name: 'Skip' }).click();
+      await expect(card(app)).toBeVisible();
+    });
+  });
 });

@@ -12,6 +12,7 @@ import { RATIO } from '../utils/ledger';
 import { LEVELS, listPractices } from '../utils/practices';
 import { formatClock, formatDuration } from '../utils/time';
 import { Modal } from './Modal';
+import { NeedsAttention } from './NeedsAttention';
 import { NextStepModal } from './NextStepModal';
 import { Scene } from './Scene';
 import { Segmented } from './Segmented';
@@ -272,6 +273,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           </div>
         )}
       </div>
+      {!running && <NeedsAttention selectedId={selected?.id} onPick={setForId} />}
       {asking && <NextStepModal practice={asking} onClose={dismissAsk} />}
       {confirmingStop && stopClears && (
         <Modal label="Stop the timer" onClose={() => setConfirmingStop(false)} size="sm" className="p-5 gap-5">

@@ -1,6 +1,6 @@
 import type { Need, Practice, PracticeLevel, TimeEntry } from '../types';
 import { endOf, runningEntry } from './ledger';
-import type { DayWindow } from './time';
+import { dayKeyOf, weekdayOfKey, weekWindowOf, type DayWindow } from './time';
 
 /**
  * What each commitment level asks for. One table, so a level is easy to change.
@@ -160,6 +160,58 @@ export function practiceSessions(entries: TimeEntry[], practiceId: string, now: 
     flowEnd = end;
   }
   return sessions.filter((s) => s.ms > 0);
+}
+
+/** The sessions that began in `win` and reached the level's minimum length. */
+export function countedSessions(
+  entries: TimeEntry[],
+  practice: Pick<Practice, 'id' | 'level'>,
+  win: DayWindow,
+  now: number
+): PracticeSession[] {
+  const min = LEVELS[practice.level].minMin * 60_000;
+  return practiceSessions(entries, practice.id, now).filter(
+    (s) => s.startedAt >= win.start && s.startedAt < win.end && s.ms >= min
+  );
+}
+
+/** A practice that is behind this week, and how far. */
+export interface Attention {
+  practice: Practice;
+  /** Sessions counted so far this week. */
+  done: number;
+  /** Sessions still needed to meet the weekly target. */
+  left: number;
+  /** Days left in the week, today included. */
+  daysLeft: number;
+}
+
+/**
+ * The practices that still need sessions this week, most pressing first: the
+ * most sessions left per day left (today counts). A tie goes to the one
+ * practised longest ago, or never. Paused and deleted practices, and ones that
+ * met their target, are left out.
+ */
+export function needsAttention(
+  practices: Practice[],
+  entries: TimeEntry[],
+  now: number,
+  dayEndHour: number
+): Attention[] {
+  const today = dayKeyOf(now, dayEndHour);
+  const week = weekWindowOf(today, dayEndHour);
+  const daysLeft = 7 - weekdayOfKey(today);
+  return practices
+    .filter((p) => isLive(p) && p.level !== 'paused')
+    .map((practice) => {
+      const done = countedSessions(entries, practice, week, now).length;
+      // Never practised sorts before any real session.
+      const last = practiceSessions(entries, practice.id, now).at(-1)?.startedAt ?? 0;
+      return { practice, done, left: LEVELS[practice.level].sessions - done, daysLeft, last };
+    })
+    .filter((a) => a.left > 0)
+    .sort((a, b) => b.left / b.daysLeft - a.left / a.daysLeft || a.last - b.last || a.practice.order - b.practice.order)
+    .map(({ practice, done, left, daysLeft }) => ({ practice, done, left, daysLeft }));
 }
 
 /**
