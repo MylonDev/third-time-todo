@@ -51,6 +51,28 @@ test.describe('the timer', () => {
     await expect(app.getByTestId('totals')).toContainText('Focus 6m');
   });
 
+  test('debt says how much Focus clears it', async ({ app }) => {
+    await expect(app.getByTestId('debt-hint')).toHaveCount(0);
+
+    await startState(app, 'Focus');
+    await advance(app, 9 * MIN); // earns 3:00
+    await startState(app, 'Rest');
+    await advance(app, 3 * MIN);
+    await expect(app.getByTestId('balance')).toHaveText('0:00');
+    await expect(app.getByTestId('debt-hint')).toHaveCount(0);
+
+    await advance(app, MIN);
+    await expect(app.getByText('Rest debt')).toBeVisible();
+    await expect(app.getByTestId('balance')).toHaveText('1:00');
+    await expect(app.getByTestId('debt-hint')).toHaveText('3m of Focus clears it');
+
+    // Paying it back: 3 minutes of Focus earns exactly 1 minute.
+    await startState(app, 'Focus');
+    await advance(app, 3 * MIN);
+    await expect(app.getByTestId('balance')).toHaveText('0:00');
+    await expect(app.getByTestId('debt-hint')).toHaveCount(0);
+  });
+
   test('shows the day so far', async ({ app }) => {
     await startState(app, 'Focus');
     await advance(app, 60 * MIN);

@@ -2,7 +2,7 @@ import type { EntryState, TimeEntry, TimerState } from '../types';
 import type { DayWindow } from './time';
 
 /** Every 3 seconds of Focus earns 1 second of Rest. */
-const RATIO = 3;
+export const RATIO = 3;
 
 /** The longest stretch "Fix timer" will rewrite. */
 export const MAX_FIX_MS = 12 * 3_600_000;

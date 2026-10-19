@@ -5,6 +5,7 @@ import { useWakeLock } from '../hooks/useWakeLock';
 import { useSettings } from '../store/settings';
 import { useTimer } from '../store/timer';
 import type { TimerState } from '../types';
+import { RATIO } from '../utils/ledger';
 import { formatClock, formatDuration } from '../utils/time';
 import { Scene } from './Scene';
 import { Segmented } from './Segmented';
@@ -94,6 +95,12 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           >
             {formatClock(balance)}
           </p>
+          {inDebt && (
+            <p data-testid="debt-hint" className="text-sm text-text-muted">
+              {/* Focus pays back 1:RATIO, so clearing the debt takes RATIO times as much. */}
+              {formatDuration(Math.max(60_000, -balance * RATIO))} of Focus clears it
+            </p>
+          )}
         </div>
         {targetMs !== null && (
           <div className="text-right">
