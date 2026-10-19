@@ -24,6 +24,12 @@ export interface TimeEntry {
   endedAt: number | null;
   /** How long a `timed` entry was set to run. The entry closes itself at `startedAt + plannedMs`. */
   plannedMs?: number;
+  /**
+   * The practice this time was spent on. Time counts toward a practice only in
+   * `should` and `timed` entries; a Rest entry may carry it just so a Flow
+   * stretch stays one session.
+   */
+  practiceId?: string;
   updatedAt: number;
   /** Set instead of removing the entry, so a delete can sync. */
   deletedAt?: number;
@@ -55,6 +61,36 @@ export interface Item {
   nextId?: string;
   order: number;
   updatedAt: number;
+  deletedAt?: number;
+}
+
+/** How much a practice is committed to; the table of targets is in `utils/practices.ts`. */
+export type PracticeLevel = 'paused' | 'minimal' | 'light' | 'steady' | 'serious';
+
+/** What a step asks of you. A step tagged with neither is for when you have little of either. */
+export type Need = 'clarity' | 'energy';
+
+/**
+ * A hobby or skill with no end point. It has a weekly target set by its level,
+ * a small step and a smaller one for low days, and a note for the next session.
+ * Time is not stored on it: sessions are read from the ledger.
+ */
+export interface Practice {
+  id: string;
+  name: string;
+  level: PracticeLevel;
+  /** The smallest session that still counts. */
+  smallStep: string;
+  /** A smaller version for low days. */
+  lowStep: string;
+  smallNeeds: Need[];
+  lowNeeds: Need[];
+  /** Written at the end of a session, shown at the start of the next. */
+  nextStep?: string;
+  order: number;
+  createdAt: number;
+  updatedAt: number;
+  /** Set instead of removing the practice, so a delete can sync. Its time stays in the ledger. */
   deletedAt?: number;
 }
 

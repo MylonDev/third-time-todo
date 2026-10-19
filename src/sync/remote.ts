@@ -1,15 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Item, TimeEntry } from '../types';
+import type { Item, Practice, TimeEntry } from '../types';
 import type { Pull, Remote } from './engine';
 import {
   entryToRow,
   itemToRow,
+  practiceToRow,
   rowToEntry,
   rowToItem,
+  rowToPractice,
   rowToSettings,
   settingsToRow,
   type EntryRow,
   type ItemRow,
+  type PracticeRow,
   type SettingsRow,
   type SyncedSettings,
 } from './rows';
@@ -55,6 +58,8 @@ export function supabaseRemote(sb: SupabaseClient, userId: string): Remote {
       upsert('time_entries', rows.map((r) => ({ ...entryToRow(r), user_id: userId })), 'user_id,id'),
     pushItems: (rows: Item[]) =>
       upsert('items', rows.map((r) => ({ ...itemToRow(r), user_id: userId })), 'user_id,id'),
+    pushPractices: (rows: Practice[]) =>
+      upsert('practices', rows.map((r) => ({ ...practiceToRow(r), user_id: userId })), 'user_id,id'),
     pushSettings: (s: SyncedSettings) =>
       upsert('user_settings', [{ ...settingsToRow(s), user_id: userId }], 'user_id'),
 
@@ -65,6 +70,10 @@ export function supabaseRemote(sb: SupabaseClient, userId: string): Remote {
     async pullItems(since): Promise<Pull<Item>> {
       const r = await pull<Stamped<ItemRow>>('items', since, ['server_updated_at', 'id']);
       return { rows: r.rows.map(rowToItem), cursor: r.cursor };
+    },
+    async pullPractices(since): Promise<Pull<Practice>> {
+      const r = await pull<Stamped<PracticeRow>>('practices', since, ['server_updated_at', 'id']);
+      return { rows: r.rows.map(rowToPractice), cursor: r.cursor };
     },
     async pullSettings(since): Promise<Pull<SyncedSettings>> {
       const r = await pull<Stamped<SettingsRow>>('user_settings', since, ['server_updated_at']);
