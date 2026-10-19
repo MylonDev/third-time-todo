@@ -61,7 +61,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           ))}
         </select>
         <span className="text-xs text-text-muted">
-          Rest available and debt reset when the day ends. Push this past midnight if you work late.
+          Rest available and debt start again each day. A timer still running at the day end keeps its balance until you stop it. Push this past midnight if you work late.
         </span>
       </label>
 

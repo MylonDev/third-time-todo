@@ -8,6 +8,7 @@ import { useTimer } from '../store/timer';
 import type { TimerState } from '../types';
 import { RATIO } from '../utils/ledger';
 import { formatClock, formatDuration } from '../utils/time';
+import { Modal } from './Modal';
 import { Scene } from './Scene';
 import { Segmented } from './Segmented';
 import { sceneInk, seasonOf, timeOfDayOf } from './sceneTheme';
@@ -32,7 +33,7 @@ const TILE: Record<TimerState, { fill: string; sub: string; subRunning: string }
 
 /** The one thing always on screen: what you're spending time on, and the balance. */
 export function TimerPanel({ onFix }: { onFix: () => void }) {
-  const { now, running, totals, balance } = useDay();
+  const { now, running, totals, balance, carried } = useDay();
   const start = useTimer((s) => s.start);
   const startTimed = useTimer((s) => s.startTimed);
   const stop = useTimer((s) => s.stop);
@@ -40,6 +41,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   const wakeLockOn = useSettings((s) => s.wakeLock);
   // Which kind of session the next start begins. Only chosen while stopped.
   const [mode, setMode] = useState<Mode>('flow');
+  const [confirmingStop, setConfirmingStop] = useState(false);
 
   useSettleTimed();
   useChimes();
@@ -57,6 +59,11 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
     plannedMs !== null ? Math.min(1, elapsed / plannedMs) : Math.min(1, totals.shouldMs / (targetMs ?? DEFAULT_SCALE_MS));
   const targetProgress = targetMs ? Math.min(1, totals.shouldMs / targetMs) : 0;
   const reached = targetMs !== null && totals.shouldMs >= targetMs;
+
+  // Past the day end the balance has carried on, and stopping is what clears it.
+  // Debt, zero or under half a minute (which would read as 0m) stops without asking.
+  const stopClears = carried && balance >= 30_000;
+  const onStop = () => (stopClears ? setConfirmingStop(true) : stop());
 
   const scene = state ?? 'stopped';
   const date = new Date(now);
@@ -150,7 +157,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
         <div className="pop grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={stop}
+            onClick={onStop}
             className="press min-h-12 cursor-pointer rounded-3xl border border-border-strong bg-transparent font-semibold text-text"
           >
             Stop
@@ -213,6 +220,35 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           </div>
         )}
       </div>
+      {confirmingStop && stopClears && (
+        <Modal label="Stop the timer" onClose={() => setConfirmingStop(false)} size="sm" className="p-5 gap-5">
+          <div>
+            <h2 className="text-lg font-semibold">Stop the timer?</h2>
+            <p data-testid="stop-clears" className="text-sm text-text-muted">
+              Stopping clears {formatDuration(balance)} of rest.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirmingStop(false)}
+              className="press min-h-12 cursor-pointer rounded-full border border-border font-medium text-text-muted hover:text-text"
+            >
+              Keep going
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmingStop(false);
+                stop();
+              }}
+              className="press min-h-12 cursor-pointer rounded-full bg-accent font-semibold text-on-accent"
+            >
+              Stop
+            </button>
+          </div>
+        </Modal>
+      )}
     </section>
   );
 }

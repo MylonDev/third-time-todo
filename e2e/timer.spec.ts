@@ -92,14 +92,15 @@ test.describe('the timer', () => {
     await expect(app.getByTestId('elapsed')).toHaveText(/^5:0\d$/);
   });
 
-  test('a stint carries on across midnight, and the new day starts at zero', async ({ app }) => {
+  test("a stint carries on across midnight: today's totals start at zero, the balance carries", async ({ app }) => {
     await startState(app, 'Focus');
     await advance(app, 30 * MIN);
     // Jump to just after midnight in one step.
     await app.clock.fastForward('14:00:00');
     await expect(app.getByText('Focus running')).toBeVisible();
-    // 00:00 to 00:30: half an hour of today's Focus, and its balance only.
+    // 00:00 to 00:30: half an hour of today's Focus in the totals...
     await expect(app.getByTestId('totals')).toContainText('Focus 30m');
-    await expect(app.getByTestId('balance')).toHaveText('10:00');
+    // ...but the balance still has the whole stint: 14h30m of Focus earns 4h50m.
+    await expect(app.getByTestId('balance')).toHaveText('4:50:00');
   });
 });

@@ -4,6 +4,7 @@ import {
   activeEntry,
   applyFix,
   balanceOf,
+  balanceWindow,
   fixRefusal,
   MAX_FIX_MS,
   paint,
@@ -333,5 +334,85 @@ describe('timed sessions', () => {
       60 * MIN,
       60 * MIN,
     ]);
+  });
+});
+
+describe('balanceWindow', () => {
+  const day = windowOf('2026-10-13', 0);
+  const before = (min: number) => day.start - min * MIN;
+  const flow = (state: 'should' | 'want', from: number, to: number | null): TimeEntry => ({
+    id: `b${++n}`,
+    state,
+    startedAt: from,
+    endedAt: to,
+    updatedAt: 0,
+  });
+  const now = day.start + 30 * MIN;
+
+  it('is the day window when the running entry began inside it', () => {
+    expect(balanceWindow([flow('should', day.start + 5 * MIN, null)], day, now)).toBe(day);
+  });
+
+  it('is the day window with nothing running', () => {
+    expect(balanceWindow([flow('should', before(60), day.start + 10 * MIN)], day, now)).toBe(day);
+    expect(balanceWindow([], day, now)).toBe(day);
+  });
+
+  it('carries when the running entry began before the day', () => {
+    const win = balanceWindow([flow('should', before(60), null)], day, now);
+    expect(win).toEqual({ start: before(60), end: day.end });
+  });
+
+  it('carries back through Focus and Rest that touch', () => {
+    const entries = [
+      flow('should', before(120), before(80)),
+      flow('want', before(80), before(20)),
+      flow('should', before(20), null),
+    ];
+    expect(balanceWindow(entries, day, now).start).toBe(before(120));
+  });
+
+  it('carries even when the switch happened after the day began', () => {
+    const entries = [flow('should', before(60), day.start + 10 * MIN), flow('want', day.start + 10 * MIN, null)];
+    expect(balanceWindow(entries, day, now).start).toBe(before(60));
+  });
+
+  it('keeps the Rest that Focus earned before the day end', () => {
+    const entries = [flow('should', before(90), before(30)), flow('want', before(30), null)];
+    const win = balanceWindow(entries, day, now);
+    // An hour of Focus earned 20 minutes of Rest; an hour of Rest since leaves 40 in debt.
+    expect(balanceOf(totalsFor(entries, win, now))).toBe(-40 * MIN);
+    // Counted over the day alone only the last 30 minutes of Rest show, and nothing earned.
+    expect(balanceOf(totalsFor(entries, day, now))).toBe(-30 * MIN);
+  });
+
+  it('ends at a Stop: the stretch starts again after the gap', () => {
+    const entries = [flow('should', before(120), before(100)), flow('want', before(40), null)];
+    expect(balanceWindow(entries, day, now).start).toBe(before(40));
+  });
+
+  it('after a Stop the carry is over: it is the day window', () => {
+    const entries = [flow('should', before(60), day.start + 10 * MIN)];
+    expect(balanceWindow(entries, day, now)).toBe(day);
+  });
+
+  it('is not carried by a Timed session in between', () => {
+    const between = { ...flow('want', before(60), before(30)), state: 'timed' as const, plannedMs: 30 * MIN };
+    const entries = [flow('should', before(120), before(60)), between, flow('should', before(30), null)];
+    expect(balanceWindow(entries, day, now).start).toBe(before(30));
+  });
+
+  it('does not apply to a running Timed session', () => {
+    const running = { ...flow('want', before(10), null), state: 'timed' as const, plannedMs: 60 * MIN };
+    expect(balanceWindow([flow('should', before(60), before(10)), running], day, now)).toBe(day);
+  });
+
+  it('ignores tombstoned entries', () => {
+    const dead = { ...flow('should', before(120), before(60)), deletedAt: 1 };
+    expect(balanceWindow([dead, flow('want', before(60), null)], day, now).start).toBe(before(60));
+  });
+
+  it('is the day window when the stretch began exactly at its start', () => {
+    expect(balanceWindow([flow('should', day.start, null)], day, now)).toBe(day);
   });
 });

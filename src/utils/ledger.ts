@@ -71,6 +71,29 @@ export function balanceOf(t: Totals): number {
   return t.shouldMs / RATIO - t.wantMs;
 }
 
+/**
+ * The window the Flow balance is counted over. Normally that is the day's. But
+ * if the timer has run in Focus and Rest back to back since before the day
+ * began, the balance carries on: the window starts where that stretch started.
+ * Any Stop or Timed session in between ends the stretch, so the carry ends at
+ * the first Stop after the day end. Day totals and history still use the day's
+ * own window. Returns `win` itself when nothing carries.
+ */
+export function balanceWindow(entries: TimeEntry[], win: DayWindow, now: number): DayWindow {
+  const current = activeEntry(entries, now);
+  if (!current || current.state === 'timed') return win;
+
+  const live = entries.filter(isLive).sort((a, b) => a.startedAt - b.startedAt);
+  let start = current.startedAt;
+  for (let i = live.indexOf(current) - 1; i >= 0; i--) {
+    const before = live[i];
+    // A gap is a Stop, and a Timed session is not part of the Flow.
+    if (before.state === 'timed' || before.endedAt === null || before.endedAt < start) break;
+    start = before.startedAt;
+  }
+  return start < win.start ? { start, end: win.end } : win;
+}
+
 // ── Writing ───────────────────────────────────────────────────────────────────
 //
 // Every function here is pure: it takes the entries and returns new ones. A
