@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { usePractices } from '../store/practices';
 import type { Practice } from '../types';
 import { useSettings } from '../store/settings';
@@ -14,16 +14,14 @@ import {
   type Target,
   type TemplateKey,
 } from '../utils/practices';
+import { WEEKDAY_LABELS } from '../utils/recurrence';
 import { formatDuration } from '../utils/time';
 import { Modal } from './Modal';
 import { Segmented } from './Segmented';
+import { MAX_MINUTES } from './TimedStart';
 
 const FIELD = 'min-h-12 rounded-2xl px-4 text-base bg-surface-2 border border-border text-text outline-none';
 
-/** The longest a day can ask for, the same limit as a Timed session. */
-const MAX_MINUTES = 600;
-
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_COUNTS = ['1', '2', '3', '4', '5', '6', '7'];
 
 type Choice = TemplateKey | 'custom';
@@ -65,13 +63,15 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
   const [weekdays, setWeekdays] = useState<number[]>(practice?.targetWeekdays ?? []);
   const [minutes, setMinutes] = useState(practice?.targetMin || 20);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const minutesHint = useId();
 
   const custom = choice === 'custom';
   // Chosen weekdays set the days, so the count follows the chips.
   const target: Target = custom
     ? { targetDays: specific ? weekdays.length : days, targetWeekdays: specific ? weekdays : [], targetMin: minutes }
     : targetOf(choice);
-  const customValid = Number.isInteger(minutes) && minutes >= 1 && minutes <= MAX_MINUTES && target.targetDays >= 1;
+  const minutesOk = Number.isInteger(minutes) && minutes >= 1 && minutes <= MAX_MINUTES;
+  const customValid = minutesOk && target.targetDays >= 1;
   // A half-typed minutes box costs nothing yet, rather than NaN.
   const cost: Target = custom && !Number.isFinite(minutes) ? { ...target, targetMin: 0 } : target;
   const customOver = custom ? targetOverBy(all, practice?.id, cost, cap) : 0;
@@ -79,7 +79,7 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
   const valid = name.trim() !== '' && (!custom || (customValid && customOver === 0));
   // The nearest template above the ones that fit says how far over the cap the next step up would go.
   const blocked = TEMPLATE_ORDER.find((t) => !targetFits(all, practice?.id, targetOf(t), cap));
-  const overBy = customOver > 0 ? customOver : blocked ? targetOverBy(all, practice?.id, targetOf(blocked), cap) : 0;
+  const overBy = custom ? customOver : blocked ? targetOverBy(all, practice?.id, targetOf(blocked), cap) : 0;
   const title = practice ? 'Edit practice' : 'Add practice';
 
   // Picking Custom starts from what is picked now, so nothing jumps. A Paused one has nothing to start from.
@@ -170,30 +170,37 @@ export function PracticeEditor({ practice, onClose }: { practice?: Practice; onC
                 </div>
                 {specific && (
                   <div role="group" aria-label="Weekdays" className="flex flex-wrap gap-2">
-                    {WEEKDAYS.map((w, d) => (
+                    {WEEKDAY_LABELS.map((w, d) => (
                       <Chip key={w} label={w} on={weekdays.includes(d)} onClick={() => toggleWeekday(d)} />
                     ))}
                   </div>
                 )}
               </div>
 
-              <label className="flex flex-col gap-1.5">
-                <span className="section-label">Minutes a day</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={MAX_MINUTES}
-                  value={Number.isFinite(minutes) ? minutes : ''}
-                  onChange={(e) => setMinutes(e.target.value === '' ? Number.NaN : Number(e.target.value))}
-                  className={FIELD}
-                />
-              </label>
+              <div className="flex flex-col gap-1.5">
+                <label className="flex flex-col gap-1.5">
+                  <span className="section-label">Minutes a day</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={MAX_MINUTES}
+                    value={Number.isFinite(minutes) ? minutes : ''}
+                    onChange={(e) => setMinutes(e.target.value === '' ? Number.NaN : Number(e.target.value))}
+                    aria-invalid={!minutesOk}
+                    aria-describedby={minutesHint}
+                    className={FIELD}
+                  />
+                </label>
+                <p id={minutesHint} className={`text-sm ${minutesOk ? 'text-text-muted' : 'text-debt'}`}>
+                  1 to {MAX_MINUTES}
+                </p>
+              </div>
             </>
           )}
 
-          {cap !== null && (blocked || customOver > 0) && (
-            <p data-testid="cap-warning" className="text-sm text-debt">
+          {cap !== null && (custom ? customOver > 0 : !!blocked) && (
+            <p data-testid="cap-warning" role="status" className="text-sm text-debt">
               Over your {formatDuration(cap * 60_000)} cap by {formatDuration(overBy * 60_000)}. Lower another practice or raise the cap.
             </p>
           )}

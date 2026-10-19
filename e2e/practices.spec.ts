@@ -213,6 +213,7 @@ test.describe('practices', () => {
       await dialog.getByLabel('Name').fill('Guitar');
       await pickTemplate(app, 'Custom');
       const save = dialog.getByRole('button', { name: 'Save' });
+      await expect(dialog.getByText('1 to 600')).toBeVisible();
       for (const [value, ok] of [
         ['0', false],
         ['601', false],
@@ -223,6 +224,7 @@ test.describe('practices', () => {
         await minutesField(app).fill(value);
         if (ok) await expect(save).toBeEnabled();
         else await expect(save).toBeDisabled();
+        await expect(minutesField(app)).toHaveAttribute('aria-invalid', String(!ok));
       }
     });
   });
@@ -657,15 +659,19 @@ test.describe('practices', () => {
       await pickTemplate(app, 'Custom'); // from Minimal: 1 day, 10 minutes
       const save = dialog.getByRole('button', { name: 'Save' });
       await expect(save).toBeEnabled();
+      // Light, Steady and Serious do not fit, but Custom at 1 x 10 does, so there is nothing to warn about.
+      await expect(app.getByTestId('cap-warning')).toHaveCount(0);
 
       // 7 x 10 = 70 on top of 125 is 45 over.
       await daysGroup(app).getByRole('button', { name: '7', exact: true }).click();
       await expect(save).toBeDisabled();
       await expect(app.getByTestId('cap-warning')).toHaveText('Over your 2h 30m cap by 45m. Lower another practice or raise the cap.');
+      await expect(app.getByTestId('cap-warning')).toHaveAttribute('role', 'status');
 
       // 125 + 2 x 10 fits. 2 x 13 is 1 over.
       await daysGroup(app).getByRole('button', { name: '2', exact: true }).click();
       await expect(save).toBeEnabled();
+      await expect(app.getByTestId('cap-warning')).toHaveCount(0);
       await minutesField(app).fill('13');
       await expect(save).toBeDisabled();
       await expect(app.getByTestId('cap-warning')).toHaveText('Over your 2h 30m cap by 1m. Lower another practice or raise the cap.');
@@ -768,17 +774,17 @@ test.describe('practices', () => {
       await expect(card(app).getByRole('button')).toHaveText('Guitar · 1 of 4 days this week · 7 days left');
     });
 
-    test('chosen weekdays decide the days left, falling back to the rest of the week', async ({ app }) => {
+    test('with chosen weekdays the days left are never fewer than the days needed, until the week runs out', async ({ app }) => {
       await openPractices(app);
       await addCustom(app, 'Guitar', { weekdays: ['Mon', 'Wed', 'Fri'], minutes: 30 });
       const button = card(app).getByRole('button');
       await expect(button).toHaveText('Guitar · 0 of 3 days this week · 3 days left'); // Monday
       await advance(app, 24 * 60 * MIN);
-      await expect(button).toHaveText('Guitar · 0 of 3 days this week · 2 days left'); // Tuesday: Wed, Fri
+      await expect(button).toHaveText('Guitar · 0 of 3 days this week · 3 days left'); // Tuesday: a missed Monday can be made up
       await advance(app, 2 * 24 * 60 * MIN);
-      await expect(button).toHaveText('Guitar · 0 of 3 days this week · 1 day left'); // Thursday: Fri
+      await expect(button).toHaveText('Guitar · 0 of 3 days this week · 3 days left'); // Thursday: Fri is the only chosen day, but 3 are needed
       await advance(app, 2 * 24 * 60 * MIN);
-      await expect(button).toHaveText('Guitar · 0 of 3 days this week · 2 days left'); // Saturday: none chosen left, so Sat and Sun
+      await expect(button).toHaveText('Guitar · 0 of 3 days this week · 2 days left'); // Saturday: only Sat and Sun are left
     });
 
     test('a practice due today comes first, until today is done', async ({ app }) => {
@@ -790,7 +796,7 @@ test.describe('practices', () => {
       await expect(card(app).getByRole('button')).toHaveText(['Chess · 0 of 2 days this week · 2 days left', 'Guitar · 0 of 4 days this week · 3 days left']);
 
       await timedSession(app, 'Chess', 20);
-      await expect(card(app).getByRole('button')).toHaveText(['Guitar · 0 of 4 days this week · 3 days left', 'Chess · 1 of 2 days this week · 2 days left']);
+      await expect(card(app).getByRole('button')).toHaveText(['Guitar · 0 of 4 days this week · 3 days left', 'Chess · 1 of 2 days this week · 1 day left']);
     });
 
     test('tapping one picks it for the next session, and starts nothing', async ({ app }) => {

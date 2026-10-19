@@ -1,5 +1,6 @@
 import type { Practice, TimeEntry } from '../types';
 import { endOf, runningEntry } from './ledger';
+import { WEEKDAY_LABELS } from './recurrence';
 import { dayKeyOf, shiftDayKey, weekdayOfKey, weekWindowOf, windowOf, type DayWindow } from './time';
 
 const MIN_MS = 60_000;
@@ -40,7 +41,6 @@ export function templateOf(target: Target): TemplateKey | null {
 
 export const isPaused = (p: Pick<Practice, 'targetDays'>) => p.targetDays === 0;
 
-const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const daysWord = (n: number) => (n === 1 ? '1 day' : `${n} days`);
 
 /** "Steady · 4 days a week · 20 min", "3 days a week · 25 min", "Mon Wed Fri · 30 min", or "Paused". */
@@ -48,7 +48,7 @@ export function describeTarget(target: Target): string {
   if (target.targetDays === 0) return TEMPLATES.paused.label;
   const minutes = `${target.targetMin} min`;
   if (target.targetWeekdays.length > 0) {
-    const names = [...target.targetWeekdays].sort((a, b) => a - b).map((d) => WEEKDAY_NAMES[d]);
+    const names = [...target.targetWeekdays].sort((a, b) => a - b).map((d) => WEEKDAY_LABELS[d]);
     return `${names.join(' ')} · ${minutes}`;
   }
   const template = templateOf(target);
@@ -148,32 +148,38 @@ export function targetFits(practices: Practice[], id: string | undefined, target
 // Nothing here is stored: a practice's time is read from the ledger. Only Focus
 // and Timed entries count as time; Rest never does.
 
-/** Focus and Timed minutes on a practice inside one day's window. */
-export function dayMinutes(entries: TimeEntry[], practiceId: string, day: DayWindow, now: number): number {
-  return practiceTime(entries, practiceId, day, now) / MIN_MS;
+/** One day of a week and the Focus and Timed time a practice has on it. */
+interface DayTotal {
+  key: string;
+  ms: number;
 }
 
 /**
- * The day keys of the week on which the practice reached its daily minutes.
- * `week` starts at a Monday's day start. Each day is its own window, so a stint
- * across a day end is split between the two days.
+ * A practice's time on each of the seven days of `week`, which starts at a
+ * Monday's day start. Each day is its own window, so a stint across a day end
+ * is split between the two days.
  */
-export function countedDays(entries: TimeEntry[], practice: Pick<Practice, 'id' | 'targetMin'>, week: DayWindow, now: number, dayEndHour: number): string[] {
+export function weekTotals(entries: TimeEntry[], practiceId: string, week: DayWindow, now: number, dayEndHour: number): DayTotal[] {
   // This runs on every clock tick, so cut the ledger down once, not once a day.
   const mine = entries.filter(
-    (e) => e.practiceId === practice.id && e.deletedAt === undefined && e.state !== 'want' && e.startedAt < week.end && endOf(e, now) > week.start,
+    (e) => e.practiceId === practiceId && e.deletedAt === undefined && e.state !== 'want' && e.startedAt < week.end && endOf(e, now) > week.start,
   );
   // Noon on Monday is the same day under any day end hour, DST shift or not.
   const monday = dayKeyOf(week.start + 12 * HOUR_MS, dayEndHour);
-  const need = practice.targetMin * MIN_MS;
-  const counted: string[] = [];
-  for (let i = 0; i < 7; i++) {
+  return Array.from({ length: 7 }, (_, i) => {
     const key = shiftDayKey(monday, i);
-    const ms = practiceTime(mine, practice.id, windowOf(key, dayEndHour), now);
-    // A target of no minutes counts nothing rather than every day.
-    if (ms > 0 && ms >= need) counted.push(key);
-  }
-  return counted;
+    return { key, ms: practiceTime(mine, practiceId, windowOf(key, dayEndHour), now) };
+  });
+}
+
+/** Whether a day's time reaches the daily minutes. A target of no minutes counts nothing, not every day. */
+const reaches = (day: DayTotal, targetMin: number) => day.ms > 0 && day.ms >= targetMin * MIN_MS;
+
+/** The day keys of the week on which the practice reached its daily minutes. */
+export function countedDays(entries: TimeEntry[], practice: Pick<Practice, 'id' | 'targetMin'>, week: DayWindow, now: number, dayEndHour: number): string[] {
+  return weekTotals(entries, practice.id, week, now, dayEndHour)
+    .filter((d) => reaches(d, practice.targetMin))
+    .map((d) => d.key);
 }
 
 /** A practice that is behind this week, and how far. */
@@ -199,24 +205,38 @@ export interface Attention {
 export function needsAttention(practices: Practice[], entries: TimeEntry[], now: number, dayEndHour: number): Attention[] {
   const today = dayKeyOf(now, dayEndHour);
   const week = weekWindowOf(today, dayEndHour);
-  const todayWindow = windowOf(today, dayEndHour);
   const weekday = weekdayOfKey(today);
   const lasts = lastPracticedAt(entries);
   return practices
     .filter((p) => isLive(p) && !isPaused(p))
     .map((practice) => {
-      const done = countedDays(entries, practice, week, now, dayEndHour).length;
-      const chosenLeft = practice.targetWeekdays.filter((d) => d >= weekday).length;
-      // With no chosen day left, a missed day can still be made up on any day.
-      const daysLeft = chosenLeft > 0 ? chosenLeft : 7 - weekday;
+      const days = weekTotals(entries, practice.id, week, now, dayEndHour);
+      const counted = days.filter((d) => reaches(d, practice.targetMin));
+      const todayDone = counted.some((d) => d.key === today);
+      const done = counted.length;
       const left = practice.targetDays - done;
-      const due = left > 0 && practice.targetWeekdays.includes(weekday) && dayMinutes(entries, practice.id, todayWindow, now) < practice.targetMin;
+      const daysLeft = daysLeftIn(practice.targetWeekdays, weekday, todayDone, left);
+      const todayMs = days.find((d) => d.key === today)?.ms ?? 0;
+      const due = left > 0 && practice.targetWeekdays.includes(weekday) && todayMs < practice.targetMin * MIN_MS;
       // Never practised sorts before any real session.
       return { practice, done, left, daysLeft, due, last: lasts.get(practice.id) ?? 0 };
     })
     .filter((a) => a.left > 0)
     .sort((a, b) => Number(b.due) - Number(a.due) || b.left / b.daysLeft - a.left / a.daysLeft || a.last - b.last || a.practice.order - b.practice.order)
     .map(({ practice, done, left, daysLeft }) => ({ practice, done, left, daysLeft }));
+}
+
+/**
+ * Days left to do `left` more days in, today included. With no chosen weekdays
+ * it is the rest of the week. With some it is the chosen ones still ahead
+ * (today only if it is not yet done), but never fewer than `left` while the
+ * week has days to make them up on, and never more than the week has.
+ */
+function daysLeftIn(weekdays: number[], weekday: number, todayDone: boolean, left: number): number {
+  const rest = 7 - weekday;
+  if (weekdays.length === 0) return rest;
+  const chosen = weekdays.filter((d) => d > weekday || (d === weekday && !todayDone)).length;
+  return Math.min(rest, Math.max(chosen, left));
 }
 
 /** Whether an entry is Focus or Timed time on the practice with some length. Rest, deleted and zero-length entries are not. */

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { Practice, TimeEntry } from '../types';
 import {
   countedDays,
-  dayMinutes,
   describeSince,
   describeTarget,
   endedPractice,
@@ -25,10 +24,11 @@ import {
   templateOf,
   updatePractice,
   weekCost,
+  weekTotals,
   type Target,
   type TemplateKey,
 } from './practices';
-import { dayKeyOf, weekWindowOf, windowOf } from './time';
+import { dayKeyOf, weekWindowOf } from './time';
 
 const fields = { name: 'Guitar', targetDays: 4, targetWeekdays: [] as number[], targetMin: 20 };
 
@@ -301,9 +301,17 @@ describe('counting days', () => {
   const g = { id: 'g', targetMin: 20 };
   const days = (entries: TimeEntry[], now = at(10 * DAY), dayEndHour = 0, practice = g) => countedDays(entries, practice, weekOf(dayEndHour), now, dayEndHour);
 
-  it('measures the minutes on one day', () => {
-    const entries = [entry('should', 0, 25, 'g'), entry('want', 25, 30, 'g'), timedEntry(30, 20, 50, 'g'), entry('should', DAY, DAY + 99, 'g')];
-    expect(dayMinutes(entries, 'g', windowOf(MONDAY, 0), at(5 * DAY))).toBe(45);
+  it('measures the minutes on each day of the week', () => {
+    const entries = [
+      entry('should', 0, 25, 'g'),
+      entry('want', 25, 30, 'g'),
+      timedEntry(30, 20, 50, 'g'),
+      entry('should', DAY, DAY + 99, 'g'),
+      entry('should', 0, 70, 'd'),
+    ];
+    const totals = weekTotals(entries, 'g', weekOf(), at(5 * DAY), 0);
+    expect(totals.map((d) => d.key)).toEqual(['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18']);
+    expect(totals.map((d) => d.ms / MIN)).toEqual([45, 99, 0, 0, 0, 0, 0]);
   });
 
   it('counts a day that reaches the minutes, to the minute', () => {
@@ -578,18 +586,35 @@ describe('needs attention', () => {
       expect(out.map((a) => [a.done, a.left])).toEqual([[1, 2]]);
     });
 
-    it('counts the chosen weekdays left, today included, as the days left', () => {
+    it('counts the days left as the days still needed, or the chosen weekdays ahead if more', () => {
       const daysLeftOn = (day: number) => needsAttention([mwf], [], when(day, 60), 0)[0].daysLeft;
+      // 3 needed, so no fewer than 3 while the week has them.
       expect(daysLeftOn(0)).toBe(3);
-      expect(daysLeftOn(1)).toBe(2);
-      expect(daysLeftOn(2)).toBe(2);
-      expect(daysLeftOn(3)).toBe(1);
-      expect(daysLeftOn(4)).toBe(1);
+      expect(daysLeftOn(1)).toBe(3);
+      expect(daysLeftOn(2)).toBe(3);
+      expect(daysLeftOn(3)).toBe(3);
+      expect(daysLeftOn(4)).toBe(3);
+      // ...and no more than the week has left.
+      expect(daysLeftOn(5)).toBe(2);
+      expect(daysLeftOn(6)).toBe(1);
     });
 
-    it('falls back to the days left in the week once no chosen weekday remains', () => {
-      expect(needsAttention([mwf], [], when(5, 60), 0)[0].daysLeft).toBe(2); // Saturday: Sat, Sun
-      expect(needsAttention([mwf], [], when(6, 60), 0)[0].daysLeft).toBe(1);
+    it('shows as many days left as days needed for Tuesday and Thursday, on a Thursday with nothing done', () => {
+      const tueThu = custom('TueThu', 2, 20, [1, 3]);
+      const out = needsAttention([tueThu], [], when(3, 60), 0);
+      expect(out.map((a) => [a.left, a.daysLeft])).toEqual([[2, 2]]);
+    });
+
+    it('leaves today out of the chosen days ahead once it is done', () => {
+      // Wednesday is met and it is Wednesday: 2 still needed, only Friday is chosen ahead, so 2 days (Thu, Fri).
+      const out = needsAttention([mwf], [sit('MWF', 2, 20)], when(2, 60), 0);
+      expect(out.map((a) => [a.done, a.left, a.daysLeft])).toEqual([[1, 2, 2]]);
+    });
+
+    it('shows the chosen weekdays ahead when they outnumber the days needed', () => {
+      // Monday and a made-up Tuesday are done; Wednesday and Friday are still ahead for the one day left.
+      const out = needsAttention([mwf], [sit('MWF', 0, 20), sit('MWF', 1, 20)], when(1, 60), 0);
+      expect(out.map((a) => [a.done, a.left, a.daysLeft])).toEqual([[2, 1, 2]]);
     });
   });
 

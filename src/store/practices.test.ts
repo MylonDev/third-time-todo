@@ -108,4 +108,23 @@ describe('moving the stored practices from version 1 to 2', () => {
     const merged: Practice[] = mergeById([migrated], [pulled]);
     expect(merged).toEqual([migrated]);
   });
+
+  it('lets the row pulled again win over a practice an older build stored as Paused', () => {
+    // A newer build wrote the row (level defaulted to paused, target set) and an older one pulled it, so
+    // the local practice migrates to Paused at the same updatedAt. The reset cursor pulls the real target.
+    const [local] = migrate(v1('paused'));
+    const pulled = rowToPractice({
+      id: 'p1',
+      name: 'Guitar',
+      target_days: 4,
+      target_weekdays: [],
+      target_min: 20,
+      next_step: null,
+      sort_order: 2,
+      created_at: 100,
+      updated_at: 200,
+      deleted_at: null,
+    });
+    expect(mergeById([local], [pulled])).toEqual([pulled]);
+  });
 });

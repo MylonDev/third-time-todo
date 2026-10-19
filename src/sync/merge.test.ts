@@ -35,6 +35,21 @@ describe('mergeById', () => {
     const b = [row('k', 5, 'beta')];
     expect(mergeById(a, b)[0].v).toBe(mergeById(b, a)[0].v);
   });
+
+  it('breaks a tie by content in key order, not by the order the keys were written in', () => {
+    // The same two rows, one built with its keys the other way round.
+    const paused = { id: 'p', updatedAt: 5, targetDays: 0, targetMin: 0 };
+    const steady = { id: 'p', updatedAt: 5, targetDays: 4, targetMin: 20 };
+    const steadyReordered = { targetMin: 20, targetDays: 4, updatedAt: 5, id: 'p' };
+    // The remote row with more days wins over a migrated local one, whichever way its keys run.
+    expect(mergeById([paused], [steady])[0]).toBe(steady);
+    expect(mergeById([paused], [steadyReordered])[0]).toBe(steadyReordered);
+    // From the other side the local one stays.
+    const kept = [steady];
+    expect(mergeById(kept, [paused])).toBe(kept);
+    const reordered = [steadyReordered];
+    expect(mergeById(reordered, [paused])).toBe(reordered);
+  });
 });
 
 describe('stampChanged', () => {
