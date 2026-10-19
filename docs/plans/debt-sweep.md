@@ -3,6 +3,7 @@
 **Goal:** Close the debt issues worth fixing now (vmzh, 4djy, kdb8, ts9j, egzh, r23n) in one branch and one PR, and leave two (3g8h, nmt5) open with a reason. Sync and storage are touched, so one migration is pasted by the user. The plan was reviewed once; its findings are folded in below.
 
 **Decisions:**
+
 - **One branch `chore/debt-sweep`, one PR, no epic.** Worktree `.claude/worktrees/debt-sweep` from origin/main. Each issue is claimed and closed with its own verify. **Default (unanswered).**
 - **vmzh: rewrite the host only.** `registry.npmmirror.com` → `registry.npmjs.org` in the 61 `resolved` URLs; integrity hashes untouched (same tarballs, same paths). Verify against the real registry: `npm ci --cache "$(mktemp -d)"` in a scratch clone, plus a HEAD request to each of the 61 rewritten URLs (expect 200), since 38 are platform bindings Linux never fetches. CI uses plain `npm ci`; there is no Dependabot config in the repo. **Default (unanswered).**
 - **ts9j: union the days.** Same day id on two devices merges to `done` = union (compared as sets, stored sorted), `skipped` = true only if both skipped. Branches, so equal pairs are left alone and devices converge: if the union equals remote's content and local equals it too, return `mine`; if it equals remote only, return remote; if it equals local's content and local is newer, return `mine`; otherwise a new row stamped `max(local, remote, now) + 1`. The `now` term matters: `pushDirty` sends only rows above the pushed cursor, so a union stamped just above an old row would never be sent. `mergeIncoming` takes `now`. **Default (unanswered).**
@@ -15,6 +16,7 @@
 - **Migration order:** the user pastes the SQL; I verify with the anon key (401 on real columns, 400 on missing) before merging, and the new client is not deployed until then. I ask before any push or merge.
 
 **Design:**
+
 - `mergeById(local, remote, resolve?)` in `src/sync/merge.ts`; `mergeDays` in `src/utils/getReady.ts` (pure) is the resolver for `getReadyDays`. `resolve` returns `mine` itself when nothing changes so refetches wake no store.
 - `SyncedSettings` gains `getReadyStepsUpdatedAt`; `rows.ts` maps `get_ready_steps_updated_at` (missing → 0). `mergeSettings(current, incoming)` replaces the whole-object compare in `mergeIncoming`: scalars from the side with the larger `updatedAt`, steps from the side with the larger steps version; on an equal version with different steps, the canonical-JSON compare decides (as `pick` does). Returns `current` itself when unchanged.
 - `src/sync/engine.ts`: `settingsDirty` and the pushed-settings cursor use `max(updatedAt, getReadyStepsUpdatedAt)`; the dirty check in `syncOnce` likewise.

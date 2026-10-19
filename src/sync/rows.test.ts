@@ -186,13 +186,13 @@ describe('row mapping', () => {
   });
 
   it('round-trips settings', () => {
-    const s = { dayEndHour: 3, shouldTargetMin: 240, weeklyCapMin: 480, getReadySteps: [{ id: 'w', text: 'Water' }], updatedAt: 7 };
-    expect(settingsToRow(s)).toMatchObject({ weekly_cap_min: 480, get_ready_steps: [{ id: 'w', text: 'Water' }] });
+    const s = { dayEndHour: 3, shouldTargetMin: 240, weeklyCapMin: 480, getReadySteps: [{ id: 'w', text: 'Water' }], getReadyStepsUpdatedAt: 5, updatedAt: 7 };
+    expect(settingsToRow(s)).toMatchObject({ weekly_cap_min: 480, get_ready_steps: [{ id: 'w', text: 'Water' }], get_ready_steps_updated_at: 5 });
     expect(rowToSettings(settingsToRow(s))).toEqual(s);
   });
 
   it('round-trips settings with no cap, and reads a row without the column as no cap', () => {
-    const s = { dayEndHour: 0, shouldTargetMin: null, weeklyCapMin: null, getReadySteps: [], updatedAt: 7 };
+    const s = { dayEndHour: 0, shouldTargetMin: null, weeklyCapMin: null, getReadySteps: [], getReadyStepsUpdatedAt: 0, updatedAt: 7 };
     expect(rowToSettings(settingsToRow(s))).toEqual(s);
     expect(rowToSettings({ day_end_hour: 0, should_target_min: null, updated_at: 7 }).weeklyCapMin).toBeNull();
   });
@@ -200,5 +200,12 @@ describe('row mapping', () => {
   it('reads a settings row that predates Get ready as no steps', () => {
     expect(rowToSettings({ day_end_hour: 0, should_target_min: null, updated_at: 7 }).getReadySteps).toEqual([]);
     expect(rowToSettings({ day_end_hour: 0, should_target_min: null, get_ready_steps: null, updated_at: 7 }).getReadySteps).toEqual([]);
+  });
+
+  it('reads a settings row without the steps version as version 0, and a bigint string as a number', () => {
+    const row = { day_end_hour: 0, should_target_min: null, updated_at: 7 };
+    expect(rowToSettings(row).getReadyStepsUpdatedAt).toBe(0);
+    expect(rowToSettings({ ...row, get_ready_steps_updated_at: null }).getReadyStepsUpdatedAt).toBe(0);
+    expect(rowToSettings({ ...row, get_ready_steps_updated_at: '1760000000000' as unknown as number }).getReadyStepsUpdatedAt).toBe(1760000000000);
   });
 });

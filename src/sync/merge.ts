@@ -6,7 +6,7 @@ interface Versioned {
 }
 
 /** JSON with the keys of every object in order, so two rows with the same content give the same text. */
-function canonical(row: unknown): string {
+export function canonical(row: unknown): string {
   return JSON.stringify(row, (_key, value: unknown) =>
     value !== null && typeof value === 'object' && !Array.isArray(value)
       ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
@@ -25,10 +25,12 @@ function pick<T extends Versioned>(local: T, remote: T): T {
 }
 
 /**
- * Last-writer-wins merge by id. Returns `local` itself when nothing changed, so
- * a store can skip the write and nothing downstream wakes for a no-op sync.
+ * Merge by id; the newer row wins unless `resolve` decides. Returns `local`
+ * itself when nothing changed, so a store can skip the write and nothing
+ * downstream wakes for a no-op sync. A `resolve` returns `mine` itself when it
+ * keeps the local row.
  */
-export function mergeById<T extends Versioned>(local: T[], remote: T[]): T[] {
+export function mergeById<T extends Versioned>(local: T[], remote: T[], resolve: (mine: T, theirs: T) => T = pick): T[] {
   if (remote.length === 0) return local;
   const byId = new Map(local.map((row) => [row.id, row]));
   let changed = false;
@@ -38,7 +40,7 @@ export function mergeById<T extends Versioned>(local: T[], remote: T[]): T[] {
       byId.set(row.id, row);
       changed = true;
     } else {
-      const chosen = pick(mine, row);
+      const chosen = resolve(mine, row);
       if (chosen !== mine) {
         byId.set(row.id, chosen);
         changed = true;

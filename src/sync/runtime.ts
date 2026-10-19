@@ -27,6 +27,7 @@ const local: Local = {
         shouldTargetMin: s.shouldTargetMin,
         weeklyCapMin: s.weeklyCapMin,
         getReadySteps: s.getReadySteps,
+        getReadyStepsUpdatedAt: s.getReadyStepsUpdatedAt,
         updatedAt: s.updatedAt,
       },
     };

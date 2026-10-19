@@ -1,5 +1,6 @@
 import type { GetReadyDay, Item, Practice, TimeEntry } from '../types';
-import { mergeById, repairEntries } from './merge';
+import { mergeDays } from '../utils/getReady';
+import { canonical, mergeById, repairEntries } from './merge';
 import type { SyncedSettings } from './rows';
 
 /** What the app holds that syncs. */
@@ -60,6 +61,9 @@ interface Incoming {
 
 const BATCH = 500;
 
+/** The settings row is dirty when either of its versions is above the pushed cursor. */
+const settingsVersion = (s: SyncedSettings) => Math.max(s.updatedAt, s.getReadyStepsUpdatedAt);
+
 async function inBatches<T>(rows: T[], send: (batch: T[]) => Promise<void>) {
   for (let i = 0; i < rows.length; i += BATCH) await send(rows.slice(i, i + BATCH));
 }
@@ -70,7 +74,7 @@ async function pushDirty(local: Local, remote: Remote, cursors: Cursors): Promis
   const items = snap.items.filter((i) => i.updatedAt > cursors.pushed.items);
   const practices = snap.practices.filter((p) => p.updatedAt > cursors.pushed.practices);
   const getReadyDays = snap.getReadyDays.filter((d) => d.updatedAt > cursors.pushed.getReadyDays);
-  const settingsDirty = snap.settings.updatedAt > cursors.pushed.settings;
+  const settingsDirty = settingsVersion(snap.settings) > cursors.pushed.settings;
   const next: Cursors = { pushed: { ...cursors.pushed }, pulled: { ...cursors.pulled } };
 
   // The cursor moves only after the rows are accepted, so a failed push is
@@ -93,7 +97,7 @@ async function pushDirty(local: Local, remote: Remote, cursors: Cursors): Promis
   }
   if (settingsDirty) {
     await remote.pushSettings(snap.settings);
-    next.pushed.settings = snap.settings.updatedAt;
+    next.pushed.settings = settingsVersion(snap.settings);
   }
   return { cursors: next };
 }
@@ -145,20 +149,49 @@ export async function syncOnce(local: Local, remote: Remote, start: Cursors, opt
       snap.items.some((i) => i.updatedAt > cursors.pushed.items) ||
       snap.practices.some((p) => p.updatedAt > cursors.pushed.practices) ||
       snap.getReadyDays.some((d) => d.updatedAt > cursors.pushed.getReadyDays) ||
-      snap.settings.updatedAt > cursors.pushed.settings;
+      settingsVersion(snap.settings) > cursors.pushed.settings;
     if (!dirty) break;
   }
   return cursors;
 }
 
-/** The merge the app applies to its own state when rows arrive. Exported for the app and the tests. */
-export function mergeIncoming(current: Snapshot, incoming: Incoming): Snapshot {
+/**
+ * Merge the settings row field by field: the settings from whichever side has
+ * the larger `updatedAt` (a tie keeps `current`), the steps from whichever has
+ * the larger steps version. On an equal steps version with different lists the
+ * content decides, as in `pick`. Returns `current` itself when nothing changes.
+ */
+export function mergeSettings(current: SyncedSettings, incoming: SyncedSettings | null): SyncedSettings {
+  if (!incoming) return current;
+  const newerSettings = incoming.updatedAt > current.updatedAt;
+  const newerSteps =
+    incoming.getReadyStepsUpdatedAt !== current.getReadyStepsUpdatedAt
+      ? incoming.getReadyStepsUpdatedAt > current.getReadyStepsUpdatedAt
+      : canonical(incoming.getReadySteps) > canonical(current.getReadySteps);
+  if (!newerSettings && !newerSteps) return current;
+  const scalars = newerSettings ? incoming : current;
+  const steps = newerSteps ? incoming : current;
+  return {
+    dayEndHour: scalars.dayEndHour,
+    shouldTargetMin: scalars.shouldTargetMin,
+    weeklyCapMin: scalars.weeklyCapMin,
+    updatedAt: scalars.updatedAt,
+    getReadySteps: steps.getReadySteps,
+    getReadyStepsUpdatedAt: steps.getReadyStepsUpdatedAt,
+  };
+}
+
+/**
+ * The merge the app applies to its own state when rows arrive. Exported for the
+ * app and the tests. `now` stamps a merged Get ready day above the push cursor.
+ */
+export function mergeIncoming(current: Snapshot, incoming: Incoming, now = Date.now()): Snapshot {
   const merged = mergeById(current.entries, incoming.entries);
   const entries = merged === current.entries ? current.entries : repairEntries(merged);
   const items = mergeById(current.items, incoming.items);
   const practices = mergeById(current.practices, incoming.practices);
-  const getReadyDays = mergeById(current.getReadyDays, incoming.getReadyDays);
-  const settings = incoming.settings && incoming.settings.updatedAt > current.settings.updatedAt ? incoming.settings : current.settings;
+  const getReadyDays = mergeById(current.getReadyDays, incoming.getReadyDays, (a, b) => mergeDays(a, b, now));
+  const settings = mergeSettings(current.settings, incoming.settings);
   if (
     entries === current.entries &&
     items === current.items &&

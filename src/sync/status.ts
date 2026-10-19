@@ -32,7 +32,8 @@ interface SyncMeta {
  * Older cursors lack the tables added since: practices in version 2, Get ready days
  * in version 3. Each starts from the beginning, as a fresh device would. Version 4
  * pulls the practices again: a row an older build pulled after a newer one wrote it
- * has its target columns unread, and the cursor is past it.
+ * has its target columns unread, and the cursor is past it. Version 5 pulls the
+ * settings again: a row an older build pulled lacks the steps version.
  */
 export function migrateSyncMeta(state: unknown, version: number): SyncMeta {
   let meta = state as SyncMeta;
@@ -57,6 +58,9 @@ export function migrateSyncMeta(state: unknown, version: number): SyncMeta {
   if (version < 4) {
     meta = { ...meta, cursors: { ...meta.cursors, pulled: { ...meta.cursors.pulled, practices: null } } };
   }
+  if (version < 5) {
+    meta = { ...meta, cursors: { ...meta.cursors, pulled: { ...meta.cursors.pulled, settings: null } } };
+  }
   return meta;
 }
 
@@ -68,6 +72,6 @@ export const useSyncMeta = create<SyncMeta>()(
       cursors: FRESH_CURSORS,
       set: (userId, cursors) => set({ userId, cursors }),
     }),
-    { name: 'tt2-sync', version: 4, migrate: migrateSyncMeta },
+    { name: 'tt2-sync', version: 5, migrate: migrateSyncMeta },
   ),
 );

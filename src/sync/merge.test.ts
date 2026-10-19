@@ -52,6 +52,25 @@ describe('mergeById', () => {
   });
 });
 
+describe('mergeById with a resolver', () => {
+  it('uses the resolver instead of the newer-wins rule', () => {
+    const joined = (mine: Row, theirs: Row): Row => ({ id: mine.id, updatedAt: Math.max(mine.updatedAt, theirs.updatedAt) + 1, v: mine.v + theirs.v });
+    expect(mergeById([row('a', 5, 'x')], [row('a', 2, 'y')], joined)).toEqual([{ id: 'a', updatedAt: 6, v: 'xy' }]);
+  });
+
+  it('keeps the array when the resolver returns the local row every time', () => {
+    const local = [row('a', 1), row('b', 1)];
+    expect(mergeById(local, [row('a', 9), row('b', 9)], (mine) => mine)).toBe(local);
+  });
+
+  it('still takes rows it has not seen without asking the resolver', () => {
+    const merged = mergeById([row('a', 1)], [row('b', 1)], () => {
+      throw new Error('no pair to resolve');
+    });
+    expect(merged.map((r) => r.id).sort()).toEqual(['a', 'b']);
+  });
+});
+
 describe('stampChanged', () => {
   it('bumps an edit that would lose to the row it replaced', () => {
     const prev = [row('a', 100)];

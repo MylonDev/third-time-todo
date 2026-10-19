@@ -16,6 +16,7 @@ import {
 } from '../utils/practices';
 import { WEEKDAY_LABELS } from '../utils/recurrence';
 import { formatDuration } from '../utils/time';
+import { Chip } from './Chip';
 import { Modal } from './Modal';
 import { Segmented } from './Segmented';
 import { MAX_MINUTES } from './TimedStart';
@@ -25,22 +26,6 @@ const FIELD = 'min-h-12 rounded-2xl px-4 text-base bg-surface-2 border border-bo
 const DAY_COUNTS = ['1', '2', '3', '4', '5', '6', '7'];
 
 type Choice = TemplateKey | 'custom';
-
-/** A pill that is on or off, as the Timed length chips are. */
-function Chip({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={`press min-h-10 cursor-pointer rounded-full border px-3.5 text-sm font-medium ${
-        on ? 'bg-accent-dim border-accent-edge text-accent' : 'border-border text-text-muted hover:text-text'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
 
 /** Add a practice, or edit one. Leave `practice` out to add. */
 export function PracticeEditor({ practice, onClose }: { practice?: Practice; onClose: () => void }) {
