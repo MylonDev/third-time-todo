@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GetReadyDay, GetReadyStep, TimeEntry } from '../types';
-import { makeStep, recordGetReady, removeStep, renameStep, sameSteps, shouldOfferGetReady } from './getReady';
+import { makeStep, mergeDays, recordGetReady, removeStep, renameStep, sameSteps, shouldOfferGetReady } from './getReady';
 
 /** Local time on 12 Oct 2026 plus `day` days. */
 const at = (day: number, h: number, m = 0) => new Date(2026, 9, 12 + day, h, m).getTime();
@@ -145,5 +145,82 @@ describe('steps', () => {
     expect(sameSteps(steps, [...steps].reverse())).toBe(false);
     expect(sameSteps(steps, [steps[0], { id: 'desk', text: 'Other' }])).toBe(false);
     expect(sameSteps(steps, [steps[0]])).toBe(false);
+  });
+});
+
+describe('mergeDays', () => {
+  const day = (done: string[], skipped: boolean, updatedAt: number): GetReadyDay => ({ id: TODAY, done, skipped, updatedAt });
+  const NOW = 1000;
+
+  it('returns the local row itself when both say the same, whatever their stamps or order', () => {
+    const mine = day(['a', 'b'], false, 10);
+    expect(mergeDays(mine, day(['b', 'a'], false, 99), NOW)).toBe(mine);
+    const skipped = day([], true, 10);
+    expect(mergeDays(skipped, day([], true, 3), NOW)).toBe(skipped);
+  });
+
+  it('returns the remote row itself when the union is what it already says', () => {
+    const theirs = day(['a', 'b'], false, 5);
+    expect(mergeDays(day(['a'], false, 10), theirs, NOW)).toBe(theirs);
+    // Skipped on both is the only way to stay skipped, so a remote that did a step wins over a local skip.
+    const done = day(['a'], false, 5);
+    expect(mergeDays(day([], true, 10), done, NOW)).toBe(done);
+  });
+
+  it('returns the local row itself when the union is what it says and it is not older', () => {
+    const mine = day(['a', 'b'], false, 10);
+    expect(mergeDays(mine, day(['a'], false, 4), NOW)).toBe(mine);
+  });
+
+  it('makes a new row when the local row has everything but the stamps tie, so the server gets it', () => {
+    expect(mergeDays(day(['a', 'b'], false, 10), day(['a'], false, 10), NOW)).toEqual({ id: TODAY, done: ['a', 'b'], skipped: false, updatedAt: NOW + 1 });
+  });
+
+  it('makes a new row when the local row has everything but is older, so the other device converges', () => {
+    const merged = mergeDays(day(['a', 'b'], false, 10), day(['a'], false, 20), NOW);
+    expect(merged).toEqual({ id: TODAY, done: ['a', 'b'], skipped: false, updatedAt: NOW + 1 });
+  });
+
+  it('makes a new row with the union, sorted, when each side has a step the other lacks', () => {
+    expect(mergeDays(day(['water'], false, 10), day(['desk'], false, 20), NOW)).toEqual({
+      id: TODAY,
+      done: ['desk', 'water'],
+      skipped: false,
+      updatedAt: NOW + 1,
+    });
+  });
+
+  it('counts a day as skipped only when both skipped it', () => {
+    expect(mergeDays(day([], true, 10), day(['a'], true, 20), NOW)).toMatchObject({ done: ['a'], skipped: true });
+    expect(mergeDays(day(['a'], true, 10), day(['b'], false, 20), NOW)).toMatchObject({ done: ['a', 'b'], skipped: false });
+  });
+
+  it('stamps the new row above now when the rows are old, so a push cursor already past them still sends it', () => {
+    const merged = mergeDays(day(['a'], false, 10), day(['b'], false, 20), 5000);
+    expect(merged.updatedAt).toBe(5001);
+  });
+
+  it('stamps above both rows when they are newer than now', () => {
+    expect(mergeDays(day(['a'], false, 9000), day(['b'], false, 7000), 5000).updatedAt).toBe(9001);
+  });
+
+  it('is idempotent: merging the result with the same remote again changes nothing', () => {
+    const a = day(['water'], false, 10);
+    const b = day(['desk'], false, 20);
+    const first = mergeDays(a, b, NOW);
+    expect(mergeDays(first, b, NOW + 50)).toBe(first);
+    expect(mergeDays(first, a, NOW + 50)).toBe(first);
+  });
+
+  it("gives the same row from either side, and each side then accepts the other's result", () => {
+    const a = day(['water'], true, 10);
+    const b = day(['desk'], false, 20);
+    const ab = mergeDays(a, b, NOW);
+    const ba = mergeDays(b, a, NOW);
+    expect(ab).toEqual({ id: TODAY, done: ['desk', 'water'], skipped: false, updatedAt: NOW + 1 });
+    expect(ba).toEqual(ab);
+    expect(mergeDays(a, ba, NOW + 1)).toBe(ba);
+    expect(mergeDays(b, ab, NOW + 1)).toBe(ab);
+    expect(mergeDays(ab, ba, NOW + 1)).toBe(ab);
   });
 });

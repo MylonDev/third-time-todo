@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Chip } from './Chip';
 
 const CHIPS = [10, 15, 20, 30, 45, 60];
 
@@ -21,17 +22,7 @@ export function TimedStart({
     <div className="flex flex-col gap-3">
       <div role="group" aria-label="Length" className="flex flex-wrap items-center gap-2">
         {CHIPS.map((m) => (
-          <button
-            key={m}
-            type="button"
-            aria-pressed={minutes === m}
-            onClick={() => setMinutes(m)}
-            className={`press min-h-10 cursor-pointer rounded-full border px-3.5 text-sm font-medium ${
-              minutes === m ? 'bg-accent-dim border-accent-edge text-accent' : 'border-border text-text-muted hover:text-text'
-            }`}
-          >
-            {m} min
-          </button>
+          <Chip key={m} label={`${m} min`} on={minutes === m} onClick={() => setMinutes(m)} />
         ))}
         <label className="flex items-center gap-2 text-sm text-text-muted">
           <span className="sr-only">Custom minutes</span>

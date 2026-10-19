@@ -27,6 +27,30 @@ export function recordGetReady(days: GetReadyDay[], today: string, done: string[
   return days.some((d) => d.id === today) ? days.map((d) => (d.id === today ? row : d)) : [...days, row];
 }
 
+const sortedSet = (done: string[]) => [...new Set(done)].sort();
+const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+/**
+ * Merge one day recorded on two devices (`mine` here, `theirs` from the server):
+ * the steps done are the union and it counts as skipped only if both skipped.
+ * Returns one of the two rows when it already says that, so devices that agree
+ * stay quiet and the ones that differ converge. Otherwise a new row, stamped
+ * above `now` as well as both rows: a push sends only rows newer than its
+ * cursor, and the union must not be stamped below it.
+ */
+export function mergeDays(mine: GetReadyDay, theirs: GetReadyDay, now: number): GetReadyDay {
+  const a = sortedSet(mine.done);
+  const b = sortedSet(theirs.done);
+  const done = sortedSet([...a, ...b]);
+  const skipped = mine.skipped && theirs.skipped;
+  const isMine = sameSet(done, a) && skipped === mine.skipped;
+  const isTheirs = sameSet(done, b) && skipped === theirs.skipped;
+  if (isMine && isTheirs) return mine;
+  if (isTheirs) return theirs;
+  if (isMine && mine.updatedAt > theirs.updatedAt) return mine;
+  return { id: mine.id, done, skipped, updatedAt: Math.max(mine.updatedAt, theirs.updatedAt, now) + 1 };
+}
+
 export function makeStep(text: string): GetReadyStep {
   return { id: crypto.randomUUID(), text: text.trim() };
 }

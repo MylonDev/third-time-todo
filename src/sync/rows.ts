@@ -6,7 +6,9 @@ export interface SyncedSettings {
   shouldTargetMin: number | null;
   weeklyCapMin: number | null;
   getReadySteps: GetReadyStep[];
-  /** 0 until the user changes either value, so defaults never beat a real setting. */
+  /** When the steps last changed; 0 until they have, so defaults never beat a real list. */
+  getReadyStepsUpdatedAt: number;
+  /** When the other settings last changed; 0 until they have, so defaults never beat a real setting. */
   updatedAt: number;
 }
 
@@ -69,6 +71,8 @@ export interface SettingsRow {
   weekly_cap_min?: number | null;
   /** Missing on rows that predate the Get ready checklist. */
   get_ready_steps?: GetReadyStep[] | null;
+  /** Missing, or 0, on rows no build with a steps version has written. */
+  get_ready_steps_updated_at?: number | null;
   updated_at: number;
 }
 
@@ -188,6 +192,7 @@ export function settingsToRow(s: SyncedSettings): SettingsRow {
     should_target_min: s.shouldTargetMin,
     weekly_cap_min: s.weeklyCapMin,
     get_ready_steps: s.getReadySteps,
+    get_ready_steps_updated_at: s.getReadyStepsUpdatedAt,
     updated_at: s.updatedAt,
   };
 }
@@ -198,6 +203,7 @@ export function rowToSettings(r: SettingsRow): SyncedSettings {
     shouldTargetMin: r.should_target_min,
     weeklyCapMin: r.weekly_cap_min ?? null,
     getReadySteps: r.get_ready_steps ?? [],
+    getReadyStepsUpdatedAt: r.get_ready_steps_updated_at == null ? 0 : num(r.get_ready_steps_updated_at),
     updatedAt: num(r.updated_at),
   };
 }
