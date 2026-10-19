@@ -47,7 +47,7 @@ export function mergeDays(mine: GetReadyDay, theirs: GetReadyDay, now: number): 
   const isTheirs = sameSet(done, b) && skipped === theirs.skipped;
   if (isMine && isTheirs) return mine;
   if (isTheirs) return theirs;
-  if (isMine && mine.updatedAt >= theirs.updatedAt) return mine;
+  if (isMine && mine.updatedAt > theirs.updatedAt) return mine;
   return { id: mine.id, done, skipped, updatedAt: Math.max(mine.updatedAt, theirs.updatedAt, now) + 1 };
 }
 

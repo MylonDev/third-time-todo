@@ -1,4 +1,4 @@
-/** A pill that is on or off, as the Timed length chips are. */
+/** A pill that is on or off. */
 export function Chip({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
   return (
     <button

@@ -157,25 +157,28 @@ export async function syncOnce(local: Local, remote: Remote, start: Cursors, opt
 
 /**
  * Merge the settings row field by field: the settings from whichever side has
- * the larger `updatedAt` (a tie keeps `current`), the steps from whichever has
- * the larger steps version. On an equal steps version with different lists the
- * content decides, as in `pick`. Returns `current` itself when nothing changes.
+ * the larger `updatedAt`, the steps from whichever has the larger steps version.
+ * On a tie with different content the incoming row wins, as the server's trigger
+ * lets a later write win a tie, so every device settles on what the server holds.
+ * Returns `current` itself when nothing changes.
  */
 export function mergeSettings(current: SyncedSettings, incoming: SyncedSettings | null): SyncedSettings {
   if (!incoming) return current;
-  const newerSettings = incoming.updatedAt > current.updatedAt;
+  const scalars = (s: SyncedSettings) => [s.dayEndHour, s.shouldTargetMin, s.weeklyCapMin];
+  const newerSettings =
+    incoming.updatedAt !== current.updatedAt ? incoming.updatedAt > current.updatedAt : canonical(scalars(incoming)) !== canonical(scalars(current));
   const newerSteps =
     incoming.getReadyStepsUpdatedAt !== current.getReadyStepsUpdatedAt
       ? incoming.getReadyStepsUpdatedAt > current.getReadyStepsUpdatedAt
-      : canonical(incoming.getReadySteps) > canonical(current.getReadySteps);
+      : canonical(incoming.getReadySteps) !== canonical(current.getReadySteps);
   if (!newerSettings && !newerSteps) return current;
-  const scalars = newerSettings ? incoming : current;
+  const from = newerSettings ? incoming : current;
   const steps = newerSteps ? incoming : current;
   return {
-    dayEndHour: scalars.dayEndHour,
-    shouldTargetMin: scalars.shouldTargetMin,
-    weeklyCapMin: scalars.weeklyCapMin,
-    updatedAt: scalars.updatedAt,
+    dayEndHour: from.dayEndHour,
+    shouldTargetMin: from.shouldTargetMin,
+    weeklyCapMin: from.weeklyCapMin,
+    updatedAt: from.updatedAt,
     getReadySteps: steps.getReadySteps,
     getReadyStepsUpdatedAt: steps.getReadyStepsUpdatedAt,
   };

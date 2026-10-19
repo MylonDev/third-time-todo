@@ -169,8 +169,11 @@ describe('mergeDays', () => {
 
   it('returns the local row itself when the union is what it says and it is not older', () => {
     const mine = day(['a', 'b'], false, 10);
-    expect(mergeDays(mine, day(['a'], false, 10), NOW)).toBe(mine);
     expect(mergeDays(mine, day(['a'], false, 4), NOW)).toBe(mine);
+  });
+
+  it('makes a new row when the local row has everything but the stamps tie, so the server gets it', () => {
+    expect(mergeDays(day(['a', 'b'], false, 10), day(['a'], false, 10), NOW)).toEqual({ id: TODAY, done: ['a', 'b'], skipped: false, updatedAt: NOW + 1 });
   });
 
   it('makes a new row when the local row has everything but is older, so the other device converges', () => {

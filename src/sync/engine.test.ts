@@ -619,17 +619,19 @@ describe('mergeSettings', () => {
     });
   });
 
-  it('on an equal steps version with different lists, the content decides, the same from either side', () => {
+  it('on an equal steps version with different lists, the incoming row wins, as on the server', () => {
     const a = { ...base, getReadySteps: water };
     const b = { ...base, getReadySteps: desk };
-    // '[{"id":"water"...' sorts after '[{"id":"desk"...'.
-    expect(mergeSettings(a, b).getReadySteps).toBe(water);
+    expect(mergeSettings(a, b).getReadySteps).toBe(desk);
     expect(mergeSettings(b, a).getReadySteps).toBe(water);
+    // A device that kept steps the server never got settles on the server's empty list.
+    expect(mergeSettings(a, { ...base, getReadySteps: [] }).getReadySteps).toEqual([]);
   });
 
-  it('a tie on the settings version keeps the current values', () => {
+  it('a tie on the settings version with different values takes the incoming ones', () => {
     const other = { ...base, dayEndHour: 4 };
-    expect(mergeSettings(base, other)).toBe(base);
+    expect(mergeSettings(base, other).dayEndHour).toBe(4);
+    expect(mergeSettings(other, base).dayEndHour).toBe(base.dayEndHour);
   });
 
   it('returns the current settings itself when nothing is newer', () => {
