@@ -162,7 +162,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
               Next: <span className="text-text">{selected.nextStep}</span>
             </p>
           )}
-          </div>
+        </div>
       )}
 
       {!running && <Segmented<Mode> label="Timer mode" value={mode} options={[...MODES]} onChange={setMode} />}
