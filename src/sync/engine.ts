@@ -1,4 +1,4 @@
-import type { Item, Practice, TimeEntry } from '../types';
+import type { GetReadyDay, Item, Practice, TimeEntry } from '../types';
 import { mergeById, repairEntries } from './merge';
 import type { SyncedSettings } from './rows';
 
@@ -7,20 +7,21 @@ export interface Snapshot {
   entries: TimeEntry[];
   items: Item[];
   practices: Practice[];
+  getReadyDays: GetReadyDay[];
   settings: SyncedSettings;
 }
 
 /** Where sync has got to, per table. Kept on the device between runs. */
 export interface Cursors {
   /** The newest `updatedAt` this device has pushed. Anything above it is unsent. */
-  pushed: { entries: number; items: number; practices: number; settings: number };
+  pushed: { entries: number; items: number; practices: number; getReadyDays: number; settings: number };
   /** The server's own cursor for what this device has pulled. Opaque. */
-  pulled: { entries: string | null; items: string | null; practices: string | null; settings: string | null };
+  pulled: { entries: string | null; items: string | null; practices: string | null; getReadyDays: string | null; settings: string | null };
 }
 
 export const FRESH_CURSORS: Cursors = {
-  pushed: { entries: 0, items: 0, practices: 0, settings: 0 },
-  pulled: { entries: null, items: null, practices: null, settings: null },
+  pushed: { entries: 0, items: 0, practices: 0, getReadyDays: 0, settings: 0 },
+  pulled: { entries: null, items: null, practices: null, getReadyDays: null, settings: null },
 };
 
 export interface Pull<T> {
@@ -33,10 +34,12 @@ export interface Remote {
   pushEntries(rows: TimeEntry[]): Promise<void>;
   pushItems(rows: Item[]): Promise<void>;
   pushPractices(rows: Practice[]): Promise<void>;
+  pushGetReadyDays(rows: GetReadyDay[]): Promise<void>;
   pushSettings(settings: SyncedSettings): Promise<void>;
   pullEntries(since: string | null): Promise<Pull<TimeEntry>>;
   pullItems(since: string | null): Promise<Pull<Item>>;
   pullPractices(since: string | null): Promise<Pull<Practice>>;
+  pullGetReadyDays(since: string | null): Promise<Pull<GetReadyDay>>;
   pullSettings(since: string | null): Promise<Pull<SyncedSettings>>;
 }
 
@@ -51,6 +54,7 @@ interface Incoming {
   entries: TimeEntry[];
   items: Item[];
   practices: Practice[];
+  getReadyDays: GetReadyDay[];
   settings: SyncedSettings | null;
 }
 
@@ -65,6 +69,7 @@ async function pushDirty(local: Local, remote: Remote, cursors: Cursors): Promis
   const entries = snap.entries.filter((e) => e.updatedAt > cursors.pushed.entries);
   const items = snap.items.filter((i) => i.updatedAt > cursors.pushed.items);
   const practices = snap.practices.filter((p) => p.updatedAt > cursors.pushed.practices);
+  const getReadyDays = snap.getReadyDays.filter((d) => d.updatedAt > cursors.pushed.getReadyDays);
   const settingsDirty = snap.settings.updatedAt > cursors.pushed.settings;
   const next: Cursors = { pushed: { ...cursors.pushed }, pulled: { ...cursors.pulled } };
 
@@ -82,6 +87,10 @@ async function pushDirty(local: Local, remote: Remote, cursors: Cursors): Promis
     await inBatches(practices, (b) => remote.pushPractices(b));
     next.pushed.practices = Math.max(...practices.map((p) => p.updatedAt));
   }
+  if (getReadyDays.length) {
+    await inBatches(getReadyDays, (b) => remote.pushGetReadyDays(b));
+    next.pushed.getReadyDays = Math.max(...getReadyDays.map((d) => d.updatedAt));
+  }
   if (settingsDirty) {
     await remote.pushSettings(snap.settings);
     next.pushed.settings = snap.settings.updatedAt;
@@ -90,16 +99,18 @@ async function pushDirty(local: Local, remote: Remote, cursors: Cursors): Promis
 }
 
 async function pullAll(local: Local, remote: Remote, cursors: Cursors): Promise<Cursors> {
-  const [entries, items, practices, settings] = await Promise.all([
+  const [entries, items, practices, getReadyDays, settings] = await Promise.all([
     remote.pullEntries(cursors.pulled.entries),
     remote.pullItems(cursors.pulled.items),
     remote.pullPractices(cursors.pulled.practices),
+    remote.pullGetReadyDays(cursors.pulled.getReadyDays),
     remote.pullSettings(cursors.pulled.settings),
   ]);
   local.apply({
     entries: entries.rows,
     items: items.rows,
     practices: practices.rows,
+    getReadyDays: getReadyDays.rows,
     settings: settings.rows[0] ?? null,
   });
   return {
@@ -108,6 +119,7 @@ async function pullAll(local: Local, remote: Remote, cursors: Cursors): Promise<
       entries: entries.cursor ?? cursors.pulled.entries,
       items: items.cursor ?? cursors.pulled.items,
       practices: practices.cursor ?? cursors.pulled.practices,
+      getReadyDays: getReadyDays.cursor ?? cursors.pulled.getReadyDays,
       settings: settings.cursor ?? cursors.pulled.settings,
     },
   };
@@ -132,6 +144,7 @@ export async function syncOnce(local: Local, remote: Remote, start: Cursors, opt
       snap.entries.some((e) => e.updatedAt > cursors.pushed.entries) ||
       snap.items.some((i) => i.updatedAt > cursors.pushed.items) ||
       snap.practices.some((p) => p.updatedAt > cursors.pushed.practices) ||
+      snap.getReadyDays.some((d) => d.updatedAt > cursors.pushed.getReadyDays) ||
       snap.settings.updatedAt > cursors.pushed.settings;
     if (!dirty) break;
   }
@@ -144,9 +157,16 @@ export function mergeIncoming(current: Snapshot, incoming: Incoming): Snapshot {
   const entries = merged === current.entries ? current.entries : repairEntries(merged);
   const items = mergeById(current.items, incoming.items);
   const practices = mergeById(current.practices, incoming.practices);
+  const getReadyDays = mergeById(current.getReadyDays, incoming.getReadyDays);
   const settings = incoming.settings && incoming.settings.updatedAt > current.settings.updatedAt ? incoming.settings : current.settings;
-  if (entries === current.entries && items === current.items && practices === current.practices && settings === current.settings) {
+  if (
+    entries === current.entries &&
+    items === current.items &&
+    practices === current.practices &&
+    getReadyDays === current.getReadyDays &&
+    settings === current.settings
+  ) {
     return current;
   }
-  return { entries, items, practices, settings };
+  return { entries, items, practices, getReadyDays, settings };
 }

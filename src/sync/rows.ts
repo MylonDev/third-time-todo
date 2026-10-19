@@ -1,10 +1,11 @@
-import type { EntryState, Item, Need, Practice, PracticeLevel, Recurrence, TimeEntry, TimerState } from '../types';
+import type { EntryState, GetReadyDay, GetReadyStep, Item, Need, Practice, PracticeLevel, Recurrence, TimeEntry, TimerState } from '../types';
 
 /** The part of the settings that changes the numbers, so it follows you between devices. */
 export interface SyncedSettings {
   dayEndHour: number;
   shouldTargetMin: number | null;
   weeklyCapMin: number | null;
+  getReadySteps: GetReadyStep[];
   /** 0 until the user changes either value, so defaults never beat a real setting. */
   updatedAt: number;
 }
@@ -52,11 +53,23 @@ export interface PracticeRow {
   deleted_at: number | null;
 }
 
+export interface GetReadyDayRow {
+  /** The day key. */
+  id: string;
+  done: string[];
+  skipped: boolean;
+  updated_at: number;
+  /** Never written: nothing deletes a day. The column exists so every synced table looks alike. */
+  deleted_at?: number | null;
+}
+
 export interface SettingsRow {
   day_end_hour: number;
   should_target_min: number | null;
   /** Null when unset, or when the column predates practices. */
   weekly_cap_min?: number | null;
+  /** Missing on rows that predate the Get ready checklist. */
+  get_ready_steps?: GetReadyStep[] | null;
   updated_at: number;
 }
 
@@ -166,11 +179,20 @@ export function rowToPractice(r: PracticeRow): Practice {
   };
 }
 
+export function getReadyDayToRow(d: GetReadyDay): GetReadyDayRow {
+  return { id: d.id, done: d.done, skipped: d.skipped, updated_at: d.updatedAt };
+}
+
+export function rowToGetReadyDay(r: GetReadyDayRow): GetReadyDay {
+  return { id: r.id, done: r.done, skipped: r.skipped, updatedAt: num(r.updated_at) };
+}
+
 export function settingsToRow(s: SyncedSettings): SettingsRow {
   return {
     day_end_hour: s.dayEndHour,
     should_target_min: s.shouldTargetMin,
     weekly_cap_min: s.weeklyCapMin,
+    get_ready_steps: s.getReadySteps,
     updated_at: s.updatedAt,
   };
 }
@@ -180,6 +202,7 @@ export function rowToSettings(r: SettingsRow): SyncedSettings {
     dayEndHour: r.day_end_hour,
     shouldTargetMin: r.should_target_min,
     weeklyCapMin: r.weekly_cap_min ?? null,
+    getReadySteps: r.get_ready_steps ?? [],
     updatedAt: num(r.updated_at),
   };
 }

@@ -4,13 +4,16 @@ import { useDay } from '../hooks/useDay';
 import { useNextStepPrompt } from '../hooks/useNextStepPrompt';
 import { useSettleTimed } from '../hooks/useSettleTimed';
 import { useWakeLock } from '../hooks/useWakeLock';
+import { useGetReady } from '../store/getReady';
 import { usePractices } from '../store/practices';
 import { useSettings } from '../store/settings';
 import { useTimer } from '../store/timer';
 import type { TimerState } from '../types';
+import { shouldOfferGetReady } from '../utils/getReady';
 import { RATIO } from '../utils/ledger';
 import { LEVELS, listPractices } from '../utils/practices';
-import { formatClock, formatDuration } from '../utils/time';
+import { dayKeyOf, formatClock, formatDuration } from '../utils/time';
+import { GetReadyModal } from './GetReadyModal';
 import { Modal } from './Modal';
 import { NeedsAttention } from './NeedsAttention';
 import { NextStepModal } from './NextStepModal';
@@ -44,9 +47,14 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   const stop = useTimer((s) => s.stop);
   const targetMin = useSettings((s) => s.shouldTargetMin);
   const wakeLockOn = useSettings((s) => s.wakeLock);
+  const getReadySteps = useSettings((s) => s.getReadySteps);
+  const dayEndHour = useSettings((s) => s.dayEndHour);
+  const recordGetReady = useGetReady((s) => s.record);
   // Which kind of session the next start begins. Only chosen while stopped.
   const [mode, setMode] = useState<Mode>('flow');
   const [confirmingStop, setConfirmingStop] = useState(false);
+  // A start waiting on the Get ready checklist.
+  const [pending, setPending] = useState<(() => void) | null>(null);
   // The practice the next start is for. Locked while a session runs.
   const [forId, setForId] = useState('');
   const allPractices = usePractices((s) => s.practices);
@@ -84,6 +92,21 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   // Only a start from stopped names a practice; switching while running keeps the running one.
   const practiceId = running ? undefined : selected?.id;
   const asking = practices.find((p) => p.id === askedFor);
+
+  // Starting from stopped is offered the checklist the first time in a day. Switching while running never is.
+  // Everything is read at the press, not from the render, so a day that turned over since is the day recorded.
+  const begin = (go: () => void) => {
+    const now = Date.now();
+    const offer =
+      !running && shouldOfferGetReady(getReadySteps, useGetReady.getState().days, useTimer.getState().entries, dayKeyOf(now, dayEndHour), dayEndHour);
+    if (offer) setPending(() => go);
+    else go();
+  };
+  const answerGetReady = (done: string[], skipped: boolean) => {
+    recordGetReady(dayKeyOf(Date.now(), dayEndHour), done, skipped);
+    pending?.();
+    setPending(null);
+  };
 
   return (
     <section aria-label="Timer" className="flex flex-col gap-4">
@@ -166,7 +189,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
           // Picking a practice starts the length at its level's minimum.
           key={selected?.id ?? ''}
           initialMinutes={selected && LEVELS[selected.level].minMin > 0 ? LEVELS[selected.level].minMin : undefined}
-          onStart={(ms) => startTimed(ms, practiceId)}
+          onStart={(ms) => begin(() => startTimed(ms, practiceId))}
         />
       )}
 
@@ -181,7 +204,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
                 type="button"
                 aria-label={LABEL[s]}
                 aria-pressed={active}
-                onClick={() => start(s, practiceId)}
+                onClick={() => begin(() => start(s, practiceId))}
                 className={`press flex min-h-[92px] cursor-pointer flex-col justify-end rounded-3xl border-0 px-[18px] py-3.5 text-left transition-[opacity,box-shadow] duration-300 ${TILE[s].fill}`}
                 style={{
                   opacity: dimmed ? 0.45 : 1,
@@ -264,6 +287,14 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
         )}
       </div>
       {!running && <NeedsAttention selectedId={selected?.id} onPick={setForId} />}
+      {pending && (
+        <GetReadyModal
+          steps={getReadySteps}
+          onStart={(done) => answerGetReady(done, false)}
+          onSkip={() => answerGetReady([], true)}
+          onClose={() => setPending(null)}
+        />
+      )}
       {asking && <NextStepModal practice={asking} onClose={dismissAsk} />}
       {confirmingStop && stopClears && (
         <Modal label="Stop the timer" onClose={() => setConfirmingStop(false)} size="sm" className="p-5 gap-5">
