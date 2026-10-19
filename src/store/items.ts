@@ -1,14 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Item, Recurrence, TimerState } from '../types';
-import {
-  completeItem,
-  makeItem,
-  removeItem,
-  skipItem,
-  uncompleteItem,
-  updateItem,
-} from '../utils/items';
+import { completeItem, makeItem, removeItem, skipItem, uncompleteItem, updateItem } from '../utils/items';
 import { stampChanged } from '../sync/merge';
 import { dayKeyOf } from '../utils/time';
 import { useSettings } from './settings';
@@ -42,16 +35,13 @@ export const useItems = create<ItemsStore>()(
         if (!item) return;
         const now = Date.now();
         set({
-          items: commit(
-            get().items,
-            item.done ? uncompleteItem(get().items, id, now) : completeItem(get().items, id, today(), now)
-          ),
+          items: commit(get().items, item.done ? uncompleteItem(get().items, id, now) : completeItem(get().items, id, today(), now)),
         });
       },
       edit: (id, patch) => set({ items: commit(get().items, updateItem(get().items, id, patch, Date.now())) }),
       skip: (id) => set({ items: commit(get().items, skipItem(get().items, id, today(), Date.now())) }),
       remove: (id) => set({ items: commit(get().items, removeItem(get().items, id, Date.now())) }),
     }),
-    { name: 'tt2-items', version: 1 }
-  )
+    { name: 'tt2-items', version: 1 },
+  ),
 );

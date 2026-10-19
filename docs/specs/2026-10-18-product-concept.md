@@ -36,10 +36,10 @@ doesn't take the steps, or overdoes it, burns out, and then does nothing.
 
 ## Timer modes
 
-| Mode | Logic | For |
-| --- | --- | --- |
-| **Flow** | Counts up. Focus earns Rest at 1:3, debt allowed. This is the current Should/Want timer, renamed. | Sustained, open-ended work over several hours. |
-| **Timed** | Counts down from a chosen length, chimes at the end, and the session is done. | "This one session is what I have", or a set block for a practice. |
+| Mode      | Logic                                                                                             | For                                                               |
+| --------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **Flow**  | Counts up. Focus earns Rest at 1:3, debt allowed. This is the current Should/Want timer, renamed. | Sustained, open-ended work over several hours.                    |
+| **Timed** | Counts down from a chosen length, chimes at the end, and the session is done.                     | "This one session is what I have", or a set block for a practice. |
 
 - **Flow's states are Focus, Rest and Stopped** (a260). Focus replaces Should and
   earns Rest. Rest replaces Want and spends the balance, which reads "Rest
@@ -68,13 +68,13 @@ Each practice has:
 
 - **A commitment level** that sets a weekly target, counted in **sessions** (y51x):
 
-  | Level | Sessions a week | Session (counts from) | ≈ per week | For |
-  | --- | --- | --- | --- | --- |
-  | Paused | 0 | — | 0 | — |
-  | Minimal | 1 | 10–15 min (10) | 15 min | Keep in touch: no long gaps, slows decay. Not a habit. |
-  | Light | 3 | 15–20 min (15) | 50 min | Maintain, about a third of Steady. |
-  | Steady | 4 | 20–30 min (20) | 1.5–2 h | Build the habit and progress. |
-  | Serious | 6 (daily, one miss allowed) | 30 min–2 h (30) | 3–10 h | Faster progress. |
+  | Level   | Sessions a week             | Session (counts from) | ≈ per week | For                                                    |
+  | ------- | --------------------------- | --------------------- | ---------- | ------------------------------------------------------ |
+  | Paused  | 0                           | —                     | 0          | —                                                      |
+  | Minimal | 1                           | 10–15 min (10)        | 15 min     | Keep in touch: no long gaps, slows decay. Not a habit. |
+  | Light   | 3                           | 15–20 min (15)        | 50 min     | Maintain, about a third of Steady.                     |
+  | Steady  | 4                           | 20–30 min (20)        | 1.5–2 h    | Build the habit and progress.                          |
+  | Serious | 6 (daily, one miss allowed) | 30 min–2 h (30)       | 3–10 h     | Faster progress.                                       |
 
   A session counts once it reaches the level's minimum length. The numbers were
   checked against habit research (one missed day doesn't matter, but a habit took
@@ -82,6 +82,7 @@ Each practice has:
   the last practice) and maintenance dosing (about a third of the building volume).
   Sources are on kata y51x. Deep was merged into Serious, since the evidence
   doesn't separate them.
+
 - **A small step**: the smallest session that still counts, with a smaller
   version for low days. Each is tagged with what it needs (clarity, physical
   energy, little of either) so the daily check can match it.
@@ -109,11 +110,11 @@ Optional, a few taps:
 
 The answers set the day's **effort level**:
 
-| Effort level | When | Goal |
-| --- | --- | --- |
-| Low | mostly Low | Non-zero: one small step, or one get-ready item |
-| Steady | mixed | Practices at their usual session length |
-| Full | mostly High | A good day for the practice furthest behind, or a long Flow session |
+| Effort level | When        | Goal                                                                |
+| ------------ | ----------- | ------------------------------------------------------------------- |
+| Low          | mostly Low  | Non-zero: one small step, or one get-ready item                     |
+| Steady       | mixed       | Practices at their usual session length                             |
+| Full         | mostly High | A good day for the practice furthest behind, or a long Flow session |
 
 Which answer is lowest also shapes what gets suggested: low clarity points to
 hands-on, repetitive things; low physical condition points to seated, mental ones.
@@ -198,8 +199,8 @@ Direction only; the detailed design is a later deep-dive (zw69, 86dq).
 ## Name
 
 Open (heb4). The direction is a short, real word with a helpful second layer,
-Japanese-inspired or a mix, written without kanji, like *kata*. **Kotsu** leads:
-*kotsu-kotsu* is steady, bit-by-bit effort, and *kotsu* alone is a knack. "Third
+Japanese-inspired or a mix, written without kanji, like _kata_. **Kotsu** leads:
+_kotsu-kotsu_ is steady, bit-by-bit effort, and _kotsu_ alone is a knack. "Third
 Time" is Bytesize's protocol name and now describes only Flow.
 
 ## Dropped in discussion

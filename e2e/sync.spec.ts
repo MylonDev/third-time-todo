@@ -129,14 +129,10 @@ test.describe('signing in', () => {
   });
 });
 
-
 test.describe('other ways to sign in', () => {
   test('a link copied from the email signs in without opening it', async ({ app }) => {
     const mock = await mockSupabase(app);
-    await signIn(
-      app,
-      'https://adsovripnuawbofptgml.supabase.co/auth/v1/verify?token=hash_from_email&type=magiclink&redirect_to=https%3A%2F%2Fexample.com%2F'
-    );
+    await signIn(app, 'https://adsovripnuawbofptgml.supabase.co/auth/v1/verify?token=hash_from_email&type=magiclink&redirect_to=https%3A%2F%2Fexample.com%2F');
     await expect(app.getByText('Signed in as')).toBeVisible();
     expect(mock.auth.find((a) => a.path === 'verify')?.body).toMatchObject({ token_hash: 'hash_from_email', type: 'magiclink' });
   });
@@ -152,7 +148,9 @@ test.describe('other ways to sign in', () => {
     const mock = await mockSupabase(app);
     await app.getByRole('button', { name: 'Settings' }).click();
     await app.getByRole('button', { name: 'I already have a link' }).click();
-    await app.getByLabel('Code or link').fill(`http://localhost:3000/#access_token=${fakeJwt()}&expires_in=3600&refresh_token=refresh&token_type=bearer&type=magiclink`);
+    await app
+      .getByLabel('Code or link')
+      .fill(`http://localhost:3000/#access_token=${fakeJwt()}&expires_in=3600&refresh_token=refresh&token_type=bearer&type=magiclink`);
     await app.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(app.getByText('Signed in as')).toBeVisible();
@@ -226,9 +224,7 @@ test.describe('syncing', () => {
     await expect.poll(() => mock.writes.filter((w) => w.table === 'items').length).toBeGreaterThan(0);
     const write = mock.writes.filter((w) => w.table === 'items').at(-1)!;
     expect(write.url).toContain('on_conflict=user_id%2Cid');
-    expect(write.body).toEqual([
-      expect.objectContaining({ text: 'Play guitar', kind: 'want', user_id: USER.id, done: false }),
-    ]);
+    expect(write.body).toEqual([expect.objectContaining({ text: 'Play guitar', kind: 'want', user_id: USER.id, done: false })]);
   });
 
   test('shows an item another device added', async ({ app }) => {
@@ -286,9 +282,7 @@ test.describe('syncing', () => {
     await expect.poll(() => mock.writes.filter((w) => w.table === 'practices').length).toBeGreaterThan(0);
     const write = mock.writes.filter((w) => w.table === 'practices').at(-1)!;
     expect(write.url).toContain('on_conflict=user_id%2Cid');
-    expect(write.body).toEqual([
-      expect.objectContaining({ name: 'Guitar', level: 'light', user_id: USER.id, small_needs: [], deleted_at: null }),
-    ]);
+    expect(write.body).toEqual([expect.objectContaining({ name: 'Guitar', level: 'light', user_id: USER.id, small_needs: [], deleted_at: null })]);
   });
 
   test('shows a practice another device added', async ({ app }) => {

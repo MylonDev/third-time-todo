@@ -4,37 +4,20 @@ import { usePractices } from '../store/practices';
 import { useSettings } from '../store/settings';
 import { useTimer } from '../store/timer';
 import type { TimeEntry } from '../types';
-import {
-  describeLevel,
-  describeSince,
-  firstSessionAt,
-  listPractices,
-  plannedMinutes,
-  practiceTime,
-} from '../utils/practices';
+import { describeLevel, describeSince, firstSessionAt, listPractices, plannedMinutes, practiceTime } from '../utils/practices';
 import { dayKeyOf, formatDuration, weekWindowOf, type DayWindow } from '../utils/time';
 import { CapModal } from './CapModal';
 import { PracticeEditor } from './PracticeEditor';
 
 /** "2h 10m this week · 31h since June". Nothing until the first session. */
-function TimeLine({
-  entries,
-  practiceId,
-  week,
-  now,
-}: {
-  entries: TimeEntry[];
-  practiceId: string;
-  week: DayWindow;
-  now: number;
-}) {
+function TimeLine({ entries, practiceId, week, now }: { entries: TimeEntry[]; practiceId: string; week: DayWindow; now: number }) {
   const first = firstSessionAt(entries, practiceId);
   if (first === undefined) return null;
   const total = practiceTime(entries, practiceId, { start: 0, end: Infinity }, now);
   return (
     <span data-testid="practice-time" className="text-sm text-text-muted">
-      <span className="num text-text">{formatDuration(practiceTime(entries, practiceId, week, now))}</span> this week
-      · <span className="num text-text">{formatDuration(total)}</span> {describeSince(first, now)}
+      <span className="num text-text">{formatDuration(practiceTime(entries, practiceId, week, now))}</span> this week ·{' '}
+      <span className="num text-text">{formatDuration(total)}</span> {describeSince(first, now)}
     </span>
   );
 }
@@ -96,9 +79,7 @@ export function PracticesView() {
       {practices.length === 0 ? (
         <div className="pop flex flex-col gap-1 rounded-3xl border border-dashed border-border-strong/50 p-4">
           <p className="text-[1.0625rem] font-semibold">No practices yet.</p>
-          <p className="text-sm text-text-muted">
-            A practice is something you keep coming back to, with no end point: an instrument, drawing, a language.
-          </p>
+          <p className="text-sm text-text-muted">A practice is something you keep coming back to, with no end point: an instrument, drawing, a language.</p>
         </div>
       ) : (
         <ul>
@@ -109,14 +90,10 @@ export function PracticesView() {
                 onClick={() => setEditing(p.id)}
                 aria-label={`Edit ${p.name}`}
                 data-paused={p.level === 'paused'}
-                className={`flex min-h-[54px] w-full cursor-pointer flex-col justify-center py-2 text-left ${
-                  p.level === 'paused' ? 'opacity-50' : ''
-                }`}
+                className={`flex min-h-[54px] w-full cursor-pointer flex-col justify-center py-2 text-left ${p.level === 'paused' ? 'opacity-50' : ''}`}
               >
                 <span className="block break-words text-[1.0625rem] font-medium">{p.name}</span>
-                <span className="font-timer text-[0.625rem] uppercase tracking-[0.08em] text-text-muted">
-                  {describeLevel(p.level)}
-                </span>
+                <span className="font-timer text-[0.625rem] uppercase tracking-[0.08em] text-text-muted">{describeLevel(p.level)}</span>
                 <TimeLine entries={entries} practiceId={p.id} week={week} now={now} />
                 {p.nextStep && (
                   <span data-testid="practice-next-step" className="break-words text-sm text-text-muted">

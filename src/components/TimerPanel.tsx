@@ -65,8 +65,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   const screenOn = useWakeLock(running !== undefined && wakeLockOn);
 
   const targetMs = targetMin ? targetMin * 60_000 : null;
-  const progress =
-    plannedMs !== null ? Math.min(1, elapsed / plannedMs) : Math.min(1, totals.shouldMs / (targetMs ?? DEFAULT_SCALE_MS));
+  const progress = plannedMs !== null ? Math.min(1, elapsed / plannedMs) : Math.min(1, totals.shouldMs / (targetMs ?? DEFAULT_SCALE_MS));
   const targetProgress = targetMs ? Math.min(1, totals.shouldMs / targetMs) : 0;
   const reached = targetMs !== null && totals.shouldMs >= targetMs;
 
@@ -81,9 +80,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
   const clock = plannedMs !== null ? formatClock(Math.max(0, plannedMs - elapsed)) : running ? formatClock(elapsed) : '0:00';
   // A deleted practice is no longer named, but its time stays on the entry.
   const selected = practices.find((p) => p.id === (running ? running.practiceId : forId));
-  const headline = `${state === 'timed' ? 'Timed running' : state ? `${LABEL[state]} running` : 'Stopped'}${
-    running && selected ? ` · ${selected.name}` : ''
-  }`;
+  const headline = `${state === 'timed' ? 'Timed running' : state ? `${LABEL[state]} running` : 'Stopped'}${running && selected ? ` · ${selected.name}` : ''}`;
   // Only a start from stopped names a practice; switching while running keeps the running one.
   const practiceId = running ? undefined : selected?.id;
   const asking = practices.find((p) => p.id === askedFor);
@@ -97,10 +94,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
             {running && <span className="beat size-2 rounded-full bg-current" aria-hidden="true" />}
             {headline}
           </p>
-          <p
-            data-testid="elapsed"
-            className={`font-timer mt-1.5 font-bold leading-none ${clock.length > 5 ? 'text-[2.6rem]' : 'text-[3.75rem]'}`}
-          >
+          <p data-testid="elapsed" className={`font-timer mt-1.5 font-bold leading-none ${clock.length > 5 ? 'text-[2.6rem]' : 'text-[3.75rem]'}`}>
             {clock}
           </p>
           {plannedMs !== null && (
@@ -249,10 +243,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
               aria-valuenow={Math.round(targetProgress * 100)}
               className="h-1.5 overflow-hidden rounded-full bg-surface-2"
             >
-              <div
-                className="h-full rounded-full bg-moss transition-[width] duration-1000 ease-linear"
-                style={{ width: `${targetProgress * 100}%` }}
-              />
+              <div className="h-full rounded-full bg-moss transition-[width] duration-1000 ease-linear" style={{ width: `${targetProgress * 100}%` }} />
             </div>
             {reached ? (
               <div role="status" className="pop flex items-center gap-3.5 rounded-3xl border border-moss-edge px-4 py-3.5 text-text">
@@ -261,8 +252,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
                   <span className="relative size-[22px] rounded-full bg-moss" />
                 </span>
                 <p data-testid="target" className="text-[0.9375rem] leading-snug">
-                  <strong className="text-lg font-bold">Target reached.</strong>{' '}
-                  {running ? 'You can stop for the day.' : 'Enjoy the rest of the day.'}
+                  <strong className="text-lg font-bold">Target reached.</strong> {running ? 'You can stop for the day.' : 'Enjoy the rest of the day.'}
                 </p>
               </div>
             ) : (

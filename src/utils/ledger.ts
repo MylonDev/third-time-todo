@@ -99,14 +99,7 @@ export function balanceWindow(entries: TimeEntry[], win: DayWindow, now: number)
 // Every function here is pure: it takes the entries and returns new ones. A
 // removed entry is tombstoned, not dropped, so the removal can sync.
 
-function make(
-  state: EntryState,
-  startedAt: number,
-  endedAt: number | null,
-  now: number,
-  plannedMs?: number,
-  practiceId?: string
-): TimeEntry {
+function make(state: EntryState, startedAt: number, endedAt: number | null, now: number, plannedMs?: number, practiceId?: string): TimeEntry {
   return {
     id: crypto.randomUUID(),
     state,
@@ -141,12 +134,7 @@ function closeRunning(entries: TimeEntry[], at: number): TimeEntry[] {
  * no-op. Switching between Focus and Rest keeps the practice the Flow was for;
  * `practiceId` names one when starting from stopped.
  */
-export function startState(
-  entries: TimeEntry[],
-  state: TimerState,
-  at: number,
-  practiceId?: string
-): TimeEntry[] {
+export function startState(entries: TimeEntry[], state: TimerState, at: number, practiceId?: string): TimeEntry[] {
   const running = runningEntry(entries);
   if (running?.state === state) return entries;
   const practice = practiceId ?? (running?.state === 'timed' ? undefined : running?.practiceId);
@@ -154,12 +142,7 @@ export function startState(
 }
 
 /** Start a Timed session of `plannedMs`, closing whatever was running. */
-export function startTimed(
-  entries: TimeEntry[],
-  plannedMs: number,
-  at: number,
-  practiceId?: string
-): TimeEntry[] {
+export function startTimed(entries: TimeEntry[], plannedMs: number, at: number, practiceId?: string): TimeEntry[] {
   if (!(plannedMs > 0)) return entries;
   return normalize([...closeRunning(entries, at), make('timed', at, null, at, plannedMs, practiceId)], at);
 }
@@ -185,13 +168,7 @@ export function settleTimed(entries: TimeEntry[], now: number): TimeEntry[] {
  * removed, entries that straddle an edge are trimmed, and one that spans the
  * whole range is split around it. This one operation is every correction.
  */
-export function paint(
-  entries: TimeEntry[],
-  from: number,
-  to: number,
-  state: Painted,
-  now: number
-): TimeEntry[] {
+export function paint(entries: TimeEntry[], from: number, to: number, state: Painted, now: number): TimeEntry[] {
   if (to <= from) return entries;
   const out: TimeEntry[] = [];
   for (const e of entries) {
@@ -229,14 +206,7 @@ function normalize(entries: TimeEntry[], now: number): TimeEntry[] {
   for (const e of live) {
     const last = merged[merged.length - 1];
     // Timed sessions stay separate: two back to back are two sessions.
-    if (
-      last &&
-      last.endedAt !== null &&
-      last.endedAt === e.startedAt &&
-      last.state === e.state &&
-      last.practiceId === e.practiceId &&
-      e.state !== 'timed'
-    ) {
+    if (last && last.endedAt !== null && last.endedAt === e.startedAt && last.state === e.state && last.practiceId === e.practiceId && e.state !== 'timed') {
       merged[merged.length - 1] = { ...last, endedAt: e.endedAt, updatedAt: now };
       dead.push(tombstone(e, now));
     } else {

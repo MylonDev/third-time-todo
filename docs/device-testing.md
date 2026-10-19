@@ -7,6 +7,7 @@ installed app, not in Safari, and note the iOS version.
 Target device: iPhone on iOS 27.2 (developer build).
 
 ## Install
+
 1. Open https://mylondev.github.io/third-time-todo/ in Safari.
 2. Share, then Add to Home Screen. Open it from the new icon.
 3. It should open full screen with no Safari bars, and the clock area should
@@ -14,6 +15,7 @@ Target device: iPhone on iOS 27.2 (developer build).
 4. The install hint should no longer show.
 
 ## Wake lock
+
 1. Start Should. "Screen stays on while timing." should appear.
 2. Leave the phone untouched for longer than its auto-lock time. The screen
    should stay on.
@@ -24,6 +26,7 @@ Target device: iPhone on iOS 27.2 (developer build).
    this iOS version. Everything else should still work.
 
 ## Background tracking
+
 1. Start Should, switch to another app for 3 minutes, come back. The elapsed time
    should be about 3 minutes more, and Want available about a minute more.
 2. Start Should, lock the phone for 5 minutes, unlock. Same expectation.
@@ -32,5 +35,6 @@ Target device: iPhone on iOS 27.2 (developer build).
 4. Try the Fix timer control after each of these.
 
 ## Day boundary
+
 1. Set the day end to 1:00 AM, leave a timer running past midnight, and check the
    next morning that the day totals look right and nothing was lost.

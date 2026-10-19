@@ -44,11 +44,7 @@ export function FixTimerModal({ onClose }: { onClose: () => void }) {
   const refusal = fixRefusal({ ms });
   const from = now - ms;
   const preview =
-    refusal === null
-      ? `${NAME[was]} from ${clock(from)} to ${clock(now)}, ${
-          then === 'stopped' ? 'then the timer stops.' : `then ${NAME[then]}.`
-        }`
-      : refusal;
+    refusal === null ? `${NAME[was]} from ${clock(from)} to ${clock(now)}, ${then === 'stopped' ? 'then the timer stops.' : `then ${NAME[then]}.`}` : refusal;
 
   const apply = () => {
     const err = fix({ ms, was, then });
@@ -73,9 +69,7 @@ export function FixTimerModal({ onClose }: { onClose: () => void }) {
               aria-pressed={minutes === m}
               onClick={() => setMinutes(m)}
               className={`min-h-10 rounded-lg px-3 text-sm font-medium cursor-pointer border ${
-                minutes === m
-                  ? 'bg-accent-dim border-accent-edge text-accent'
-                  : 'border-border text-text-muted hover:text-text'
+                minutes === m ? 'bg-accent-dim border-accent-edge text-accent' : 'border-border text-text-muted hover:text-text'
               }`}
             >
               {m} min

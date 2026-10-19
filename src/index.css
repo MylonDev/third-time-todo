@@ -1,91 +1,91 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* ─── Design tokens ──────────────────────────────────────────────
    "Sun and Wires": true black ground, paper, forest and moss. Vermilion is
    reserved for debt, overdue and the seal. Should is forest, Want is paper. */
 @theme {
   /* Surfaces: true black so an OLED screen switches the pixels off. */
-  --color-bg:        #000000;
-  --color-surface:   #070b09;
+  --color-bg: #000000;
+  --color-surface: #070b09;
   --color-surface-2: #121815;
 
-  --color-border:    rgba(237, 230, 211, 0.14);
+  --color-border: rgba(237, 230, 211, 0.14);
   /* Borders on interactive controls must clear 3:1 against their surface */
   --color-border-strong: rgba(237, 230, 211, 0.5);
 
   /* Primary: paper. Focus rings, selected controls and main buttons. */
-  --color-accent:      #ede6d3;
-  --color-accent-dim:  rgba(237, 230, 211, 0.1);
+  --color-accent: #ede6d3;
+  --color-accent-dim: rgba(237, 230, 211, 0.1);
   --color-accent-edge: rgba(237, 230, 211, 0.32);
 
   /* Should: forest for fills, moss for text and outlines on black. */
-  --color-should:      #2f6b4a;
-  --color-moss:        #86b594;
-  --color-moss-edge:   rgba(134, 181, 148, 0.5);
-  --color-on-should:   #ede6d3;
+  --color-should: #2f6b4a;
+  --color-moss: #86b594;
+  --color-moss-edge: rgba(134, 181, 148, 0.5);
+  --color-on-should: #ede6d3;
 
   /* Want: paper. */
-  --color-want:      #ede6d3;
-  --color-want-dim:  rgba(237, 230, 211, 0.1);
+  --color-want: #ede6d3;
+  --color-want-dim: rgba(237, 230, 211, 0.1);
   --color-want-edge: rgba(237, 230, 211, 0.32);
 
   /* Debt and overdue: vermilion */
-  --color-debt:      #e5604a;
-  --color-debt-dim:  rgba(229, 96, 74, 0.12);
+  --color-debt: #e5604a;
+  --color-debt-dim: rgba(229, 96, 74, 0.12);
   --color-debt-edge: rgba(229, 96, 74, 0.4);
 
   /* The red square seal: a mark, the same in both themes. */
-  --color-seal:    #d9503a;
+  --color-seal: #d9503a;
   --color-on-seal: #ede6d3;
 
   /* Anything set on a filled paper surface. */
   --color-on-accent: #06120b;
-  --color-on-want:   #06120b;
+  --color-on-want: #06120b;
 
   /* Text: off-white, not pure white, which glares on black. */
-  --color-text:       #ede6d3;
+  --color-text: #ede6d3;
   --color-text-muted: rgba(237, 230, 211, 0.62); /* 5.9:1 on black */
 
   --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.3);
   --shadow-overlay: 0 8px 32px rgba(0, 0, 0, 0.4);
 
-  --color-danger:     #e5604a;
+  --color-danger: #e5604a;
   --color-danger-dim: rgba(229, 96, 74, 0.12);
 
   /* Words in Space Grotesk, numbers and labels in mono. */
   --font-display: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-body:    'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono:    'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-body: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 }
 
 /* ─── Light theme override: paper ground, ink text ───────────── */
 .light {
-  --color-bg:        #ede6d3;
-  --color-surface:   #f6f1e3;
+  --color-bg: #ede6d3;
+  --color-surface: #f6f1e3;
   --color-surface-2: #e0d8c3;
-  --color-border:    rgba(6, 18, 11, 0.14);
+  --color-border: rgba(6, 18, 11, 0.14);
   --color-border-strong: rgba(6, 18, 11, 0.5);
-  --color-accent:      #06120b;
-  --color-accent-dim:  rgba(6, 18, 11, 0.08);
+  --color-accent: #06120b;
+  --color-accent-dim: rgba(6, 18, 11, 0.08);
   --color-accent-edge: rgba(6, 18, 11, 0.32);
-  --color-should:    #2f6b4a;
-  --color-moss:      #2f6b4a;
+  --color-should: #2f6b4a;
+  --color-moss: #2f6b4a;
   --color-moss-edge: rgba(47, 107, 74, 0.5);
   --color-on-should: #ede6d3;
-  --color-want:      #06120b;
-  --color-want-dim:  rgba(6, 18, 11, 0.08);
+  --color-want: #06120b;
+  --color-want-dim: rgba(6, 18, 11, 0.08);
   --color-want-edge: rgba(6, 18, 11, 0.32);
-  --color-debt:      #b83a2d;
-  --color-debt-dim:  rgba(184, 58, 45, 0.1);
+  --color-debt: #b83a2d;
+  --color-debt-dim: rgba(184, 58, 45, 0.1);
   --color-debt-edge: rgba(184, 58, 45, 0.4);
   --color-on-accent: #ede6d3;
-  --color-on-want:   #ede6d3;
+  --color-on-want: #ede6d3;
   /* A black lift this heavy reads as dirt on a light ground */
   --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.12);
   --shadow-overlay: 0 8px 32px rgba(0, 0, 0, 0.16);
-  --color-text:       #06120b;
+  --color-text: #06120b;
   --color-text-muted: rgba(6, 18, 11, 0.62);
-  --color-danger:     #b83a2d;
+  --color-danger: #b83a2d;
   --color-danger-dim: rgba(184, 58, 45, 0.1);
 }
 
@@ -113,8 +113,7 @@ body {
   margin: 0;
   min-height: 100dvh;
   /* Home-screen app: keep content clear of the notch and home indicator. */
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   /* No pull-to-refresh or rubber banding over the timer. */
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
@@ -132,7 +131,10 @@ select {
   user-select: text;
 }
 
-h1, h2, h3, h4 {
+h1,
+h2,
+h3,
+h4 {
   font-family: var(--font-display);
 }
 
@@ -191,25 +193,47 @@ select:focus-visible,
 }
 
 @keyframes beat {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(0.7); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
 }
 .beat {
   animation: beat 1.6s ease-in-out infinite;
 }
 
 @keyframes pop {
-  0% { transform: scale(0.92) translateY(8px); opacity: 0; }
-  60% { transform: scale(1.02); opacity: 1; }
-  100% { transform: none; opacity: 1; }
+  0% {
+    transform: scale(0.92) translateY(8px);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
 }
 .pop {
   animation: pop 0.55s cubic-bezier(0.2, 0.9, 0.2, 1);
 }
 
 @keyframes halo {
-  0% { transform: scale(1); opacity: 0.5; }
-  100% { transform: scale(2.1); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
 }
 .halo {
   animation: halo 2.4s ease-out infinite;
@@ -218,35 +242,74 @@ select:focus-visible,
 /* Scene weather and drifting things. Translations only: a CSS rotate on an SVG
    element turns about the viewport origin, not the element. */
 @keyframes scene-drift {
-  from { transform: translateX(0); }
-  to { transform: translateX(24px); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(24px);
+  }
 }
 @keyframes scene-rain {
-  from { transform: translate(0, -30px); }
-  to { transform: translate(-30px, 340px); }
+  from {
+    transform: translate(0, -30px);
+  }
+  to {
+    transform: translate(-30px, 340px);
+  }
 }
 @keyframes scene-snow {
-  0% { transform: translate(0, -10px); }
-  50% { transform: translate(10px, 170px); }
-  100% { transform: translate(-6px, 330px); }
+  0% {
+    transform: translate(0, -10px);
+  }
+  50% {
+    transform: translate(10px, 170px);
+  }
+  100% {
+    transform: translate(-6px, 330px);
+  }
 }
 @keyframes scene-petal {
-  0% { transform: translate(0, -10px); }
-  50% { transform: translate(-40px, 170px); }
-  100% { transform: translate(10px, 330px); }
+  0% {
+    transform: translate(0, -10px);
+  }
+  50% {
+    transform: translate(-40px, 170px);
+  }
+  100% {
+    transform: translate(10px, 330px);
+  }
 }
 @keyframes scene-float {
-  0%, 100% { transform: translate(0, 0); opacity: 0.2; }
-  50% { transform: translate(10px, -14px); opacity: 1; }
+  0%,
+  100% {
+    transform: translate(0, 0);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translate(10px, -14px);
+    opacity: 1;
+  }
 }
-.scene-drift { animation: scene-drift 22s ease-in-out infinite alternate; }
-.scene-rain { animation: scene-rain 1s linear infinite; }
-.scene-snow { animation: scene-snow 8s linear infinite; }
-.scene-petal { animation: scene-petal 11s linear infinite; }
-.scene-float { animation: scene-float 4s ease-in-out infinite; }
+.scene-drift {
+  animation: scene-drift 22s ease-in-out infinite alternate;
+}
+.scene-rain {
+  animation: scene-rain 1s linear infinite;
+}
+.scene-snow {
+  animation: scene-snow 8s linear infinite;
+}
+.scene-petal {
+  animation: scene-petal 11s linear infinite;
+}
+.scene-float {
+  animation: scene-float 4s ease-in-out infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .press { transition: none; }
+  .press {
+    transition: none;
+  }
   .beat,
   .pop,
   .halo,
@@ -294,7 +357,9 @@ select:focus-visible,
 }
 @media (prefers-reduced-motion: reduce) {
   .check,
-  .check::after { transition: none; }
+  .check::after {
+    transition: none;
+  }
 }
 
 /* ─── Switch ─────────────────────────────────────────────────── */
@@ -310,7 +375,9 @@ select:focus-visible,
   border: 1px solid var(--color-border-strong);
   background: transparent;
   cursor: pointer;
-  transition: background-color 0.25s, border-color 0.25s;
+  transition:
+    background-color 0.25s,
+    border-color 0.25s;
 }
 .switch::after {
   content: '';
@@ -321,7 +388,9 @@ select:focus-visible,
   height: 1.625rem;
   border-radius: 50%;
   background: var(--color-text-muted);
-  transition: transform 0.3s cubic-bezier(0.3, 1.5, 0.5, 1), background-color 0.25s;
+  transition:
+    transform 0.3s cubic-bezier(0.3, 1.5, 0.5, 1),
+    background-color 0.25s;
 }
 .switch:checked {
   background-color: var(--color-should);
@@ -333,12 +402,19 @@ select:focus-visible,
 }
 @media (prefers-reduced-motion: reduce) {
   .switch,
-  .switch::after { transition: none; }
+  .switch::after {
+    transition: none;
+  }
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: 3px;

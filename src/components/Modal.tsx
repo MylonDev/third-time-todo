@@ -2,8 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Nested overlays must not each restore `overflow` on the way out. */
 let scrollLocks = 0;
@@ -44,14 +43,7 @@ const SIZES = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg' } as const;
  * it, or closed on Escape. They share this one now, so the behaviour is the
  * same wherever you meet it.
  */
-export function Modal({
-  onClose,
-  label,
-  variant = 'center',
-  size = 'md',
-  className = '',
-  children,
-}: ModalProps) {
+export function Modal({ onClose, label, variant = 'center', size = 'md', className = '', children }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const dismissible = onClose !== undefined;
 
@@ -110,14 +102,8 @@ export function Modal({
   const isSheet = variant === 'sheet';
 
   return createPortal(
-    <div
-      className={`fixed inset-0 z-50 flex ${isSheet ? 'justify-end' : 'items-end justify-center sm:items-center sm:p-4'}`}
-    >
-      <div
-        className="absolute inset-0 bg-black/70"
-        onClick={dismissible ? onClose : undefined}
-        aria-hidden="true"
-      />
+    <div className={`fixed inset-0 z-50 flex ${isSheet ? 'justify-end' : 'items-end justify-center sm:items-center sm:p-4'}`}>
+      <div className="absolute inset-0 bg-black/70" onClick={dismissible ? onClose : undefined} aria-hidden="true" />
       <motion.div
         ref={panelRef}
         role="dialog"
@@ -139,12 +125,10 @@ export function Modal({
         exit={isSheet ? { x: '100%' } : { opacity: 0, y: 30 }}
         transition={{ type: 'spring', damping: 26, stiffness: 300 }}
       >
-        {!isSheet && (
-          <span aria-hidden="true" className="mx-auto mt-2.5 h-[5px] w-11 flex-none rounded-full bg-border-strong sm:hidden" />
-        )}
+        {!isSheet && <span aria-hidden="true" className="mx-auto mt-2.5 h-[5px] w-11 flex-none rounded-full bg-border-strong sm:hidden" />}
         {children}
       </motion.div>
     </div>,
-    document.body
+    document.body,
   );
 }

@@ -27,9 +27,7 @@ export function TimedStart({
             aria-pressed={minutes === m}
             onClick={() => setMinutes(m)}
             className={`press min-h-10 cursor-pointer rounded-full border px-3.5 text-sm font-medium ${
-              minutes === m
-                ? 'bg-accent-dim border-accent-edge text-accent'
-                : 'border-border text-text-muted hover:text-text'
+              minutes === m ? 'bg-accent-dim border-accent-edge text-accent' : 'border-border text-text-muted hover:text-text'
             }`}
           >
             {m} min

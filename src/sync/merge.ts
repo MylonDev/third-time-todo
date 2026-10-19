@@ -62,21 +62,14 @@ export function stampChanged<T extends Versioned>(prev: T[], next: T[]): T[] {
  * same way, and the repaired rows are bumped one tick so they beat the stale copies.
  */
 export function repairEntries(entries: TimeEntry[]): TimeEntry[] {
-  const live = entries
-    .filter((e) => e.deletedAt === undefined)
-    .sort((a, b) => a.startedAt - b.startedAt || (a.id < b.id ? -1 : 1));
+  const live = entries.filter((e) => e.deletedAt === undefined).sort((a, b) => a.startedAt - b.startedAt || (a.id < b.id ? -1 : 1));
   const fixed = new Map<string, TimeEntry>();
   let prev: TimeEntry | undefined;
 
   for (const cur of live) {
     if (prev && (prev.endedAt ?? Infinity) > cur.startedAt) {
       const updatedAt = Math.max(prev.updatedAt, cur.updatedAt) + 1;
-      fixed.set(
-        prev.id,
-        cur.startedAt <= prev.startedAt
-          ? { ...prev, deletedAt: updatedAt, updatedAt }
-          : { ...prev, endedAt: cur.startedAt, updatedAt }
-      );
+      fixed.set(prev.id, cur.startedAt <= prev.startedAt ? { ...prev, deletedAt: updatedAt, updatedAt } : { ...prev, endedAt: cur.startedAt, updatedAt });
     }
     prev = cur;
   }

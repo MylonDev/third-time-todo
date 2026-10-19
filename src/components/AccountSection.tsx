@@ -13,9 +13,7 @@ function statusLine(phase: string, error: string | null, lastSyncedAt: number | 
     case 'error':
       return `Sync problem: ${error ?? 'unknown'}. Trying again shortly.`;
     default:
-      return lastSyncedAt
-        ? `Synced at ${new Date(lastSyncedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}.`
-        : 'Signed in.';
+      return lastSyncedAt ? `Synced at ${new Date(lastSyncedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}.` : 'Signed in.';
   }
 }
 
@@ -49,9 +47,7 @@ export function AccountSection() {
     <section aria-label="Account" className="flex flex-col gap-3 border-t border-border pt-5">
       <h3 className="section-label">Sync</h3>
 
-      {phase === 'off' && (
-        <p className="text-sm text-text-muted">Sync is not switched on in this build. Everything stays on this device.</p>
-      )}
+      {phase === 'off' && <p className="text-sm text-text-muted">Sync is not switched on in this build. Everything stays on this device.</p>}
 
       {phase === 'signed-out' && step === 'email' && (
         <form
@@ -68,14 +64,7 @@ export function AccountSection() {
           <p className="text-sm text-text-muted">Sign in to keep your phone and computer in step.</p>
           <label className="flex flex-col gap-1.5">
             <span className="section-label">Email</span>
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={FIELD}
-            />
+            <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={FIELD} />
           </label>
           <button
             type="submit"
@@ -122,23 +111,15 @@ export function AccountSection() {
         >
           {emailed ? (
             <p className="text-sm text-text-muted">
-              We emailed {email}. Paste the code from it, or the link. On a phone, press and hold the link in the email,
-              choose Copy Link, and paste it here without opening it.
+              We emailed {email}. Paste the code from it, or the link. On a phone, press and hold the link in the email, choose Copy Link, and paste it here
+              without opening it.
             </p>
           ) : (
             <>
-              <p className="text-sm text-text-muted">
-                Paste a sign-in link you already have. A code also works if you enter your email below.
-              </p>
+              <p className="text-sm text-text-muted">Paste a sign-in link you already have. A code also works if you enter your email below.</p>
               <label className="flex flex-col gap-1.5">
                 <span className="section-label">Email (only needed for a code)</span>
-                <input
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={FIELD}
-                />
+                <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={FIELD} />
               </label>
             </>
           )}
@@ -193,14 +174,7 @@ export function AccountSection() {
         >
           <label className="flex flex-col gap-1.5">
             <span className="section-label">Email</span>
-            <input
-              type="email"
-              autoComplete="username"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={FIELD}
-            />
+            <input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} className={FIELD} />
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="section-label">Password</span>
@@ -281,9 +255,7 @@ export function AccountSection() {
                 className={FIELD}
               />
             </label>
-            <span className="text-xs text-text-muted">
-              Optional. Lets a device sign in without waiting for an email, and your phone can fill it in.
-            </span>
+            <span className="text-xs text-text-muted">Optional. Lets a device sign in without waiting for an email, and your phone can fill it in.</span>
             <button
               type="submit"
               disabled={busy || newPassword.length < 8}

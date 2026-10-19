@@ -44,11 +44,7 @@ export function useChimes() {
     // Once per session, even with sounds off, so turning them on later doesn't replay it.
     chimedFor.current = finished.id;
     if (!sounds) return;
-    announce(
-      'break-end',
-      'Timed session done',
-      `${formatDuration(finished.plannedMs ?? 0)} is up. Nothing switches by itself: keep going, rest or stop.`
-    );
+    announce('break-end', 'Timed session done', `${formatDuration(finished.plannedMs ?? 0)} is up. Nothing switches by itself: keep going, rest or stop.`);
   }, [finished, now, sounds]);
 
   const lastBalance = useRef<number | null>(null);

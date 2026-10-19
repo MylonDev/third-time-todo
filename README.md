@@ -45,19 +45,18 @@ npx playwright install chromium   # once, for the e2e suite
 
 npm run dev        # vite dev server on http://localhost:5173/third-time-todo/
 npm run build      # typecheck (tsc -b) + production build to dist/
-npm run lint       # eslint
+npm run lint       # oxlint, including type-aware rules
+npm run format     # oxfmt (npm run format:check only checks)
 npm run test:unit  # vitest: the ledger, recurrence, items, day keys
 npm test           # playwright end-to-end suite
 npm run preview    # serve the production build locally
 ```
 
-Runs on Node 26 (pinned in `.nvmrc`). Lint, build and both test suites run on every PR via
+Runs on Node 26 (pinned in `.nvmrc`). The format check, lint, build and both test suites run on every PR via
 `.github/workflows/ci.yml`.
 
-Type-checking uses TypeScript 7, installed as `typescript7`; `npm run build` calls its `tsc` by path.
-The `typescript` entry is TypeScript 6's API package (`@typescript/typescript6`), because
-typescript-eslint still needs that API and supports TypeScript only below 6.1. Once
-typescript-eslint supports TypeScript 7, make `typescript` the real 7.x package and drop the alias.
+Lint is oxlint (`.oxlintrc.json`); its type-aware rules run on TypeScript 7 through `oxlint-tsgolint`.
+The rule against literal colours is a local plugin, `lint/design-tokens.mjs`.
 
 ## Code
 

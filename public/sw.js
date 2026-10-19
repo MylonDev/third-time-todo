@@ -10,17 +10,13 @@ self.addEventListener('install', (event) => {
     caches
       .open(CACHE_NAME)
       .then((cache) => cache.add(SCOPE))
-      .catch(() => {})
+      .catch(() => {}),
   );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
-  );
+  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))));
   self.clients.claim();
 });
 
@@ -45,7 +41,7 @@ self.addEventListener('fetch', (event) => {
           event.waitUntil(put(SCOPE, response.clone()));
           return response;
         })
-        .catch(() => caches.match(SCOPE).then((cached) => cached || Response.error()))
+        .catch(() => caches.match(SCOPE).then((cached) => cached || Response.error())),
     );
     return;
   }
@@ -60,6 +56,6 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => cached);
       return cached || refresh;
-    })
+    }),
   );
 });

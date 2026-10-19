@@ -151,7 +151,6 @@ test.describe('practices', () => {
     await expect(app.getByText('No practices yet.')).toBeVisible();
   });
 
-
   test.describe('time on a practice', () => {
     test('has no For picker until there is a practice, and lists Paused ones last', async ({ app }) => {
       await expect(app.getByLabel('For', { exact: true })).toHaveCount(0);
@@ -221,7 +220,7 @@ test.describe('practices', () => {
       await startState(app, 'Focus');
       const picker = app.getByLabel('For', { exact: true });
       await expect(picker).toBeDisabled();
-      await expect(picker).toHaveValue(await picker.locator('option', { hasText: 'Guitar' }).getAttribute('value') ?? '');
+      await expect(picker).toHaveValue((await picker.locator('option', { hasText: 'Guitar' }).getAttribute('value')) ?? '');
       await app.getByRole('button', { name: 'Stop' }).click();
       await expect(picker).toBeEnabled();
       await expect(app.getByText('Stopped')).toBeVisible();
@@ -294,9 +293,7 @@ test.describe('practices', () => {
 
       // Under the picker for the next session, and on the row.
       await expect(app.getByTestId('next-step')).toHaveText('Next: Learn the intro');
-      await expect(app.getByRole('button', { name: 'Edit Guitar' }).getByTestId('practice-next-step')).toHaveText(
-        'Next: Learn the intro'
-      );
+      await expect(app.getByRole('button', { name: 'Edit Guitar' }).getByTestId('practice-next-step')).toHaveText('Next: Learn the intro');
       await startState(app, 'Focus');
       await expect(app.getByTestId('next-step')).toHaveText('Next: Learn the intro');
     });
@@ -442,9 +439,7 @@ test.describe('practices', () => {
       await expect(level(app, 'Paused')).toBeEnabled();
       // Steady does not fit, so the new practice starts at the most that does.
       await expect(level(app, 'Minimal')).toHaveAttribute('aria-pressed', 'true');
-      await expect(app.getByTestId('cap-warning')).toHaveText(
-        'Over your 3h cap by 10m. Lower another practice or raise the cap.'
-      );
+      await expect(app.getByTestId('cap-warning')).toHaveText('Over your 3h cap by 10m. Lower another practice or raise the cap.');
     });
 
     test('Serious is out for a third practice under a 2h cap with Steady and Light', async ({ app }) => {
@@ -491,9 +486,7 @@ test.describe('practices', () => {
       // Raising Drawing back to Light (90 + 50 = 140) is over the cap again.
       await app.getByRole('button', { name: 'Edit Drawing' }).click();
       await expect(level(app, 'Light')).toBeDisabled();
-      await expect(app.getByTestId('cap-warning')).toHaveText(
-        'Over your 2h cap by 20m. Lower another practice or raise the cap.'
-      );
+      await expect(app.getByTestId('cap-warning')).toHaveText('Over your 2h cap by 20m. Lower another practice or raise the cap.');
     });
 
     test('with no cap every level is open', async ({ app }) => {
@@ -513,7 +506,10 @@ test.describe('practices', () => {
       await pickFor(page, name);
       await startTimed(page, minutes);
       await advance(page, minutes * MIN);
-      await page.getByRole('dialog', { name: `Next step for ${name}` }).getByRole('button', { name: 'Skip' }).click();
+      await page
+        .getByRole('dialog', { name: `Next step for ${name}` })
+        .getByRole('button', { name: 'Skip' })
+        .click();
     }
 
     test('is not there without practices, or when none is behind', async ({ app }) => {
@@ -565,7 +561,9 @@ test.describe('practices', () => {
       const picker = app.getByLabel('For', { exact: true });
       await expect(picker).toHaveValue('');
 
-      await card(app).getByRole('button', { name: /^Drawing/ }).click();
+      await card(app)
+        .getByRole('button', { name: /^Drawing/ })
+        .click();
       await expect(picker.locator('option:checked')).toHaveText('Drawing');
       await expect(card(app).getByRole('button', { name: /^Drawing/ })).toHaveAttribute('aria-pressed', 'true');
       await expect(card(app).getByRole('button', { name: /^Guitar/ })).toHaveAttribute('aria-pressed', 'false');
@@ -574,14 +572,18 @@ test.describe('practices', () => {
       // Timed starts at its level's minimum, as when picked from the list.
       await app.getByRole('group', { name: 'Timer mode' }).getByRole('button', { name: 'Timed' }).click();
       await expect(app.getByRole('spinbutton', { name: 'Custom minutes' })).toHaveValue('15');
-      await card(app).getByRole('button', { name: /^Guitar/ }).click();
+      await card(app)
+        .getByRole('button', { name: /^Guitar/ })
+        .click();
       await expect(app.getByRole('spinbutton', { name: 'Custom minutes' })).toHaveValue('20');
     });
 
     test('goes while a session runs, and comes back when it stops', async ({ app }) => {
       await openPractices(app);
       await addPractice(app, 'Guitar', 'Steady');
-      await card(app).getByRole('button', { name: /^Guitar/ }).click();
+      await card(app)
+        .getByRole('button', { name: /^Guitar/ })
+        .click();
       await startState(app, 'Focus');
       await expect(card(app)).toHaveCount(0);
       await advance(app, MIN);

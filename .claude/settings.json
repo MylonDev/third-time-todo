@@ -39,16 +39,7 @@
       "WebFetch(domain:zustand.docs.pmnd.rs)",
       "WebFetch(domain:docs.dndkit.com)"
     ],
-    "ask": [
-      "Bash(git push)",
-      "Bash(git push:*)"
-    ],
-    "deny": [
-      "Bash(git reset --hard)",
-      "Bash(git reset --hard:*)",
-      "Bash(git clean:*)",
-      "Read(.env)",
-      "Read(.env.*)"
-    ]
+    "ask": ["Bash(git push)", "Bash(git push:*)"],
+    "deny": ["Bash(git reset --hard)", "Bash(git reset --hard:*)", "Bash(git clean:*)", "Read(.env)", "Read(.env.*)"]
   }
 }

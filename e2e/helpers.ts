@@ -10,7 +10,7 @@ const START = new Date(2026, 9, 12, 10, 0, 0);
  */
 export const test = base.extend<{ app: Page; allowedErrors: RegExp[] }>({
   /** Console errors a test expects, such as the browser's note of a refused request. */
-  // eslint-disable-next-line no-empty-pattern -- Playwright fixtures must destructure their first argument
+  // oxlint-disable-next-line no-empty-pattern -- Playwright fixtures must destructure their first argument
   allowedErrors: async ({}, use) => {
     await use([]);
   },
@@ -49,9 +49,7 @@ export const MIN = 60_000;
 
 export async function startState(page: Page, name: 'Focus' | 'Rest') {
   await page.getByRole('group', { name: 'Timer state' }).getByRole('button', { name, exact: true }).click();
-  await expect(
-    page.getByRole('group', { name: 'Timer state' }).getByRole('button', { name, exact: true })
-  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('group', { name: 'Timer state' }).getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true');
 }
 
 export async function addItem(page: Page, list: 'Should' | 'Want', text: string) {
@@ -70,7 +68,10 @@ export type Level = 'Paused' | 'Minimal' | 'Light' | 'Steady' | 'Serious';
 
 /** Pick a level in the open practice editor. The buttons carry their target as a hint, so match the start of the name. */
 export async function pickLevel(page: Page, level: Level) {
-  await page.getByRole('group', { name: 'Level', exact: true }).getByRole('button', { name: new RegExp(`^${level}`) }).click();
+  await page
+    .getByRole('group', { name: 'Level', exact: true })
+    .getByRole('button', { name: new RegExp(`^${level}`) })
+    .click();
 }
 
 /** Add a practice from the Practices tab, which must be open. */

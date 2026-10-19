@@ -154,9 +154,7 @@ test.describe('chimes and notifications', () => {
   });
 
   test('Sounds is on for settings saved before it existed', async ({ app }) => {
-    await app.evaluate(() =>
-      localStorage.setItem('tt2-settings', JSON.stringify({ state: { dayEndHour: 2, theme: 'dark' }, version: 2 }))
-    );
+    await app.evaluate(() => localStorage.setItem('tt2-settings', JSON.stringify({ state: { dayEndHour: 2, theme: 'dark' }, version: 2 })));
     await app.reload();
     await app.getByRole('button', { name: 'Settings' }).click();
     await expect(app.getByRole('checkbox', { name: /Sounds/ })).toBeChecked();

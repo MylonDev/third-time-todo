@@ -39,11 +39,7 @@ export interface TimeEntry {
  * How often an item comes back. `weekdays` days are 0=Mon … 6=Sun. `weekly`
  * repeats on the weekday of the item's current due date.
  */
-export type Recurrence =
-  | { kind: 'daily' }
-  | { kind: 'weekly' }
-  | { kind: 'everyN'; n: number }
-  | { kind: 'weekdays'; days: number[] };
+export type Recurrence = { kind: 'daily' } | { kind: 'weekly' } | { kind: 'everyN'; n: number } | { kind: 'weekdays'; days: number[] };
 
 /** A checklist line. It has no timer: time is tracked per state, not per item. */
 export interface Item {

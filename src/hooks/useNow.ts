@@ -68,6 +68,6 @@ export function useNow(active = true): number {
   return useSyncExternalStore(
     useCallback((l: Listener) => (active ? subscribe(l) : noopSubscribe()), [active]),
     getSnapshot,
-    getSnapshot
+    getSnapshot,
   );
 }

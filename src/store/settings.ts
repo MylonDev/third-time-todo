@@ -43,10 +43,8 @@ export const useSettings = create<SettingsState>()(
           dayEndHour: Math.min(4, Math.max(0, Math.round(dayEndHour))),
           updatedAt: Math.max(Date.now(), s.updatedAt + 1),
         })),
-      setShouldTargetMin: (shouldTargetMin) =>
-        set((s) => ({ shouldTargetMin, updatedAt: Math.max(Date.now(), s.updatedAt + 1) })),
-      setWeeklyCapMin: (weeklyCapMin) =>
-        set((s) => ({ weeklyCapMin, updatedAt: Math.max(Date.now(), s.updatedAt + 1) })),
+      setShouldTargetMin: (shouldTargetMin) => set((s) => ({ shouldTargetMin, updatedAt: Math.max(Date.now(), s.updatedAt + 1) })),
+      setWeeklyCapMin: (weeklyCapMin) => set((s) => ({ weeklyCapMin, updatedAt: Math.max(Date.now(), s.updatedAt + 1) })),
       setWakeLock: (wakeLock) => set({ wakeLock }),
       setTheme: (theme) => set({ theme }),
       setSounds: (sounds) => set({ sounds }),
@@ -55,6 +53,6 @@ export const useSettings = create<SettingsState>()(
       name: 'tt2-settings',
       version: 4,
       migrate: (state) => ({ updatedAt: 0, sounds: true, weeklyCapMin: null, ...(state as object) }) as SettingsState,
-    }
-  )
+    },
+  ),
 );

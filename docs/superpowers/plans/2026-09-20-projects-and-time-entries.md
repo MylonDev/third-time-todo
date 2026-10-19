@@ -47,12 +47,14 @@ the day key — are pure functions. Driving them through Playwright is slow and
 indirect, so add vitest alongside the existing e2e suite.
 
 **Files:**
+
 - Modify: `package.json`
 - Create: `vitest.config.ts`
 - Create: `src/utils/thirdTime.test.ts`
 - Modify: `src/utils/thirdTime.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces:
   - `dayKeyOf(t: number, dayEndHour: number): string`
@@ -214,6 +216,7 @@ git commit -m "test: a vitest harness, and a day that need not end at midnight"
 ### Task 2: `dayEndHour` in settings, and every caller routed through it
 
 **Files:**
+
 - Modify: `src/store/settings.ts` (v8 → v9)
 - Modify: `src/utils/goalPeriod.ts`, `src/store/tasks.ts`, `src/store/session.ts`,
   `src/store/goals.ts`, `src/App.tsx`, `src/components/TaskList.tsx`,
@@ -223,6 +226,7 @@ git commit -m "test: a vitest harness, and a day that need not end at midnight"
 - Create: `e2e/day-boundary.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `dayKeyOf`, `todayKey(dayEndHour)`, `dayStartOf`, `dayEndOf` (Task 1).
 - Produces:
   - `useSettings().dayEndHour: number`, `setDayEndHour(h: number): void`
@@ -271,8 +275,7 @@ test.describe('the end of the day', () => {
     const expected = await app.evaluate(() => {
       const d = new Date();
       d.setDate(d.getDate() - 1);
-      return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'),
-              String(d.getDate()).padStart(2, '0')].join('-');
+      return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
     });
     expect(key).toBe(expected);
   });
@@ -360,11 +363,13 @@ git commit -m "feat: the day ends when you say it does"
 Pure logic only. Nothing wires it up yet — Task 5 does.
 
 **Files:**
+
 - Modify: `src/types/index.ts`
 - Create: `src/utils/ledger.ts`
 - Create: `src/utils/ledger.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Mode`, `earnBreak` (`utils/thirdTime.ts`), `dayKeyOf` (Task 1).
 - Produces:
   - `interface TimeEntry` (spec §1.2)
@@ -387,7 +392,7 @@ export interface TimeEntry {
   startedAt: number;
   endedAt: number;
   projectId?: string; // work entries only
-  taskId?: string;    // work entries only; implies the task's project
+  taskId?: string; // work entries only; implies the task's project
   /** The ratio in force when this ran, so changing difficulty is never retroactive. */
   mode: Mode;
 }
@@ -428,7 +433,7 @@ describe('bankOf', () => {
     expect(bankOf([])).toBe(0);
   });
 
-  it('earns at the entry\'s own ratio', () => {
+  it("earns at the entry's own ratio", () => {
     // 60 min at 1:3 earns 20 min.
     expect(bankOf([work(0, 60, 'third')])).toBe(20 * MIN);
     // 60 min at 1:2 earns 30.
@@ -529,22 +534,13 @@ export function breakMsOf(entries: TimeEntry[]): number {
 export function bankOf(entries: TimeEntry[], open?: OpenSegment | null, now = Date.now()): number {
   const all: { kind: 'work' | 'break'; startedAt: number; endedAt: number; mode: Mode }[] = [
     ...entries,
-    ...(open && now > open.startedAt
-      ? [{ kind: open.kind, startedAt: open.startedAt, endedAt: now, mode: open.mode }]
-      : []),
+    ...(open && now > open.startedAt ? [{ kind: open.kind, startedAt: open.startedAt, endedAt: now, mode: open.mode }] : []),
   ];
-  return all.reduce(
-    (bank, e) =>
-      e.kind === 'work' ? bank + earnBreak(durationOf(e), e.mode) : bank - durationOf(e),
-    0
-  );
+  return all.reduce((bank, e) => (e.kind === 'work' ? bank + earnBreak(durationOf(e), e.mode) : bank - durationOf(e)), 0);
 }
 
 /** Entries are a partition of the day: they may touch, never overlap. */
-export function entriesOverlap(
-  a: { startedAt: number; endedAt: number },
-  b: { startedAt: number; endedAt: number }
-): boolean {
+export function entriesOverlap(a: { startedAt: number; endedAt: number }, b: { startedAt: number; endedAt: number }): boolean {
   return a.startedAt < b.endedAt && b.startedAt < a.endedAt;
 }
 ```
@@ -569,10 +565,12 @@ Get this wrong and every past timeline is silently wrong, so it is a pure
 function with its own tests before it is wired to the store.
 
 **Files:**
+
 - Create: `src/store/sessionMigrate.ts`
 - Create: `src/store/sessionMigrate.test.ts`
 
 **Interfaces:**
+
 - Consumes: `TimeEntry` (Task 3).
 - Produces: `splitSessionLog(log: LegacySessionLog): TimeEntry[]` and
   `migrateSessionV3(state: unknown): { daily: DailyState; history: HistoryEntry[] }`.
@@ -591,19 +589,20 @@ const T = 1_700_000_000_000;
 describe('splitSessionLog', () => {
   it('splits one log into a work entry then the break that followed it', () => {
     const [work, brk] = splitSessionLog({
-      id: 'a', workMs: 50 * MIN, breakMs: 10 * MIN, mode: 'third', startedAt: T,
+      id: 'a',
+      workMs: 50 * MIN,
+      breakMs: 10 * MIN,
+      mode: 'third',
+      startedAt: T,
     });
     expect(work).toMatchObject({ kind: 'work', startedAt: T, endedAt: T + 50 * MIN, mode: 'third' });
     expect(brk).toMatchObject({ kind: 'break', startedAt: T + 50 * MIN, endedAt: T + 60 * MIN });
   });
 
   it('drops a zero-length half', () => {
-    expect(splitSessionLog({ id: 'a', workMs: 30 * MIN, breakMs: 0, mode: 'half', startedAt: T }))
-      .toHaveLength(1);
-    expect(splitSessionLog({ id: 'a', workMs: 0, breakMs: 5 * MIN, mode: 'half', startedAt: T }))
-      .toHaveLength(1);
-    expect(splitSessionLog({ id: 'a', workMs: 0, breakMs: 0, mode: 'half', startedAt: T }))
-      .toHaveLength(0);
+    expect(splitSessionLog({ id: 'a', workMs: 30 * MIN, breakMs: 0, mode: 'half', startedAt: T })).toHaveLength(1);
+    expect(splitSessionLog({ id: 'a', workMs: 0, breakMs: 5 * MIN, mode: 'half', startedAt: T })).toHaveLength(1);
+    expect(splitSessionLog({ id: 'a', workMs: 0, breakMs: 0, mode: 'half', startedAt: T })).toHaveLength(0);
   });
 
   it('gives every entry its own id', () => {
@@ -639,7 +638,7 @@ describe('migrateSessionV3', () => {
     ],
   };
 
-  it('converts today\'s sessions into entries', () => {
+  it("converts today's sessions into entries", () => {
     const out = migrateSessionV3(v3);
     expect(out.daily.entries).toHaveLength(2);
     expect(out.daily.entries[0].kind).toBe('work');
@@ -764,6 +763,7 @@ git commit -m "feat: split archived session logs into wall-clock entries"
 The big one. After this task there is no End Session button anywhere.
 
 **Files:**
+
 - Modify: `src/store/session.ts`
 - Modify: `src/components/BreakBank.tsx`, `src/components/SessionTimer.tsx`,
   `src/components/Activity.tsx`, `src/components/RestoreSessionModal.tsx`,
@@ -773,6 +773,7 @@ The big one. After this task there is no End Session button anywhere.
   `e2e/activity.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `bankOf`, `workMsOf`, `breakMsOf`, `OpenSegment` (Task 3);
   `migrateSessionV3` (Task 4); `todayKey`, `dayEndOf` (Tasks 1–2).
 - Produces the session store's new surface:
@@ -890,11 +891,13 @@ git commit -m "feat: the day is a ledger of entries, and the bank is derived fro
 ### Task 6: A timer that runs past the end of the day
 
 **Files:**
+
 - Modify: `src/store/session.ts`
 - Create: `src/store/session.dayRoll.test.ts`
 - Modify: `e2e/sessions.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `dayEndOf`, `dayKeyOf` (Task 1), the store surface from Task 5.
 - Produces: `splitAtBoundary(open: OpenSegment, boundary: number, now: number):
   { closed: TimeEntry; reopened: OpenSegment }` in `src/utils/ledger.ts`.
@@ -924,7 +927,7 @@ describe('splitAtBoundary', () => {
 
   it('loses no time across the split', () => {
     const { closed, reopened } = splitAtBoundary(open, 5 * HOUR, 7 * HOUR);
-    const total = (closed.endedAt - closed.startedAt) + (7 * HOUR - reopened.startedAt);
+    const total = closed.endedAt - closed.startedAt + (7 * HOUR - reopened.startedAt);
     expect(total).toBe(7 * HOUR);
   });
 });
@@ -947,11 +950,7 @@ In `src/utils/ledger.ts`:
  * one opens on the far side; the timeline then shows an honest (if long) block
  * on each day, which the user can trim.
  */
-export function splitAtBoundary(
-  open: OpenSegment,
-  boundary: number,
-  _now: number
-): { closed: TimeEntry; reopened: OpenSegment } {
+export function splitAtBoundary(open: OpenSegment, boundary: number, _now: number): { closed: TimeEntry; reopened: OpenSegment } {
   return {
     closed: {
       id: crypto.randomUUID(),
@@ -1013,12 +1012,14 @@ git commit -m "fix: a forgotten timer no longer pins the app to yesterday"
 ### Task 7: `Goal` becomes `Project` — types, migration, store
 
 **Files:**
+
 - Create: `src/store/projects.ts`, `src/store/projectsMigrate.ts`,
   `src/store/projectsMigrate.test.ts`
 - Delete: `src/store/goals.ts`
 - Modify: `src/types/index.ts`, `src/utils/goal.ts` → `src/utils/project.ts`
 
 **Interfaces:**
+
 - Consumes: `effortPeriodKey(effort, anchor, dayEndHour)` (Task 2), renamed here
   to `targetPeriodKey(target: PeriodTarget, anchor: number, dayEndHour: number)`;
   `prunePeriods`.
@@ -1047,28 +1048,43 @@ import { migrateGoalsV3 } from './projectsMigrate';
 const HOUR = 3_600_000;
 
 const timeGoal = {
-  id: 'g1', title: 'Learn to code', order: 0, createdAt: 1,
+  id: 'g1',
+  title: 'Learn to code',
+  order: 0,
+  createdAt: 1,
   outcome: { kind: 'time', targetHours: 100 },
   effort: { metric: 'time', amount: 10 * HOUR, period: 'weekly' },
-  progress: { '2026-09-14': 4 * HOUR }, total: 4 * HOUR,
+  progress: { '2026-09-14': 4 * HOUR },
+  total: 4 * HOUR,
   milestones: [{ id: 'm1', label: 'first commit' }],
   deadline: '2026-12-31',
 };
 
 const countGoal = {
-  id: 'g2', title: 'Ride 1,000 km', order: 1, createdAt: 2,
+  id: 'g2',
+  title: 'Ride 1,000 km',
+  order: 1,
+  createdAt: 2,
   outcome: { kind: 'count', unit: 'km', target: 1000 },
   effort: { metric: 'count', amount: 50, period: 'weekly' },
-  progress: { '2026-09-14': 120 }, total: 120, milestones: [],
+  progress: { '2026-09-14': 120 },
+  total: 120,
+  milestones: [],
 };
 
 const openGoal = {
-  id: 'g3', title: 'Read more', order: 2, createdAt: 3,
-  outcome: { kind: 'open' }, progress: { '2026-09-14': 2 * HOUR }, total: 2 * HOUR, milestones: [],
+  id: 'g3',
+  title: 'Read more',
+  order: 2,
+  createdAt: 3,
+  outcome: { kind: 'open' },
+  progress: { '2026-09-14': 2 * HOUR },
+  total: 2 * HOUR,
+  milestones: [],
 };
 
 describe('migrateGoalsV3', () => {
-  it('carries a time goal\'s progress under the time metric', () => {
+  it("carries a time goal's progress under the time metric", () => {
     const [p] = migrateGoalsV3({ goals: [timeGoal] }).projects;
     expect(p.name).toBe('Learn to code');
     expect(p.progress.time['2026-09-14']).toBe(4 * HOUR);
@@ -1086,14 +1102,14 @@ describe('migrateGoalsV3', () => {
     expect(p).not.toHaveProperty('milestones');
   });
 
-  it('does not read a count goal\'s numbers as milliseconds', () => {
+  it("does not read a count goal's numbers as milliseconds", () => {
     const [p] = migrateGoalsV3({ goals: [countGoal] }).projects;
     expect(p.progress.time).toEqual({});
     expect(p.total.time).toBe(0);
     expect(p.target).toBeUndefined();
   });
 
-  it('keeps an open goal\'s banked time', () => {
+  it("keeps an open goal's banked time", () => {
     const [p] = migrateGoalsV3({ goals: [openGoal] }).projects;
     expect(p.total.time).toBe(2 * HOUR);
   });
@@ -1157,6 +1173,7 @@ git commit -m "feat: goals become projects, with time-keyed progress"
 ### Task 8: The Projects tab
 
 **Files:**
+
 - Rename: `GoalList.tsx` → `ProjectList.tsx`, `GoalCard.tsx` → `ProjectCard.tsx`,
   `GoalForm.tsx` → `ProjectForm.tsx`
 - Delete: `src/components/GoalMetDialog.tsx`
@@ -1164,6 +1181,7 @@ git commit -m "feat: goals become projects, with time-keyed progress"
 - Modify: `e2e/goals.spec.ts` → `e2e/projects.spec.ts`, `e2e/tabs.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `useProjects` (Task 7).
 - Produces: `TabId = 'projects' | 'tasks' | 'activity'` (habits removed in Task 11;
   remove `'goals'` and add `'projects'` here, leave `'habits'` until then).
@@ -1237,6 +1255,7 @@ git commit -m "feat: a Projects tab, minus milestones and lineage"
 ### Task 9: One attribution path
 
 **Files:**
+
 - Modify: `src/store/session.ts`, `src/hooks/useFocusable.ts`,
   `src/components/SessionTimer.tsx`, `src/components/TaskList.tsx`,
   `src/components/ProjectCard.tsx`
@@ -1244,6 +1263,7 @@ git commit -m "feat: a Projects tab, minus milestones and lineage"
 - Create: `e2e/attribution.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `setActive` (Task 5), `commitTime` (Task 7), `Task.projectId` (Task 10
   — this task may land first; guard with `task.projectId ?? undefined`).
 - Produces: `useActiveTarget()` in `hooks/useFocusable.ts`, returning
@@ -1267,9 +1287,7 @@ test('time credits the project you picked', async ({ app }) => {
   await app.waitForTimeout(2500);
   await app.getByRole('button', { name: 'Stop' }).click();
 
-  const entries = await app.evaluate(
-    () => JSON.parse(localStorage.getItem('tt-session')!).state.daily.entries
-  );
+  const entries = await app.evaluate(() => JSON.parse(localStorage.getItem('tt-session')!).state.daily.entries);
   expect(entries).toHaveLength(1);
   expect(entries[0].projectId).toBeTruthy();
 });
@@ -1281,9 +1299,7 @@ test('switching target closes one entry and opens another', async ({ app }) => {
   await app.waitForTimeout(2000);
   await app.getByRole('button', { name: 'Stop' }).click();
 
-  const entries = await app.evaluate(
-    () => JSON.parse(localStorage.getItem('tt-session')!).state.daily.entries
-  );
+  const entries = await app.evaluate(() => JSON.parse(localStorage.getItem('tt-session')!).state.daily.entries);
   expect(entries.length).toBeGreaterThanOrEqual(2);
   expect(entries.at(-1).taskId).toBeTruthy();
 });
@@ -1326,11 +1342,13 @@ git commit -m "feat: one attribution path — a segment credits a project"
 ### Task 10: Tasks tag to a project
 
 **Files:**
+
 - Modify: `src/types/index.ts`, `src/store/tasks.ts` (v6 → v7),
   `src/components/TaskList.tsx`
 - Modify: `e2e/tasks` coverage — add to `e2e/attribution.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `useProjects` (Task 7).
 - Produces: `Task.projectId?: string`; `useTasks().setTaskProject(id, projectId?)`.
 
@@ -1357,9 +1375,7 @@ test('a task tagged to a project credits that project', async ({ app }) => {
   await app.waitForTimeout(2500);
   await app.getByRole('button', { name: 'Stop' }).click();
 
-  const entry = await app.evaluate(
-    () => JSON.parse(localStorage.getItem('tt-session')!).state.daily.entries.at(-1)
-  );
+  const entry = await app.evaluate(() => JSON.parse(localStorage.getItem('tt-session')!).state.daily.entries.at(-1));
   expect(entry.projectId).toBeTruthy();
   expect(entry.taskId).toBeTruthy();
 });
@@ -1396,6 +1412,7 @@ git commit -m "feat: a task can belong to a project"
 ### Task 11: Habits out, the recurrence engine kept
 
 **Files:**
+
 - Delete: `src/store/habits.ts`, `src/utils/habit.ts`,
   `src/components/Habit{List,Row,AddForm,FreqPicker,Adherence}.tsx`,
   `e2e/habits.spec.ts`
@@ -1405,6 +1422,7 @@ git commit -m "feat: a task can belong to a project"
   `e2e/tabs.spec.ts`
 
 **Interfaces:**
+
 - Produces, for phase 3:
   - `type Recurrence = { kind: 'daily' } | { kind: 'weekly' } | { kind: 'everyN'; n: number } | { kind: 'weekdays'; days: number[] }`
   - `isDueOn(rule: Recurrence, anchorCreatedAt: number, date: Date): boolean`
@@ -1429,9 +1447,9 @@ describe('isDueOn', () => {
 
   it('honours weekdays (Mon=0)', () => {
     const rule = { kind: 'weekdays' as const, days: [0, 2] }; // Mon, Wed
-    expect(isDueOn(rule, anchor, new Date(2026, 8, 21))).toBe(true);  // Mon
+    expect(isDueOn(rule, anchor, new Date(2026, 8, 21))).toBe(true); // Mon
     expect(isDueOn(rule, anchor, new Date(2026, 8, 22))).toBe(false); // Tue
-    expect(isDueOn(rule, anchor, new Date(2026, 8, 23))).toBe(true);  // Wed
+    expect(isDueOn(rule, anchor, new Date(2026, 8, 23))).toBe(true); // Wed
   });
 
   it('counts everyN from the anchor', () => {
@@ -1500,6 +1518,7 @@ git commit -m "refactor: habits out, their recurrence engine kept for the schedu
 ### Task 12: Documentation and the phase gate
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `docs/specs/2026-09-20-projects-and-schedule.md`
 
@@ -1535,14 +1554,14 @@ git commit -m "docs: bring the README and the spec up to the built state"
 
 ## Verification summary
 
-| Spec section | Task |
-| --- | --- |
-| §1.0 day boundary | 1, 2 |
-| §1.1 Project type + migration | 7 |
-| §1.2 TimeEntry + migration | 3, 4 |
-| §1.3 derived bank | 3, 5 |
-| §1.4 sessions go away | 5, 6 |
-| §1.5 one attribution path | 9 |
-| §1.6 tasks tag to a project | 10 |
-| §1.7 habits removed, recurrence kept | 11 |
-| §1.8 e2e table | 2, 5, 6, 8, 9, 10, 11 |
+| Spec section                         | Task                  |
+| ------------------------------------ | --------------------- |
+| §1.0 day boundary                    | 1, 2                  |
+| §1.1 Project type + migration        | 7                     |
+| §1.2 TimeEntry + migration           | 3, 4                  |
+| §1.3 derived bank                    | 3, 5                  |
+| §1.4 sessions go away                | 5, 6                  |
+| §1.5 one attribution path            | 9                     |
+| §1.6 tasks tag to a project          | 10                    |
+| §1.7 habits removed, recurrence kept | 11                    |
+| §1.8 e2e table                       | 2, 5, 6, 8, 9, 10, 11 |

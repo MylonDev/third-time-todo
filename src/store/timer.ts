@@ -25,10 +25,8 @@ export const useTimer = create<TimerStore>()(
   persist(
     (set, get) => ({
       entries: [],
-      start: (state, practiceId) =>
-        set({ entries: commit(get().entries, startState(get().entries, state, Date.now(), practiceId)) }),
-      startTimed: (plannedMs, practiceId) =>
-        set({ entries: commit(get().entries, startTimed(get().entries, plannedMs, Date.now(), practiceId)) }),
+      start: (state, practiceId) => set({ entries: commit(get().entries, startState(get().entries, state, Date.now(), practiceId)) }),
+      startTimed: (plannedMs, practiceId) => set({ entries: commit(get().entries, startTimed(get().entries, plannedMs, Date.now(), practiceId)) }),
       stop: () => set({ entries: commit(get().entries, stopTimer(get().entries, Date.now())) }),
       settle: () => {
         const settled = settleTimed(get().entries, Date.now());
@@ -41,6 +39,6 @@ export const useTimer = create<TimerStore>()(
         return null;
       },
     }),
-    { name: 'tt2-ledger', version: 1 }
-  )
+    { name: 'tt2-ledger', version: 1 },
+  ),
 );

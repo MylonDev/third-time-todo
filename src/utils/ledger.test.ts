@@ -330,10 +330,7 @@ describe('timed sessions', () => {
 
   it('a correction that splits a session keeps its length on both parts', () => {
     const out = paint([timed(0, 60, 60)], at(20), at(30), 'want', at(90));
-    expect(out.filter((e) => e.deletedAt === undefined && e.state === 'timed').map((e) => e.plannedMs)).toEqual([
-      60 * MIN,
-      60 * MIN,
-    ]);
+    expect(out.filter((e) => e.deletedAt === undefined && e.state === 'timed').map((e) => e.plannedMs)).toEqual([60 * MIN, 60 * MIN]);
   });
 });
 
@@ -364,11 +361,7 @@ describe('balanceWindow', () => {
   });
 
   it('carries back through Focus and Rest that touch', () => {
-    const entries = [
-      flow('should', before(120), before(80)),
-      flow('want', before(80), before(20)),
-      flow('should', before(20), null),
-    ];
+    const entries = [flow('should', before(120), before(80)), flow('want', before(80), before(20)), flow('should', before(20), null)];
     expect(balanceWindow(entries, day, now).start).toBe(before(120));
   });
 
@@ -492,13 +485,7 @@ describe('practices on entries', () => {
 
   it('merges touching entries of the same state and practice into one', () => {
     // Painting far away makes the ledger tidy itself.
-    const out = paint(
-      [forPractice('guitar', 'should', 0, 30), forPractice('guitar', 'should', 30, 60)],
-      at(200),
-      at(210),
-      'want',
-      at(210)
-    );
+    const out = paint([forPractice('guitar', 'should', 0, 30), forPractice('guitar', 'should', 30, 60)], at(200), at(210), 'want', at(210));
     expect(shape(out).slice(0, 1)).toEqual([['should', 0, 60]]);
     expect(practiceOf(out)[0]).toBe('guitar');
   });
@@ -509,7 +496,7 @@ describe('practices on entries', () => {
       at(200),
       at(210),
       'want',
-      at(210)
+      at(210),
     );
     expect(shape(out).slice(0, 3)).toEqual([
       ['should', 0, 30],

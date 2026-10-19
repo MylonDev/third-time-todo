@@ -1,14 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Practice } from '../types';
-import {
-  makePractice,
-  removePractice,
-  reorderPractices,
-  setNextStep,
-  updatePractice,
-  type PracticeFields,
-} from '../utils/practices';
+import { makePractice, removePractice, reorderPractices, setNextStep, updatePractice, type PracticeFields } from '../utils/practices';
 import { stampChanged } from '../sync/merge';
 
 /** Every local change is stamped newer than the row it replaced, so it wins when synced. */
@@ -53,6 +46,6 @@ export const usePractices = create<PracticesStore>()(
         set({ practices: commit(practices, setNextStep(practices, id, text, Date.now())) });
       },
     }),
-    { name: 'tt2-practices', version: 1 }
-  )
+    { name: 'tt2-practices', version: 1 },
+  ),
 );

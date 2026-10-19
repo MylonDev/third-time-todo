@@ -41,9 +41,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           }}
           className="min-h-12 rounded-2xl px-4 text-base bg-surface-2 border border-border text-text outline-none"
         />
-        <span className="text-xs text-text-muted">
-          Optional. When you reach it the app says you can stop for the day.
-        </span>
+        <span className="text-xs text-text-muted">Optional. When you reach it the app says you can stop for the day.</span>
       </label>
 
       <label className="flex flex-col gap-1.5">
@@ -61,7 +59,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           ))}
         </select>
         <span className="text-xs text-text-muted">
-          Rest available and debt start again each day. A timer still running at the day end keeps its balance until you stop it. Push this past midnight if you work late.
+          Rest available and debt start again each day. A timer still running at the day end keeps its balance until you stop it. Push this past midnight if you
+          work late.
         </span>
       </label>
 
@@ -70,20 +69,13 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <span className="block">Keep screen on while timing</span>
           <span className="block text-xs text-text-muted">Stops the phone locking mid-session.</span>
         </span>
-        <input
-          type="checkbox"
-          checked={wakeLock}
-          onChange={(e) => setWakeLock(e.target.checked)}
-          className="switch"
-        />
+        <input type="checkbox" checked={wakeLock} onChange={(e) => setWakeLock(e.target.checked)} className="switch" />
       </label>
 
       <label className="flex items-center justify-between gap-4 min-h-12">
         <span>
           <span className="block">Sounds</span>
-          <span className="block text-xs text-text-muted">
-            A chime and a notification when a Timed session ends or Rest runs into debt.
-          </span>
+          <span className="block text-xs text-text-muted">A chime and a notification when a Timed session ends or Rest runs into debt.</span>
         </span>
         <input
           type="checkbox"
@@ -113,11 +105,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
       <AccountSection />
 
-      <button
-        type="button"
-        onClick={onClose}
-        className="press min-h-12 rounded-full bg-accent text-on-accent font-semibold cursor-pointer"
-      >
+      <button type="button" onClick={onClose} className="press min-h-12 rounded-full bg-accent text-on-accent font-semibold cursor-pointer">
         Done
       </button>
     </Modal>
