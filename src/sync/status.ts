@@ -39,7 +39,11 @@ interface SyncMeta {
 export function migrateSyncMeta(state: unknown): SyncMeta {
   const meta = state as SyncMeta;
   const { practices: _pp, getReadyDays: _pg, ...pushed } = meta.cursors.pushed as Cursors['pushed'] & { practices?: number; getReadyDays?: number };
-  const { practices: _lp, getReadyDays: _lg, ...pulled } = meta.cursors.pulled as Cursors['pulled'] & { practices?: string | null; getReadyDays?: string | null };
+  const {
+    practices: _lp,
+    getReadyDays: _lg,
+    ...pulled
+  } = meta.cursors.pulled as Cursors['pulled'] & { practices?: string | null; getReadyDays?: string | null };
   return { ...meta, cursors: { pushed: { ...pushed, settings: 0 }, pulled } };
 }
 

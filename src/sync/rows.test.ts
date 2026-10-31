@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Item, TimeEntry } from '../types';
-import {
-  entryToRow,
-  itemToRow,
-  rowToEntry,
-  rowToItem,
-  rowToSettings,
-  settingsToRow,
-} from './rows';
+import { entryToRow, itemToRow, rowToEntry, rowToItem, rowToSettings, settingsToRow } from './rows';
 
 describe('row mapping', () => {
   it('round-trips an open entry', () => {
@@ -83,7 +76,14 @@ describe('row mapping', () => {
   });
 
   it('ignores columns a settings row still carries, and reads a bigint string as a number', () => {
-    const row = { day_end_hour: 2, should_target_min: null, weekly_cap_min: 480, get_ready_steps: [{ id: 'w', text: 'Water' }], get_ready_steps_updated_at: 5, updated_at: '1760000000000' as unknown as number };
+    const row = {
+      day_end_hour: 2,
+      should_target_min: null,
+      weekly_cap_min: 480,
+      get_ready_steps: [{ id: 'w', text: 'Water' }],
+      get_ready_steps_updated_at: 5,
+      updated_at: '1760000000000' as unknown as number,
+    };
     expect(rowToSettings(row)).toEqual({ dayEndHour: 2, shouldTargetMin: null, updatedAt: 1760000000000 });
   });
 });

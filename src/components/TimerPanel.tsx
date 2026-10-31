@@ -117,9 +117,7 @@ export function TimerPanel({ onFix }: { onFix: () => void }) {
 
       {!running && <Segmented<Mode> label="Timer mode" value={mode} options={[...MODES]} onChange={setMode} />}
 
-      {!running && mode === 'timed' && (
-        <TimedStart onStart={startTimed} />
-      )}
+      {!running && mode === 'timed' && <TimedStart onStart={startTimed} />}
 
       {(state === 'should' || state === 'want' || (!running && mode === 'flow')) && (
         <div role="group" aria-label="Timer state" className="grid grid-cols-2 gap-3">

@@ -3,6 +3,7 @@
 **Goal:** Take the app back to its core (the Focus/Rest timer and bank, Flow and Timed, Today and Later, sync) by removing Practices and Get ready from the code, the live database and kata.
 
 **Decisions:**
+
 - Get ready goes too, including its Settings section. (user)
 - Live data is dropped now, with no export: `practices`, `get_ready_days` and their columns. Hours stay on the entries; only the practice label on them goes. (user)
 - Kata: close the items only about these features, and rewrite the mixed ones. (user)
@@ -13,6 +14,7 @@
 - **Default (unanswered):** the Timed length always starts at 20 minutes, so the `initialMinutes` prop goes.
 
 **Design:**
+
 - **Order is the main risk.** The live build reads and writes these tables and columns, so dropping them first breaks sync for every client. The order is: merge, confirm Pages serves the new build, then apply the migration. A tab or installed app still on the old build shows a sync error until it reloads. Nothing is lost, because its cursors move only after a push is accepted.
 - **Settings return to one version.** `user_settings` goes back to the `keep_newest` trigger, and `mergeSettings` compares `updatedAt` only. A tie with different content still goes to the incoming row, matching the trigger.
 - **Local migrations** (changed after review, see Process notes):
