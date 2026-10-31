@@ -268,6 +268,37 @@ test.describe('syncing', () => {
     expect(body[0]).toMatchObject({ state: 'should', ended_at: null, user_id: USER.id });
   });
 
+  test('sends a settings change in the settings upsert, owned by the signed-in user', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    await signIn(app);
+    await expect(app.getByText('Signed in as')).toBeVisible();
+    await app.getByLabel('Day ends at').selectOption('3');
+    await app.getByRole('button', { name: 'Done' }).click();
+    await advance(app, 2000);
+
+    await expect.poll(() => mock.writes.filter((w) => w.table === 'user_settings').length).toBeGreaterThan(0);
+    const write = mock.writes.filter((w) => w.table === 'user_settings').at(-1)!;
+    expect(write.url).toContain('on_conflict=user_id');
+    expect(write.body).toEqual([expect.objectContaining({ user_id: USER.id, day_end_hour: 3 })]);
+  });
+
+  test('shows a settings change another device made', async ({ app }) => {
+    const mock = await mockSupabase(app);
+    mock.serve['user_settings'] = [
+      {
+        day_end_hour: 2,
+        should_target_min: null,
+        updated_at: 1_760_000_000_000,
+        server_updated_at: '2026-10-12T09:00:00.000001+00:00',
+      },
+    ];
+    await signIn(app);
+    await expect(app.getByText('Signed in as')).toBeVisible();
+    await advance(app, 2000);
+
+    await expect(app.getByLabel('Day ends at')).toHaveValue('2');
+  });
+
   test('works with no sign-in at all', async ({ app }) => {
     await addItem(app, 'Should', 'Just local');
     await app.reload();

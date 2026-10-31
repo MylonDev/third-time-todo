@@ -15,22 +15,13 @@ export function canonical(row: unknown): string {
 }
 
 /**
- * Pick between two versions of one row: the newer wins. On a tie the choice is
- * made from the content, in key order, so two devices comparing the same pair
- * agree and the order the keys were built in cannot change the outcome.
+ * Merge by id; the newer row wins. On a tie the choice is made from the content,
+ * in key order, so two devices comparing the same pair agree and the order the
+ * keys were built in cannot change the outcome. Returns `local` itself when
+ * nothing changed, so a store can skip the write and nothing downstream wakes
+ * for a no-op sync.
  */
-function pick<T extends Versioned>(local: T, remote: T): T {
-  if (remote.updatedAt !== local.updatedAt) return remote.updatedAt > local.updatedAt ? remote : local;
-  return canonical(remote) > canonical(local) ? remote : local;
-}
-
-/**
- * Merge by id; the newer row wins unless `resolve` decides. Returns `local`
- * itself when nothing changed, so a store can skip the write and nothing
- * downstream wakes for a no-op sync. A `resolve` returns `mine` itself when it
- * keeps the local row.
- */
-export function mergeById<T extends Versioned>(local: T[], remote: T[], resolve: (mine: T, theirs: T) => T = pick): T[] {
+export function mergeById<T extends Versioned>(local: T[], remote: T[]): T[] {
   if (remote.length === 0) return local;
   const byId = new Map(local.map((row) => [row.id, row]));
   let changed = false;
@@ -40,9 +31,9 @@ export function mergeById<T extends Versioned>(local: T[], remote: T[], resolve:
       byId.set(row.id, row);
       changed = true;
     } else {
-      const chosen = resolve(mine, row);
-      if (chosen !== mine) {
-        byId.set(row.id, chosen);
+      const wins = row.updatedAt !== mine.updatedAt ? row.updatedAt > mine.updatedAt : canonical(row) > canonical(mine);
+      if (wins) {
+        byId.set(row.id, row);
         changed = true;
       }
     }

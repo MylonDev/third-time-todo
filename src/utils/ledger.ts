@@ -192,7 +192,8 @@ export function paint(entries: TimeEntry[], from: number, to: number, state: Pai
 }
 
 /**
- * Tidy the ledger: sort, and merge entries of the same state that touch. The earlier entry survives and absorbs the later one, which is tombstoned.
+ * Tidy the ledger: sort, and merge entries of the same state that touch. The
+ * earlier entry survives and absorbs the later one, which is tombstoned.
  */
 function normalize(entries: TimeEntry[], now: number): TimeEntry[] {
   const live = entries.filter(isLive).sort((a, b) => a.startedAt - b.startedAt);

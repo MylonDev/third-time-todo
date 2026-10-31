@@ -20,16 +20,6 @@ interface TimerStore {
   fix: (fix: Fix) => string | null;
 }
 
-/**
- * Version 2 drops the practice an entry was spent on. Entries keep their
- * `updatedAt`, so the strip itself never counts as an edit to sync. Safe to run
- * twice: an old tab can write version 1 back.
- */
-export function migrateLedger(state: unknown): { entries: TimeEntry[] } {
-  const s = state as { entries?: (TimeEntry & { practiceId?: string })[] };
-  return { ...s, entries: (s.entries ?? []).map(({ practiceId: _practiceId, ...e }) => e) };
-}
-
 export const useTimer = create<TimerStore>()(
   persist(
     (set, get) => ({
@@ -48,6 +38,6 @@ export const useTimer = create<TimerStore>()(
         return null;
       },
     }),
-    { name: 'tt2-ledger', version: 2, migrate: migrateLedger },
+    { name: 'tt2-ledger', version: 1 },
   ),
 );

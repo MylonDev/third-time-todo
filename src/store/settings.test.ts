@@ -24,30 +24,12 @@ describe('settings version', () => {
 });
 
 describe('migrateSettings', () => {
-  const v6 = {
-    dayEndHour: 3,
-    shouldTargetMin: 240,
-    weeklyCapMin: 480,
-    getReadySteps: [{ id: 'water', text: 'Water' }],
-    updatedAt: 700,
-    getReadyStepsUpdatedAt: 900,
-  };
-
-  it('lifts updatedAt to the steps version and strips the removed fields', () => {
-    const out = migrateSettings(v6);
-    expect(out).toEqual({ dayEndHour: 3, shouldTargetMin: 240, sounds: true, updatedAt: 900 });
-  });
-
-  it('keeps updatedAt when it is already the larger', () => {
-    expect(migrateSettings({ ...v6, updatedAt: 1200 })).toMatchObject({ updatedAt: 1200 });
-  });
-
-  it('is safe to run twice', () => {
-    const once = migrateSettings(v6);
-    expect(migrateSettings(once)).toEqual(once);
-  });
-
-  it('fills the defaults on a very old blob', () => {
+  it('fills the defaults on an old blob', () => {
     expect(migrateSettings({ dayEndHour: 1, shouldTargetMin: null })).toEqual({ dayEndHour: 1, shouldTargetMin: null, sounds: true, updatedAt: 0 });
+  });
+
+  it('keeps what the blob holds, including fields from older builds', () => {
+    const blob = { dayEndHour: 3, sounds: false, updatedAt: 700, getReadyStepsUpdatedAt: 900 };
+    expect(migrateSettings(blob)).toEqual(blob);
   });
 });

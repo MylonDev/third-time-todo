@@ -15,10 +15,9 @@
 **Design:**
 - **Order is the main risk.** The live build reads and writes these tables and columns, so dropping them first breaks sync for every client. The order is: merge, confirm Pages serves the new build, then apply the migration. A tab or installed app still on the old build shows a sync error until it reloads. Nothing is lost, because its cursors move only after a push is accepted.
 - **Settings return to one version.** `user_settings` goes back to the `keep_newest` trigger, and `mergeSettings` compares `updatedAt` only. A tie with different content still goes to the incoming row, matching the trigger.
-- **Local migrations**, each safe to run twice, since an old tab can write the previous version back:
-  - `tt2-settings` v7: `updatedAt = max(updatedAt, getReadyStepsUpdatedAt)`, then strip the removed fields. Without the max, a device's push cursor could sit above new edits and they would never be sent.
-  - `tt2-ledger` v2: strip `practiceId` from entries.
-  - `tt2-sync` v6: drop the `practices` and `getReadyDays` cursors. This replaces the whole chain in `migrateSyncMeta`, since its older steps only dealt with those tables and the steps version.
+- **Local migrations** (changed after review, see Process notes):
+  - `tt2-sync` v6: drop the `practices` and `getReadyDays` cursors and reset `pushed.settings` to 0. The reset covers a cursor left above new edits by the old steps version; a stale push is dropped by `keep_newest` and the pull takes the newer row. This replaces the whole chain in `migrateSyncMeta`.
+  - `tt2-settings` and `tt2-ledger` keep their versions. Old fields (`practiceId`, `getReadySteps` and so on) stay inert in existing blobs until a later bump, because bumping either store is unsafe with an old-build window open.
 
 **Migration** (`supabase/migrations/20261031120000_remove_practices.sql`):
 
@@ -50,7 +49,7 @@ alter table public.time_entries drop column practice_id;
 - [ ] **2. Remove both features from the client** (sonnet, one agent: changing `types.ts` breaks everything until the sweep is done)
   - Delete: `src/store/{practices,getReady}.ts`, `src/utils/{practices,getReady}.ts`, `src/components/{PracticesView,PracticeEditor,GetReadyModal,GetReadySettings,NeedsAttention,CapModal,NextStepModal}.tsx`, `src/hooks/useNextStepPrompt.ts`, `e2e/{practices,getReady}.spec.ts`, and their unit tests.
   - Edit: `src/App.tsx` (two tabs), `TimerPanel.tsx`, `TimedStart.tsx`, `SettingsModal.tsx`, `types.ts`, `store/{settings,timer,crossTab}.ts`, `utils/ledger.ts`, `sync/{engine,rows,remote,runtime,status}.ts`, `main.tsx`, and the helpers and tests they touch (`e2e/helpers.ts`, `e2e/sync.spec.ts`, `engine.test.ts`, `rows.test.ts`, `status.test.ts`, `settings.test.ts`, `ledger.test.ts`).
-  - Acceptance: no practice or Get ready code remains outside the old migrations and history; the three local migrations above exist with tests; `normalize` no longer compares practices; timer, debt, Fix timer and Timed behave as before.
+  - Acceptance: no practice or Get ready code remains outside the old migrations and history; the `tt2-sync` migration above exists with tests; `normalize` no longer compares practices; timer, debt, Fix timer and Timed behave as before.
   - Verify: `npm run build && npm run lint && npm run knip && rtk proxy npm run test:unit && rtk proxy npx playwright test`, plus `rtk proxy grep -rniE "practice|get.?ready|weeklyCap" src e2e`, which must return nothing but the migration code that strips the old fields.
 
 - [ ] **3. Write the migration and update the docs** (me), after 2
@@ -80,6 +79,9 @@ alter table public.time_entries drop column practice_id;
 ## To flag in the report, not act on
 
 - `8f0p` (Daily check) is left with only `zcmj`, and the suggestions it fed are gone, so its purpose needs a fresh look.
-- `tt2-settings` and `tt2-ledger` keep small migrations that can go once all devices have updated.
+- The `tt2-sync` v6 step and the `removeItem` loop in `src/main.tsx` can go once all devices have updated.
+- Inert fields stay in existing `tt2-settings` and `tt2-ledger` blobs. Strip them at the next version bump of those stores.
 
 ## Process notes
+
+- Reviewer, not user: the planned `tt2-settings` v7 and `tt2-ledger` v2 bumps were dropped. With an old-build window open they caused a write loop that starves sync, and could overwrite newer entries; the `updatedAt` lift could also beat newer edits.

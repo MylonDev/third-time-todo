@@ -28,19 +28,9 @@ interface SettingsState {
 /** A version newer than the current one, even if the clock ran behind it. */
 const nextVersion = (s: { updatedAt: number }) => Math.max(Date.now(), s.updatedAt + 1);
 
-/**
- * Older blobs get the defaults of what was added since. Version 7 drops the
- * practice cap and the Get ready steps. The push cursor used to cover the steps
- * version too, so `updatedAt` is lifted to it: otherwise a new edit could be
- * stamped below the cursor and never be sent. Safe to run twice.
- */
+/** Older blobs get the defaults of what was added since. */
 export function migrateSettings(state: unknown): SettingsState {
-  const { weeklyCapMin: _cap, getReadySteps: _steps, getReadyStepsUpdatedAt, ...rest } = {
-    updatedAt: 0,
-    sounds: true,
-    ...(state as object),
-  } as SettingsState & { weeklyCapMin?: unknown; getReadySteps?: unknown; getReadyStepsUpdatedAt?: number };
-  return { ...rest, updatedAt: Math.max(rest.updatedAt, getReadyStepsUpdatedAt ?? 0) };
+  return { updatedAt: 0, sounds: true, ...(state as object) } as SettingsState;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -64,7 +54,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'tt2-settings',
-      version: 7,
+      version: 6,
       migrate: migrateSettings,
     },
   ),

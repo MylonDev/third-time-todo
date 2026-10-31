@@ -30,15 +30,17 @@ interface SyncMeta {
 
 /**
  * Version 6 drops the cursors of the practices and Get ready days tables, which
- * are gone. This replaces the older steps, which only dealt with those tables
- * and the settings. Safe to run twice.
+ * are gone, and sends the settings again. The old settings cursor also covered
+ * the steps version, so it can sit above a new edit's version and the edit would
+ * never be sent. The extra push is harmless: the server drops a stale row and the
+ * pull brings the newer one. This replaces the older steps, which only dealt with
+ * those tables. Safe to run twice.
  */
-export function migrateSyncMeta(state: unknown, version: number): SyncMeta {
+export function migrateSyncMeta(state: unknown): SyncMeta {
   const meta = state as SyncMeta;
-  if (version >= 6) return meta;
   const { practices: _pp, getReadyDays: _pg, ...pushed } = meta.cursors.pushed as Cursors['pushed'] & { practices?: number; getReadyDays?: number };
   const { practices: _lp, getReadyDays: _lg, ...pulled } = meta.cursors.pulled as Cursors['pulled'] & { practices?: string | null; getReadyDays?: string | null };
-  return { ...meta, cursors: { pushed, pulled } };
+  return { ...meta, cursors: { pushed: { ...pushed, settings: 0 }, pulled } };
 }
 
 /** Where sync has got to. Kept, so a restart doesn't re-send or re-fetch everything. */

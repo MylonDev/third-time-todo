@@ -47,6 +47,7 @@ class FakeServer implements Remote {
   /** The whole row, as the server's trigger keeps the newest: an older write is dropped, an equal one accepted. */
   async pushSettings(s: SyncedSettings) {
     this.check();
+    this.pushes++;
     if (this.settings && s.updatedAt < this.settings.row.updatedAt) return;
     this.settings = { row: s, seq: ++this.seq };
   }
@@ -99,6 +100,7 @@ class Device {
   setItems(change: (i: Item[]) => Item[]) {
     this.state = { ...this.state, items: stampChanged(this.state.items, change(this.state.items)) };
   }
+
   async sync(opts?: { pull: boolean }) {
     this.cursors = await syncOnce(this.local, this.server, this.cursors, opts);
   }
@@ -291,6 +293,53 @@ describe('sync between two devices', () => {
     await settle([a, b, c]);
     expect(a.state.settings.dayEndHour).toBe(3);
     expect(c.state.settings.dayEndHour).toBe(3);
+  });
+
+  it("a stale device's settings push is dropped, and it settles on the server's row", async () => {
+    const server = new FakeServer();
+    const a = new Device('a', server);
+    const stale = new Device('stale', server);
+    const newest = { dayEndHour: 3, shouldTargetMin: 240, updatedAt: T(10) };
+    a.state = { ...a.state, settings: newest };
+    await a.sync();
+
+    stale.state = { ...stale.state, settings: { dayEndHour: 1, shouldTargetMin: null, updatedAt: T(5) } };
+    await settle([a, stale]);
+
+    expect(stale.state.settings).toEqual(newest);
+    expect(a.state.settings).toEqual(newest);
+  });
+
+  it('two devices tied on the version with different content converge', async () => {
+    const server = new FakeServer();
+    const a = new Device('a', server);
+    const b = new Device('b', server);
+    a.state = { ...a.state, settings: { dayEndHour: 1, shouldTargetMin: null, updatedAt: T(5) } };
+    b.state = { ...b.state, settings: { dayEndHour: 3, shouldTargetMin: null, updatedAt: T(5) } };
+
+    await settle([a, b]);
+
+    expect(a.state.settings).toEqual(b.state.settings);
+    expect(a.state.settings.updatedAt).toBe(T(5));
+  });
+
+  it('a reset pushed cursor sends the settings again, and a version of 0 sends nothing', async () => {
+    const server = new FakeServer();
+    const a = new Device('a', server);
+    a.state = { ...a.state, settings: { dayEndHour: 2, shouldTargetMin: null, updatedAt: T(3) } };
+    await a.sync();
+    expect(a.cursors.pushed.settings).toBe(T(3));
+
+    a.cursors = { ...a.cursors, pushed: { ...a.cursors.pushed, settings: 0 } };
+    const before = server.pushes;
+    await a.sync({ pull: false });
+    expect(server.pushes).toBe(before + 1);
+    expect(a.cursors.pushed.settings).toBe(T(3));
+
+    const fresh = new Device('fresh', server);
+    const sent = server.pushes;
+    await fresh.sync({ pull: false });
+    expect(server.pushes).toBe(sent);
   });
 });
 
