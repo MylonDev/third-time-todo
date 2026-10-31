@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { FixTimerModal } from './components/FixTimerModal';
 import { InstallHint } from './components/InstallHint';
 import { ItemsView, type View } from './components/ItemsView';
-import { PracticesView } from './components/PracticesView';
 import { SettingsModal } from './components/SettingsModal';
 import { SyncIndicator } from './components/SyncIndicator';
 import { TimerPanel } from './components/TimerPanel';
@@ -24,19 +23,16 @@ function useTheme() {
   }, [theme]);
 }
 
-type Tab = View | 'practices';
-
-const VIEWS: { value: Tab; label: string }[] = [
+const VIEWS: { value: View; label: string }[] = [
   { value: 'today', label: 'Today' },
   { value: 'later', label: 'Later' },
-  { value: 'practices', label: 'Practices' },
 ];
 
 export default function App() {
   useTheme();
   const [fixing, setFixing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [view, setView] = useState<Tab>('today');
+  const [view, setView] = useState<View>('today');
 
   return (
     <div className="mx-auto w-full max-w-md px-4 pb-32 pt-4 flex flex-col gap-4">
@@ -71,7 +67,7 @@ export default function App() {
 
       <InstallHint />
       <TimerPanel onFix={() => setFixing(true)} />
-      {view === 'practices' ? <PracticesView /> : <ItemsView view={view} />}
+      <ItemsView view={view} />
 
       <nav
         aria-label="Views"
