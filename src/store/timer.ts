@@ -10,10 +10,9 @@ const commit = stampChanged<TimeEntry>;
 interface TimerStore {
   /** The whole ledger, tombstones included. Everything else is derived from it. */
   entries: TimeEntry[];
-  /** Switching while Flow runs keeps its practice; `practiceId` is for starting from stopped. */
-  start: (state: TimerState, practiceId?: string) => void;
+  start: (state: TimerState) => void;
   /** Begin a count-down session of this many ms. */
-  startTimed: (plannedMs: number, practiceId?: string) => void;
+  startTimed: (plannedMs: number) => void;
   stop: () => void;
   /** Close a Timed session whose time is up. A no-op while there is nothing to close. */
   settle: () => void;
@@ -25,8 +24,8 @@ export const useTimer = create<TimerStore>()(
   persist(
     (set, get) => ({
       entries: [],
-      start: (state, practiceId) => set({ entries: commit(get().entries, startState(get().entries, state, Date.now(), practiceId)) }),
-      startTimed: (plannedMs, practiceId) => set({ entries: commit(get().entries, startTimed(get().entries, plannedMs, Date.now(), practiceId)) }),
+      start: (state) => set({ entries: commit(get().entries, startState(get().entries, state, Date.now())) }),
+      startTimed: (plannedMs) => set({ entries: commit(get().entries, startTimed(get().entries, plannedMs, Date.now())) }),
       stop: () => set({ entries: commit(get().entries, stopTimer(get().entries, Date.now())) }),
       settle: () => {
         const settled = settleTimed(get().entries, Date.now());

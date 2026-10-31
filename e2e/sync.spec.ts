@@ -1,5 +1,5 @@
 import type { Page, Request } from '@playwright/test';
-import { addItem, addPractice, advance, expect, openPractices, test } from './helpers';
+import { addItem, advance, expect, test } from './helpers';
 
 const USER = { id: '33333333-3333-3333-3333-333333333333', email: 'me@example.com' };
 
@@ -268,128 +268,26 @@ test.describe('syncing', () => {
     expect(body[0]).toMatchObject({ state: 'should', ended_at: null, user_id: USER.id });
   });
 
-  test('sends a new practice to the server, owned by the signed-in user', async ({ app }) => {
+  test('sends a settings change in the settings upsert, owned by the signed-in user', async ({ app }) => {
     const mock = await mockSupabase(app);
     await signIn(app);
     await expect(app.getByText('Signed in as')).toBeVisible();
+    await app.getByLabel('Day ends at').selectOption('3');
     await app.getByRole('button', { name: 'Done' }).click();
     await advance(app, 2000);
 
-    await openPractices(app);
-    await addPractice(app, 'Guitar', 'Light');
-    await advance(app, 2000);
-
-    await expect.poll(() => mock.writes.filter((w) => w.table === 'practices').length).toBeGreaterThan(0);
-    const write = mock.writes.filter((w) => w.table === 'practices').at(-1)!;
-    expect(write.url).toContain('on_conflict=user_id%2Cid');
-    expect(write.body).toEqual([
-      expect.objectContaining({ name: 'Guitar', target_days: 3, target_weekdays: [], target_min: 15, user_id: USER.id, deleted_at: null }),
-    ]);
-    // The columns the levels used are no longer sent.
-    const [row] = write.body as Record<string, unknown>[];
-    for (const gone of ['level', 'small_step', 'low_step', 'small_needs', 'low_needs']) expect(row).not.toHaveProperty(gone);
-  });
-
-  test('shows a practice another device added', async ({ app }) => {
-    const mock = await mockSupabase(app);
-    mock.serve['practices'] = [
-      {
-        id: 'from-phone',
-        name: 'Painting',
-        target_days: 3,
-        target_weekdays: [0, 2, 4],
-        target_min: 30,
-        next_step: null,
-        sort_order: 1,
-        created_at: 1_760_000_000_000,
-        updated_at: 1_760_000_000_000,
-        deleted_at: null,
-        server_updated_at: '2026-10-12T09:00:00.000001+00:00',
-      },
-    ];
-    await signIn(app);
-    await app.getByRole('button', { name: 'Done' }).click();
-    await advance(app, 2000);
-
-    await openPractices(app);
-    await expect(app.getByRole('button', { name: 'Edit Painting' })).toContainText('Mon Wed Fri · 30 min');
-  });
-
-  test('shows a practice from a device that predates targets as Paused', async ({ app }) => {
-    const mock = await mockSupabase(app);
-    // A row an old build wrote after the migration: its level columns, and the target columns at their defaults.
-    mock.serve['practices'] = [
-      {
-        id: 'from-old-phone',
-        name: 'Painting',
-        level: 'steady',
-        target_days: 0,
-        target_weekdays: [],
-        target_min: 0,
-        next_step: null,
-        sort_order: 1,
-        created_at: 1_760_000_000_000,
-        updated_at: 1_760_000_000_000,
-        deleted_at: null,
-        server_updated_at: '2026-10-12T09:00:00.000001+00:00',
-      },
-    ];
-    await signIn(app);
-    await app.getByRole('button', { name: 'Done' }).click();
-    await advance(app, 2000);
-
-    await openPractices(app);
-    await expect(app.getByRole('button', { name: 'Edit Painting' })).toContainText('Paused');
-  });
-
-  test('sends the get ready steps in the settings upsert', async ({ app }) => {
-    const mock = await mockSupabase(app);
-    await signIn(app);
-    await expect(app.getByText('Signed in as')).toBeVisible();
-    const field = app.getByRole('textbox', { name: 'Add a get ready step' });
-    await field.fill('Water');
-    await field.press('Enter');
-    await app.getByRole('button', { name: 'Done' }).click();
-    await advance(app, 2000);
-
-    await expect
-      .poll(() => mock.writes.filter((w) => w.table === 'user_settings' && JSON.stringify(w.body).includes('get_ready_steps')).length)
-      .toBeGreaterThan(0);
+    await expect.poll(() => mock.writes.filter((w) => w.table === 'user_settings').length).toBeGreaterThan(0);
     const write = mock.writes.filter((w) => w.table === 'user_settings').at(-1)!;
     expect(write.url).toContain('on_conflict=user_id');
-    expect(write.body).toEqual([expect.objectContaining({ user_id: USER.id, get_ready_steps: [{ id: expect.any(String), text: 'Water' }] })]);
+    expect(write.body).toEqual([expect.objectContaining({ user_id: USER.id, day_end_hour: 3 })]);
   });
 
-  test('sends a get ready day to the server, owned by the signed-in user', async ({ app }) => {
-    const mock = await mockSupabase(app);
-    await signIn(app);
-    await expect(app.getByText('Signed in as')).toBeVisible();
-    const field = app.getByRole('textbox', { name: 'Add a get ready step' });
-    await field.fill('Water');
-    await field.press('Enter');
-    await app.getByRole('button', { name: 'Done' }).click();
-    await advance(app, 2000);
-
-    await app.getByRole('group', { name: 'Timer state' }).getByRole('button', { name: 'Focus', exact: true }).click();
-    const dialog = app.getByRole('dialog', { name: 'Get ready' });
-    await dialog.getByRole('checkbox', { name: 'Water' }).check();
-    await dialog.getByRole('button', { name: 'Start', exact: true }).click();
-    await advance(app, 2000);
-
-    await expect.poll(() => mock.writes.filter((w) => w.table === 'get_ready_days').length).toBeGreaterThan(0);
-    const write = mock.writes.filter((w) => w.table === 'get_ready_days').at(-1)!;
-    expect(write.url).toContain('on_conflict=user_id%2Cid');
-    expect(write.body).toEqual([expect.objectContaining({ id: '2026-10-12', done: [expect.any(String)], skipped: false, user_id: USER.id })]);
-  });
-
-  test('shows get ready steps another device set', async ({ app }) => {
+  test('shows a settings change another device made', async ({ app }) => {
     const mock = await mockSupabase(app);
     mock.serve['user_settings'] = [
       {
-        day_end_hour: 0,
+        day_end_hour: 2,
         should_target_min: null,
-        weekly_cap_min: null,
-        get_ready_steps: [{ id: 'from-phone', text: 'Stretch' }],
         updated_at: 1_760_000_000_000,
         server_updated_at: '2026-10-12T09:00:00.000001+00:00',
       },
@@ -398,7 +296,7 @@ test.describe('syncing', () => {
     await expect(app.getByText('Signed in as')).toBeVisible();
     await advance(app, 2000);
 
-    await expect(app.getByRole('textbox', { name: 'Get ready step 1' })).toHaveValue('Stretch');
+    await expect(app.getByLabel('Day ends at')).toHaveValue('2');
   });
 
   test('works with no sign-in at all', async ({ app }) => {

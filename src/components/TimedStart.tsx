@@ -4,18 +4,11 @@ import { Chip } from './Chip';
 const CHIPS = [10, 15, 20, 30, 45, 60];
 
 /** The longest Timed session the picker accepts. */
-export const MAX_MINUTES = 600;
+const MAX_MINUTES = 600;
 
 /** Pick how long a Timed session runs, then start it. */
-export function TimedStart({
-  onStart,
-  initialMinutes = 20,
-}: {
-  onStart: (plannedMs: number) => void;
-  /** Where the length begins. Remount to change it. */
-  initialMinutes?: number;
-}) {
-  const [minutes, setMinutes] = useState(initialMinutes);
+export function TimedStart({ onStart }: { onStart: (plannedMs: number) => void }) {
+  const [minutes, setMinutes] = useState(20);
   const valid = Number.isInteger(minutes) && minutes >= 1 && minutes <= MAX_MINUTES;
 
   return (

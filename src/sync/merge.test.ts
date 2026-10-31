@@ -38,36 +38,17 @@ describe('mergeById', () => {
 
   it('breaks a tie by content in key order, not by the order the keys were written in', () => {
     // The same two rows, one built with its keys the other way round.
-    const paused = { id: 'p', updatedAt: 5, targetDays: 0, targetMin: 0 };
-    const steady = { id: 'p', updatedAt: 5, targetDays: 4, targetMin: 20 };
-    const steadyReordered = { targetMin: 20, targetDays: 4, updatedAt: 5, id: 'p' };
-    // The remote row with more days wins over a migrated local one, whichever way its keys run.
-    expect(mergeById([paused], [steady])[0]).toBe(steady);
-    expect(mergeById([paused], [steadyReordered])[0]).toBe(steadyReordered);
+    const low = { id: 'p', updatedAt: 5, a: 0, b: 0 };
+    const high = { id: 'p', updatedAt: 5, a: 4, b: 20 };
+    const highReordered = { b: 20, a: 4, updatedAt: 5, id: 'p' };
+    // The remote row with the larger content wins, whichever way its keys run.
+    expect(mergeById([low], [high])[0]).toBe(high);
+    expect(mergeById([low], [highReordered])[0]).toBe(highReordered);
     // From the other side the local one stays.
-    const kept = [steady];
-    expect(mergeById(kept, [paused])).toBe(kept);
-    const reordered = [steadyReordered];
-    expect(mergeById(reordered, [paused])).toBe(reordered);
-  });
-});
-
-describe('mergeById with a resolver', () => {
-  it('uses the resolver instead of the newer-wins rule', () => {
-    const joined = (mine: Row, theirs: Row): Row => ({ id: mine.id, updatedAt: Math.max(mine.updatedAt, theirs.updatedAt) + 1, v: mine.v + theirs.v });
-    expect(mergeById([row('a', 5, 'x')], [row('a', 2, 'y')], joined)).toEqual([{ id: 'a', updatedAt: 6, v: 'xy' }]);
-  });
-
-  it('keeps the array when the resolver returns the local row every time', () => {
-    const local = [row('a', 1), row('b', 1)];
-    expect(mergeById(local, [row('a', 9), row('b', 9)], (mine) => mine)).toBe(local);
-  });
-
-  it('still takes rows it has not seen without asking the resolver', () => {
-    const merged = mergeById([row('a', 1)], [row('b', 1)], () => {
-      throw new Error('no pair to resolve');
-    });
-    expect(merged.map((r) => r.id).sort()).toEqual(['a', 'b']);
+    const kept = [high];
+    expect(mergeById(kept, [low])).toBe(kept);
+    const reordered = [highReordered];
+    expect(mergeById(reordered, [low])).toBe(reordered);
   });
 });
 

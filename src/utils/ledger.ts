@@ -24,7 +24,7 @@ export function timedEnd(e: TimeEntry): number {
  * The moment an entry stops counting. A Timed entry never counts past its
  * planned length, even if it was left open or a merge stretched it.
  */
-export function endOf(e: TimeEntry, now: number): number {
+function endOf(e: TimeEntry, now: number): number {
   const end = e.endedAt ?? now;
   return e.state === 'timed' ? Math.min(end, timedEnd(e)) : end;
 }
@@ -99,14 +99,13 @@ export function balanceWindow(entries: TimeEntry[], win: DayWindow, now: number)
 // Every function here is pure: it takes the entries and returns new ones. A
 // removed entry is tombstoned, not dropped, so the removal can sync.
 
-function make(state: EntryState, startedAt: number, endedAt: number | null, now: number, plannedMs?: number, practiceId?: string): TimeEntry {
+function make(state: EntryState, startedAt: number, endedAt: number | null, now: number, plannedMs?: number): TimeEntry {
   return {
     id: crypto.randomUUID(),
     state,
     startedAt,
     endedAt,
     ...(plannedMs !== undefined && { plannedMs }),
-    ...(practiceId !== undefined && { practiceId }),
     updatedAt: now,
   };
 }
@@ -131,20 +130,17 @@ function closeRunning(entries: TimeEntry[], at: number): TimeEntry[] {
 
 /**
  * Start `state`, closing whatever was running. Starting the running state is a
- * no-op. Switching between Focus and Rest keeps the practice the Flow was for;
- * `practiceId` names one when starting from stopped.
+ * no-op.
  */
-export function startState(entries: TimeEntry[], state: TimerState, at: number, practiceId?: string): TimeEntry[] {
-  const running = runningEntry(entries);
-  if (running?.state === state) return entries;
-  const practice = practiceId ?? (running?.state === 'timed' ? undefined : running?.practiceId);
-  return normalize([...closeRunning(entries, at), make(state, at, null, at, undefined, practice)], at);
+export function startState(entries: TimeEntry[], state: TimerState, at: number): TimeEntry[] {
+  if (runningEntry(entries)?.state === state) return entries;
+  return normalize([...closeRunning(entries, at), make(state, at, null, at)], at);
 }
 
 /** Start a Timed session of `plannedMs`, closing whatever was running. */
-export function startTimed(entries: TimeEntry[], plannedMs: number, at: number, practiceId?: string): TimeEntry[] {
+export function startTimed(entries: TimeEntry[], plannedMs: number, at: number): TimeEntry[] {
   if (!(plannedMs > 0)) return entries;
-  return normalize([...closeRunning(entries, at), make('timed', at, null, at, plannedMs, practiceId)], at);
+  return normalize([...closeRunning(entries, at), make('timed', at, null, at, plannedMs)], at);
 }
 
 export function stopTimer(entries: TimeEntry[], at: number): TimeEntry[] {
@@ -188,7 +184,7 @@ export function paint(entries: TimeEntry[], from: number, to: number, state: Pai
     } else {
       // Spans the range: keep the left part, and give the right part a new id.
       out.push({ ...e, endedAt: from, updatedAt: now });
-      out.push(make(e.state, to, e.endedAt, now, e.plannedMs, e.practiceId));
+      out.push(make(e.state, to, e.endedAt, now, e.plannedMs));
     }
   }
   if (state !== 'stopped') out.push(make(state, from, to, now));
@@ -196,8 +192,8 @@ export function paint(entries: TimeEntry[], from: number, to: number, state: Pai
 }
 
 /**
- * Tidy the ledger: sort, and merge entries of the same state and practice that
- * touch. The earlier entry survives and absorbs the later one, which is tombstoned.
+ * Tidy the ledger: sort, and merge entries of the same state that touch. The
+ * earlier entry survives and absorbs the later one, which is tombstoned.
  */
 function normalize(entries: TimeEntry[], now: number): TimeEntry[] {
   const live = entries.filter(isLive).sort((a, b) => a.startedAt - b.startedAt);
@@ -206,7 +202,7 @@ function normalize(entries: TimeEntry[], now: number): TimeEntry[] {
   for (const e of live) {
     const last = merged[merged.length - 1];
     // Timed sessions stay separate: two back to back are two sessions.
-    if (last && last.endedAt !== null && last.endedAt === e.startedAt && last.state === e.state && last.practiceId === e.practiceId && e.state !== 'timed') {
+    if (last && last.endedAt !== null && last.endedAt === e.startedAt && last.state === e.state && e.state !== 'timed') {
       merged[merged.length - 1] = { ...last, endedAt: e.endedAt, updatedAt: now };
       dead.push(tombstone(e, now));
     } else {
@@ -234,14 +230,11 @@ export function fixRefusal(fix: Pick<Fix, 'ms'>): string | null {
 
 /**
  * "The last X minutes were actually Was, and since then I've been Then."
- * Closes the timer, paints the last X minutes, and reopens in `then`. The
- * reopened entry is for the practice the running one was; the painted range is not.
+ * Closes the timer, paints the last X minutes, and reopens in `then`.
  */
 export function applyFix(entries: TimeEntry[], fix: Fix, now: number): TimeEntry[] {
-  const running = runningEntry(entries);
-  const practice = running?.state === 'timed' ? undefined : running?.practiceId;
   const frozen = closeRunning(entries, now);
   const painted = paint(frozen, now - fix.ms, now, fix.was, now);
   if (fix.then === 'stopped') return painted;
-  return normalize([...painted, make(fix.then, now, null, now, undefined, practice)], now);
+  return normalize([...painted, make(fix.then, now, null, now)], now);
 }

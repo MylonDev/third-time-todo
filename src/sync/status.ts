@@ -29,39 +29,22 @@ interface SyncMeta {
 }
 
 /**
- * Older cursors lack the tables added since: practices in version 2, Get ready days
- * in version 3. Each starts from the beginning, as a fresh device would. Version 4
- * pulls the practices again: a row an older build pulled after a newer one wrote it
- * has its target columns unread, and the cursor is past it. Version 5 pulls the
- * settings again: a row an older build pulled lacks the steps version.
+ * Version 6 drops the cursors of the practices and Get ready days tables, which
+ * are gone, and sends the settings again. The old settings cursor also covered
+ * the steps version, so it can sit above a new edit's version and the edit would
+ * never be sent. The extra push is harmless: the server drops a stale row and the
+ * pull brings the newer one. This replaces the older steps, which only dealt with
+ * those tables. Safe to run twice.
  */
-export function migrateSyncMeta(state: unknown, version: number): SyncMeta {
-  let meta = state as SyncMeta;
-  if (version < 2) {
-    meta = {
-      ...meta,
-      cursors: {
-        pushed: { ...meta.cursors.pushed, practices: 0 },
-        pulled: { ...meta.cursors.pulled, practices: null },
-      },
-    };
-  }
-  if (version < 3) {
-    meta = {
-      ...meta,
-      cursors: {
-        pushed: { ...meta.cursors.pushed, getReadyDays: 0 },
-        pulled: { ...meta.cursors.pulled, getReadyDays: null },
-      },
-    };
-  }
-  if (version < 4) {
-    meta = { ...meta, cursors: { ...meta.cursors, pulled: { ...meta.cursors.pulled, practices: null } } };
-  }
-  if (version < 5) {
-    meta = { ...meta, cursors: { ...meta.cursors, pulled: { ...meta.cursors.pulled, settings: null } } };
-  }
-  return meta;
+export function migrateSyncMeta(state: unknown): SyncMeta {
+  const meta = state as SyncMeta;
+  const { practices: _pp, getReadyDays: _pg, ...pushed } = meta.cursors.pushed as Cursors['pushed'] & { practices?: number; getReadyDays?: number };
+  const {
+    practices: _lp,
+    getReadyDays: _lg,
+    ...pulled
+  } = meta.cursors.pulled as Cursors['pulled'] & { practices?: string | null; getReadyDays?: string | null };
+  return { ...meta, cursors: { pushed: { ...pushed, settings: 0 }, pulled } };
 }
 
 /** Where sync has got to. Kept, so a restart doesn't re-send or re-fetch everything. */
@@ -72,6 +55,6 @@ export const useSyncMeta = create<SyncMeta>()(
       cursors: FRESH_CURSORS,
       set: (userId, cursors) => set({ userId, cursors }),
     }),
-    { name: 'tt2-sync', version: 5, migrate: migrateSyncMeta },
+    { name: 'tt2-sync', version: 6, migrate: migrateSyncMeta },
   ),
 );

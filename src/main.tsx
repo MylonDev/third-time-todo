@@ -5,6 +5,15 @@ import App from './App.tsx';
 import { watchOtherWindows } from './store/crossTab';
 import { startSync } from './sync/runtime';
 
+// Practices and Get ready are gone; clear what they left on this device.
+for (const key of ['tt2-practices', 'tt2-getready']) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Storage can be blocked; there is nothing to clear then.
+  }
+}
+
 watchOtherWindows();
 startSync();
 

@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { GetReadyDay, Item, Practice, TimeEntry } from '../types';
+import type { Item, TimeEntry } from '../types';
 import { applyFix, startState, stopTimer } from '../utils/ledger';
-import { recordGetReady, sameSteps } from '../utils/getReady';
 import { completeItem, makeItem, removeItem, updateItem } from '../utils/items';
-import { makePractice, removePractice, setNextStep, updatePractice } from '../utils/practices';
 import { FRESH_CURSORS, mergeIncoming, mergeSettings, syncOnce, type Cursors, type Local, type Pull, type Remote, type Snapshot } from './engine';
 import { stampChanged } from './merge';
 import type { SyncedSettings } from './rows';
@@ -17,8 +15,6 @@ class FakeServer implements Remote {
   private seq = 0;
   private entries = new Map<string, { row: TimeEntry; seq: number }>();
   private items = new Map<string, { row: Item; seq: number }>();
-  private practices = new Map<string, { row: Practice; seq: number }>();
-  private getReadyDays = new Map<string, { row: GetReadyDay; seq: number }>();
   private settings: { row: SyncedSettings; seq: number } | null = null;
   pushes = 0;
 
@@ -48,34 +44,12 @@ class FakeServer implements Remote {
     this.pushes++;
     this.put(this.items, rows);
   }
-  async pushPractices(rows: Practice[]) {
-    this.check();
-    this.pushes++;
-    this.put(this.practices, rows);
-  }
-  async pushGetReadyDays(rows: GetReadyDay[]) {
-    this.check();
-    this.pushes++;
-    this.put(this.getReadyDays, rows);
-  }
-  /** Field by field, as the server's trigger does: a stale half of the row is dropped, the other half kept. */
+  /** The whole row, as the server's trigger keeps the newest: an older write is dropped, an equal one accepted. */
   async pushSettings(s: SyncedSettings) {
     this.check();
-    const old = this.settings?.row;
-    const scalars = old && s.updatedAt < old.updatedAt ? old : s;
-    const stepsKept = old !== undefined && !sameSteps(s.getReadySteps, old.getReadySteps) && s.getReadyStepsUpdatedAt <= old.getReadyStepsUpdatedAt;
-    const steps = stepsKept ? old : s;
-    this.settings = {
-      row: {
-        dayEndHour: scalars.dayEndHour,
-        shouldTargetMin: scalars.shouldTargetMin,
-        weeklyCapMin: scalars.weeklyCapMin,
-        updatedAt: scalars.updatedAt,
-        getReadySteps: steps.getReadySteps,
-        getReadyStepsUpdatedAt: Math.max(steps.getReadyStepsUpdatedAt, old?.getReadyStepsUpdatedAt ?? 0),
-      },
-      seq: ++this.seq,
-    };
+    this.pushes++;
+    if (this.settings && s.updatedAt < this.settings.row.updatedAt) return;
+    this.settings = { row: s, seq: ++this.seq };
   }
   async pullEntries(since: string | null) {
     this.check();
@@ -85,14 +59,6 @@ class FakeServer implements Remote {
     this.check();
     return this.pull(this.items, since);
   }
-  async pullPractices(since: string | null) {
-    this.check();
-    return this.pull(this.practices, since);
-  }
-  async pullGetReadyDays(since: string | null) {
-    this.check();
-    return this.pull(this.getReadyDays, since);
-  }
   async pullSettings(since: string | null) {
     this.check();
     const hit = this.settings && this.settings.seq >= (since === null ? 0 : Number(since)) ? [this.settings] : [];
@@ -100,7 +66,7 @@ class FakeServer implements Remote {
   }
 }
 
-const NO_SETTINGS: SyncedSettings = { dayEndHour: 0, shouldTargetMin: null, weeklyCapMin: null, getReadySteps: [], getReadyStepsUpdatedAt: 0, updatedAt: 0 };
+const NO_SETTINGS: SyncedSettings = { dayEndHour: 0, shouldTargetMin: null, updatedAt: 0 };
 
 // ── A device: its own state and cursors, edited the way the stores edit it ──
 
@@ -108,8 +74,6 @@ class Device {
   state: Snapshot = {
     entries: [],
     items: [],
-    practices: [],
-    getReadyDays: [],
     settings: { ...NO_SETTINGS },
   };
   cursors: Cursors = FRESH_CURSORS;
@@ -137,14 +101,6 @@ class Device {
     this.state = { ...this.state, items: stampChanged(this.state.items, change(this.state.items)) };
   }
 
-  setPractices(change: (p: Practice[]) => Practice[]) {
-    this.state = { ...this.state, practices: stampChanged(this.state.practices, change(this.state.practices)) };
-  }
-
-  setGetReadyDays(change: (d: GetReadyDay[]) => GetReadyDay[]) {
-    this.state = { ...this.state, getReadyDays: stampChanged(this.state.getReadyDays, change(this.state.getReadyDays)) };
-  }
-
   async sync(opts?: { pull: boolean }) {
     this.cursors = await syncOnce(this.local, this.server, this.cursors, opts);
   }
@@ -170,8 +126,6 @@ const byId = <T extends { id: string }>(rows: T[]) => [...rows].sort((a, b) => (
 function expectSame(a: Device, b: Device) {
   expect(byId(a.state.entries)).toEqual(byId(b.state.entries));
   expect(byId(a.state.items)).toEqual(byId(b.state.items));
-  expect(byId(a.state.practices)).toEqual(byId(b.state.practices));
-  expect(byId(a.state.getReadyDays)).toEqual(byId(b.state.getReadyDays));
   expect(a.state.settings).toEqual(b.state.settings);
 }
 
@@ -329,7 +283,7 @@ describe('sync between two devices', () => {
     const server = new FakeServer();
     const a = new Device('a', server);
     const b = new Device('b', server);
-    const chosen = { dayEndHour: 3, shouldTargetMin: 240, weeklyCapMin: 480, getReadySteps: [], getReadyStepsUpdatedAt: 0, updatedAt: T(0) };
+    const chosen = { dayEndHour: 3, shouldTargetMin: 240, updatedAt: T(0) };
     a.state = { ...a.state, settings: chosen };
     await settle([a, b]);
     expect(b.state.settings).toEqual(chosen);
@@ -340,186 +294,52 @@ describe('sync between two devices', () => {
     expect(a.state.settings.dayEndHour).toBe(3);
     expect(c.state.settings.dayEndHour).toBe(3);
   });
-});
 
-describe('practices between two devices', () => {
-  const fields = {
-    name: 'Guitar',
-    targetDays: 4,
-    targetWeekdays: [] as number[],
-    targetMin: 20,
-  };
-
-  it('a practice added on one device appears on the other', async () => {
-    const server = new FakeServer();
-    const phone = new Device('phone', server);
-    const desktop = new Device('desktop', server);
-    phone.setPractices((ps) => [...ps, makePractice(ps, fields, T(0))]);
-
-    await settle([phone, desktop]);
-
-    expect(live(desktop.state.practices).map((p) => p.name)).toEqual(['Guitar']);
-    expectSame(phone, desktop);
-  });
-
-  it('the later edit wins, whichever device made it', async () => {
-    const server = new FakeServer();
-    const a = new Device('a', server);
-    const b = new Device('b', server);
-    a.setPractices((ps) => [...ps, makePractice(ps, fields, T(0))]);
-    await settle([a, b]);
-    const id = a.state.practices[0].id;
-
-    a.setPractices((ps) => updatePractice(ps, id, { targetDays: 3, targetMin: 15 }, T(5)));
-    b.setPractices((ps) => setNextStep(ps, id, 'Learn the intro', T(9)));
-    await settle([a, b]);
-
-    expect(a.state.practices[0]).toMatchObject({ nextStep: 'Learn the intro', updatedAt: T(9) });
-    expectSame(a, b);
-  });
-
-  it('a delete reaches the other device and stays deleted', async () => {
-    const server = new FakeServer();
-    const a = new Device('a', server);
-    const b = new Device('b', server);
-    a.setPractices((ps) => [...ps, makePractice(ps, fields, T(0))]);
-    await settle([a, b]);
-
-    b.setPractices((ps) => removePractice(ps, ps[0].id, T(3)));
-    await settle([a, b]);
-
-    expect(live(a.state.practices)).toEqual([]);
-    expect(a.state.practices).toHaveLength(1);
-    expectSame(a, b);
-  });
-
-  it('an entry for a practice keeps its practice on the other device', async () => {
-    const server = new FakeServer();
-    const a = new Device('a', server);
-    const b = new Device('b', server);
-    a.setPractices((ps) => [...ps, makePractice(ps, fields, T(0))]);
-    const id = a.state.practices[0].id;
-    a.setEntries((e) => startState(e, 'should', T(1), id));
-    await settle([a, b]);
-
-    expect(live(b.state.entries)[0]).toMatchObject({ state: 'should', practiceId: id });
-    expectSame(a, b);
-  });
-
-  it('a push sends only the practices changed since the last one', async () => {
-    const server = new FakeServer();
-    const a = new Device('a', server);
-    a.setPractices((ps) => [...ps, makePractice(ps, fields, T(0))]);
-    await a.sync();
-    expect(a.cursors.pushed.practices).toBe(T(0));
-    const pushes = server.pushes;
-    await a.sync();
-    expect(server.pushes).toBe(pushes);
-  });
-});
-
-describe('Get ready between two devices', () => {
-  const steps = [
-    { id: 'water', text: 'Water' },
-    { id: 'desk', text: 'Clear desk' },
-  ];
-
-  it('steps set on one device appear on the other', async () => {
-    const server = new FakeServer();
-    const a = new Device('a', server);
-    const b = new Device('b', server);
-    a.state = { ...a.state, settings: { ...a.state.settings, getReadySteps: steps, getReadyStepsUpdatedAt: T(0) } };
-
-    await settle([a, b]);
-
-    expect(b.state.settings.getReadySteps).toEqual(steps);
-    expect(b.state.settings.getReadyStepsUpdatedAt).toBe(T(0));
-    expectSame(a, b);
-  });
-
-  it('a steps-only edit is pushed, through the steps version alone', async () => {
-    const server = new FakeServer();
-    const a = new Device('a', server);
-    const b = new Device('b', server);
-    a.state = { ...a.state, settings: { ...a.state.settings, getReadySteps: steps, getReadyStepsUpdatedAt: T(5) } };
-    expect(a.state.settings.updatedAt).toBe(0);
-
-    await a.sync({ pull: false });
-    expect(a.cursors.pushed.settings).toBe(T(5));
-
-    await b.sync();
-    expect(b.state.settings.getReadySteps).toEqual(steps);
-  });
-
-  it('a second steps-only edit moves the cursor and is sent again', async () => {
-    const server = new FakeServer();
-    const a = new Device('a', server);
-    const b = new Device('b', server);
-    a.state = { ...a.state, settings: { ...a.state.settings, getReadySteps: steps, getReadyStepsUpdatedAt: T(5) } };
-    await settle([a, b]);
-
-    const fewer = [steps[0]];
-    a.state = { ...a.state, settings: { ...a.state.settings, getReadySteps: fewer, getReadyStepsUpdatedAt: T(8) } };
-    await settle([a, b]);
-
-    expect(a.cursors.pushed.settings).toBe(T(8));
-    expect(b.state.settings.getReadySteps).toEqual(fewer);
-    expectSame(a, b);
-  });
-
-  it('a stale device that changed another setting does not wipe the steps', async () => {
+  it("a stale device's settings push is dropped, and it settles on the server's row", async () => {
     const server = new FakeServer();
     const a = new Device('a', server);
     const stale = new Device('stale', server);
-    a.state = { ...a.state, settings: { ...a.state.settings, getReadySteps: steps, getReadyStepsUpdatedAt: T(5) } };
+    const newest = { dayEndHour: 3, shouldTargetMin: 240, updatedAt: T(10) };
+    a.state = { ...a.state, settings: newest };
     await a.sync();
 
-    // Never synced, so its steps are empty at version 0; its day end edit is newer than anything on the server.
-    stale.state = { ...stale.state, settings: { ...stale.state.settings, dayEndHour: 2, updatedAt: T(9) } };
+    stale.state = { ...stale.state, settings: { dayEndHour: 1, shouldTargetMin: null, updatedAt: T(5) } };
     await settle([a, stale]);
 
-    expect(stale.state.settings).toMatchObject({ dayEndHour: 2, getReadySteps: steps, getReadyStepsUpdatedAt: T(5) });
-    expect(a.state.settings).toMatchObject({ dayEndHour: 2, getReadySteps: steps });
-    expectSame(a, stale);
+    expect(stale.state.settings).toEqual(newest);
+    expect(a.state.settings).toEqual(newest);
   });
 
-  it('two devices recording the same day end up with the steps of both', async () => {
+  it('two devices tied on the version with different content converge', async () => {
     const server = new FakeServer();
     const a = new Device('a', server);
     const b = new Device('b', server);
-    a.setGetReadyDays((d) => recordGetReady(d, TODAY, ['water'], false, T(0)));
-    b.setGetReadyDays((d) => recordGetReady(d, TODAY, ['desk'], false, T(5)));
+    a.state = { ...a.state, settings: { dayEndHour: 1, shouldTargetMin: null, updatedAt: T(5) } };
+    b.state = { ...b.state, settings: { dayEndHour: 3, shouldTargetMin: null, updatedAt: T(5) } };
 
     await settle([a, b]);
 
-    expect(a.state.getReadyDays).toMatchObject([{ id: TODAY, done: ['desk', 'water'], skipped: false }]);
-    expectSame(a, b);
+    expect(a.state.settings).toEqual(b.state.settings);
+    expect(a.state.settings.updatedAt).toBe(T(5));
   });
 
-  it('a day recorded on one device is there on the other, and a later skip does not undo a step done', async () => {
+  it('a reset pushed cursor sends the settings again, and a version of 0 sends nothing', async () => {
     const server = new FakeServer();
     const a = new Device('a', server);
-    const b = new Device('b', server);
-    a.setGetReadyDays((d) => recordGetReady(d, TODAY, ['water'], false, T(0)));
-    await settle([a, b]);
-    expect(b.state.getReadyDays).toEqual([{ id: TODAY, done: ['water'], skipped: false, updatedAt: T(0) }]);
-
-    b.setGetReadyDays((d) => recordGetReady(d, TODAY, [], true, T(5)));
-    await settle([a, b]);
-
-    expect(a.state.getReadyDays).toMatchObject([{ id: TODAY, done: ['water'], skipped: false }]);
-    expectSame(a, b);
-  });
-
-  it('a push sends only the days changed since the last one', async () => {
-    const server = new FakeServer();
-    const a = new Device('a', server);
-    a.setGetReadyDays((d) => recordGetReady(d, TODAY, [], true, T(0)));
+    a.state = { ...a.state, settings: { dayEndHour: 2, shouldTargetMin: null, updatedAt: T(3) } };
     await a.sync();
-    expect(a.cursors.pushed.getReadyDays).toBe(T(0));
-    const pushes = server.pushes;
-    await a.sync();
-    expect(server.pushes).toBe(pushes);
+    expect(a.cursors.pushed.settings).toBe(T(3));
+
+    a.cursors = { ...a.cursors, pushed: { ...a.cursors.pushed, settings: 0 } };
+    const before = server.pushes;
+    await a.sync({ pull: false });
+    expect(server.pushes).toBe(before + 1);
+    expect(a.cursors.pushed.settings).toBe(T(3));
+
+    const fresh = new Device('fresh', server);
+    const sent = server.pushes;
+    await fresh.sync({ pull: false });
+    expect(server.pushes).toBe(sent);
   });
 });
 
@@ -532,7 +352,7 @@ describe('when the server is not reachable', () => {
 
     server.online = false;
     await expect(a.sync()).rejects.toThrow('offline');
-    expect(a.cursors.pushed).toEqual({ entries: 0, items: 0, practices: 0, getReadyDays: 0, settings: 0 });
+    expect(a.cursors.pushed).toEqual({ entries: 0, items: 0, settings: 0 });
 
     server.online = true;
     await a.sync();
@@ -590,71 +410,32 @@ describe('when the server is not reachable', () => {
 });
 
 describe('mergeSettings', () => {
-  const water = [{ id: 'water', text: 'Water' }];
-  const desk = [{ id: 'desk', text: 'Clear desk' }];
-  const base: SyncedSettings = { dayEndHour: 1, shouldTargetMin: 60, weeklyCapMin: 300, getReadySteps: water, getReadyStepsUpdatedAt: 50, updatedAt: 100 };
+  const base: SyncedSettings = { dayEndHour: 1, shouldTargetMin: 60, updatedAt: 100 };
 
-  it('takes the settings from the newer side and the steps from the side with the newer steps', () => {
-    const staleScalarsFreshSteps = { ...base, dayEndHour: 3, updatedAt: 40, getReadySteps: desk, getReadyStepsUpdatedAt: 90 };
-    expect(mergeSettings(base, staleScalarsFreshSteps)).toEqual({ ...base, getReadySteps: desk, getReadyStepsUpdatedAt: 90 });
+  it('takes the incoming row when its version is newer', () => {
+    const newer: SyncedSettings = { dayEndHour: 3, shouldTargetMin: null, updatedAt: 150 };
+    expect(mergeSettings(base, newer)).toBe(newer);
   });
 
-  it('a stale device with a newer setting and no steps does not wipe the steps', () => {
-    const stale: SyncedSettings = { dayEndHour: 4, shouldTargetMin: null, weeklyCapMin: null, getReadySteps: [], getReadyStepsUpdatedAt: 0, updatedAt: 200 };
-    expect(mergeSettings(base, stale)).toEqual({
-      dayEndHour: 4,
-      shouldTargetMin: null,
-      weeklyCapMin: null,
-      getReadySteps: water,
-      getReadyStepsUpdatedAt: 50,
-      updatedAt: 200,
-    });
-    expect(mergeSettings(stale, base)).toEqual({
-      dayEndHour: 4,
-      shouldTargetMin: null,
-      weeklyCapMin: null,
-      getReadySteps: water,
-      getReadyStepsUpdatedAt: 50,
-      updatedAt: 200,
-    });
+  it('keeps the current row when the incoming version is older', () => {
+    expect(mergeSettings(base, { dayEndHour: 4, shouldTargetMin: 30, updatedAt: 99 })).toBe(base);
   });
 
-  it('on an equal steps version with different lists, the incoming row wins, as on the server', () => {
-    const a = { ...base, getReadySteps: water };
-    const b = { ...base, getReadySteps: desk };
-    expect(mergeSettings(a, b).getReadySteps).toBe(desk);
-    expect(mergeSettings(b, a).getReadySteps).toBe(water);
-    // A device that kept steps the server never got settles on the server's empty list.
-    expect(mergeSettings(a, { ...base, getReadySteps: [] }).getReadySteps).toEqual([]);
-  });
-
-  it('a tie on the settings version with different values takes the incoming ones', () => {
-    const other = { ...base, dayEndHour: 4 };
-    expect(mergeSettings(base, other).dayEndHour).toBe(4);
-    expect(mergeSettings(other, base).dayEndHour).toBe(base.dayEndHour);
+  it('a tie with different content takes the incoming row, as on the server', () => {
+    const other: SyncedSettings = { ...base, dayEndHour: 4 };
+    expect(mergeSettings(base, other)).toBe(other);
+    expect(mergeSettings(other, base)).toBe(base);
   });
 
   it('returns the current settings itself when nothing is newer', () => {
     expect(mergeSettings(base, null)).toBe(base);
     expect(mergeSettings(base, { ...base })).toBe(base);
-    expect(mergeSettings(base, { ...base, updatedAt: 99, getReadyStepsUpdatedAt: 49, getReadySteps: desk })).toBe(base);
   });
 });
 
 describe('mergeIncoming', () => {
-  it('stamps a merged Get ready day above the time of the merge, so the next push sends it', () => {
-    const current: Snapshot = {
-      entries: [],
-      items: [],
-      practices: [],
-      getReadyDays: [{ id: TODAY, done: ['water'], skipped: false, updatedAt: 10 }],
-      settings: { ...NO_SETTINGS },
-    };
-    const next = mergeIncoming(
-      current,
-      { entries: [], items: [], practices: [], settings: null, getReadyDays: [{ id: TODAY, done: ['desk'], skipped: false, updatedAt: 20 }] },
-      5000,
-    );
-    expect(next.getReadyDays).toEqual([{ id: TODAY, done: ['desk', 'water'], skipped: false, updatedAt: 5001 }]);
+  it('returns the current snapshot itself when nothing arrives', () => {
+    const current: Snapshot = { entries: [], items: [], settings: { ...NO_SETTINGS } };
+    expect(mergeIncoming(current, { entries: [], items: [], settings: null })).toBe(current);
   });
 });
